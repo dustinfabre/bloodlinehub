@@ -12,20 +12,52 @@ class Pigeon extends Model
 
     protected $fillable = [
         'user_id',
+        'name',
+        'gender',
+        'hatch_date',
+        'status',
+        'pigeon_status',
+        'race_type',
         'color',
         'ring_number',
         'personal_number',
         'remarks',
         'notes',
         'photos',
+        'pedigree_image',
+        'for_sale',
+        'sale_price',
+        'hide_price',
+        'sale_description',
+        'sire_id',
+        'dam_id',
+        'sire_name',
+        'sire_ring_number',
+        'sire_color',
+        'sire_notes',
+        'dam_name',
+        'dam_ring_number',
+        'dam_color',
+        'dam_notes',
     ];
 
     protected $casts = [
         'photos' => 'array',
+        'hatch_date' => 'date',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function sire(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'sire_id');
+    }
+
+    public function dam(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'dam_id');
     }
 }
