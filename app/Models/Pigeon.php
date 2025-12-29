@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Pigeon extends Model
 {
@@ -59,5 +60,12 @@ class Pigeon extends Model
     public function dam(): BelongsTo
     {
         return $this->belongsTo(self::class, 'dam_id');
+    }
+
+    public function olrRaces(): BelongsToMany
+    {
+        return $this->belongsToMany(OlrRace::class, 'olr_race_pigeon')
+            ->withPivot('entry_number', 'result', 'notes')
+            ->withTimestamps();
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\SalesController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('sales.store');
     Route::delete('sales/{sale}', [SalesController::class, 'destroy'])
         ->name('sales.destroy');
+
+    // OLR Races management
+    Route::resource('olr-races', OlrRaceController::class);
+    Route::post('olr-races/{olr_race}/pigeons', [OlrRaceController::class, 'addPigeon'])
+        ->name('olr-races.add-pigeon');
+    Route::delete('olr-races/{olr_race}/pigeons/{pigeon}', [OlrRaceController::class, 'removePigeon'])
+        ->name('olr-races.remove-pigeon');
+    Route::patch('olr-races/{olr_race}/pigeons/{pigeon}', [OlrRaceController::class, 'updatePigeon'])
+        ->name('olr-races.update-pigeon');
 });
 
 require __DIR__.'/settings.php';
