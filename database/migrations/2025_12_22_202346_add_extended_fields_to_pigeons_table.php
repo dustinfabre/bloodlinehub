@@ -7,17 +7,22 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * Disable transaction for Neon.tech pooling compatibility.
+     */
+    public $withinTransaction = false;
+
+    /**
      * Run the migrations.
      */
     public function up(): void
     {
         Schema::table('pigeons', function (Blueprint $table) {
-            $table->string('name')->nullable()->after('color');
-            $table->enum('gender', ['male', 'female'])->nullable()->after('name');
-            $table->date('hatch_date')->nullable()->after('gender');
-            $table->enum('status', ['alive', 'deceased', 'missing'])->default('alive')->after('hatch_date');
-            $table->enum('pigeon_status', ['racing', 'breeding', 'stock'])->default('stock')->after('status');
-            $table->enum('race_type', ['south', 'north', 'summer', 'olr', 'none'])->default('none')->after('pigeon_status');
+            $table->string('name')->nullable();
+            $table->string('gender')->nullable(); // male, female
+            $table->date('hatch_date')->nullable();
+            $table->string('status')->default('alive'); // alive, deceased, missing
+            $table->string('pigeon_status')->default('stock'); // racing, breeding, stock
+            $table->string('race_type')->default('none'); // south, north, summer, olr, none
         });
     }
 

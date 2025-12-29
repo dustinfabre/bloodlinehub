@@ -7,12 +7,17 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * Disable transaction for Neon.tech pooling compatibility.
+     */
+    public $withinTransaction = false;
+
+    /**
      * Run the migrations.
      */
     public function up(): void
     {
         Schema::table('pigeons', function (Blueprint $table) {
-            $table->string('pedigree_image')->nullable()->after('photos');
+            $table->string('pedigree_image')->nullable();
         });
     }
 
