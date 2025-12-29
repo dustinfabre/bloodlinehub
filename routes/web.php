@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ClubRaceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\OlrRaceController;
@@ -40,6 +41,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('olr-races.remove-pigeon');
     Route::patch('olr-races/{olr_race}/pigeons/{pigeon}', [OlrRaceController::class, 'updatePigeon'])
         ->name('olr-races.update-pigeon');
+
+    // Club Races management
+    Route::resource('club-races', ClubRaceController::class);
+    Route::post('club-races/{club_race}/pigeons', [ClubRaceController::class, 'addPigeon'])
+        ->name('club-races.add-pigeon');
+    Route::delete('club-races/{club_race}/pigeons/{pigeon}', [ClubRaceController::class, 'removePigeon'])
+        ->name('club-races.remove-pigeon');
+    Route::patch('club-races/{club_race}/pigeons/{pigeon}', [ClubRaceController::class, 'updatePigeon'])
+        ->name('club-races.update-pigeon');
 });
 
 require __DIR__.'/settings.php';

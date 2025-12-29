@@ -10,12 +10,13 @@ import {
 } from '@/components/ui/sidebar';
 import { urlIsActive } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { index as clubRaces } from '@/routes/club-races';
 import { index as olrRaces } from '@/routes/olr-races';
 import { index as pigeons } from '@/routes/pigeons';
 import { index as sales } from '@/routes/sales';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Bird, LayoutGrid, DollarSign, Trophy } from 'lucide-vue-next';
+import { Bird, LayoutGrid, DollarSign, Trophy, Flag } from 'lucide-vue-next';
 
 const page = usePage();
 
@@ -34,6 +35,11 @@ const mainNavItems: NavItem[] = [
         title: 'OLR Races',
         href: olrRaces(),
         icon: Trophy,
+    },
+    {
+        title: 'Club Races',
+        href: clubRaces(),
+        icon: Flag,
     },
     {
         title: 'Sales & Auctions',

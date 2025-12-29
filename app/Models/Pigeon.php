@@ -68,4 +68,11 @@ class Pigeon extends Model
             ->withPivot('entry_number', 'result', 'notes')
             ->withTimestamps();
     }
+
+    public function clubRaces(): BelongsToMany
+    {
+        return $this->belongsToMany(ClubRace::class, 'club_race_pigeon')
+            ->withPivot('arrival_time', 'speed', 'position', 'notes')
+            ->withTimestamps();
+    }
 }
