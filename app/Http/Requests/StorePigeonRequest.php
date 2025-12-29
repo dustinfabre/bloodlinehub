@@ -48,7 +48,7 @@ class StorePigeonRequest extends FormRequest
                 Rule::exists('pigeons', 'id')->where(fn ($query) => $query
                     ->where('user_id', $this->user()?->id ?? 0)
                     ->where('gender', 'male')
-                    ->whereIn('pigeon_status', ['breeding', 'racing'])),
+                ),
             ],
             'dam_id' => [
                 'nullable',
@@ -56,7 +56,7 @@ class StorePigeonRequest extends FormRequest
                 Rule::exists('pigeons', 'id')->where(fn ($query) => $query
                     ->where('user_id', $this->user()?->id ?? 0)
                     ->where('gender', 'female')
-                    ->whereIn('pigeon_status', ['breeding', 'racing'])),
+                ),
             ],
 
             'sire_name' => ['nullable', 'string', 'max:255'],
