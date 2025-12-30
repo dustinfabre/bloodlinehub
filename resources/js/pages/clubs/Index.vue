@@ -5,12 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
-import { Plus, Globe, MapPin, Trophy, Pencil, Trash2, Eye } from 'lucide-vue-next';
+import { Plus, Globe, MapPin, Users, Pencil, Trash2, Eye } from 'lucide-vue-next';
 
-interface OlrRace {
+interface Club {
     id: number;
     name: string;
-    organizer: string | null;
     location: string | null;
     country: string | null;
     website: string | null;
@@ -20,101 +19,98 @@ interface OlrRace {
 }
 
 defineProps<{
-    olrRaces: OlrRace[];
+    clubs: Club[];
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'OLR Races', href: '/olr-races' },
+    { title: 'Clubs', href: '/clubs' },
 ];
 
-const handleDelete = (race: OlrRace) => {
-    if (!confirm(`Delete "${race.name}"? This will delete all seasons and race data.`)) return;
-    router.delete(`/olr-races/${race.id}`);
+const handleDelete = (club: Club) => {
+    if (!confirm(`Delete "${club.name}"? This will delete all seasons and race data.`)) return;
+    router.delete(`/clubs/${club.id}`);
 };
 </script>
 
 <template>
-    <Head title="OLR Races" />
+    <Head title="Clubs" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-2xl font-semibold text-foreground">OLR Races</h1>
-                    <p class="text-sm text-muted-foreground">Manage your One Loft Racing organizations</p>
+                    <h1 class="text-2xl font-semibold text-foreground">Clubs</h1>
+                    <p class="text-sm text-muted-foreground">Manage your racing clubs</p>
                 </div>
                 <Button as-child>
-                    <Link href="/olr-races/create">
+                    <Link href="/clubs/create">
                         <Plus class="mr-2 h-4 w-4" />
-                        Add OLR Race
+                        Add Club
                     </Link>
                 </Button>
             </div>
 
-            <div v-if="olrRaces.length === 0" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-primary/20 bg-primary/5 py-16 text-center">
-                <Trophy class="h-12 w-12 text-primary/60" />
-                <h3 class="mt-4 text-lg font-semibold text-primary">No OLR Races yet</h3>
+            <div v-if="clubs.length === 0" class="flex flex-col items-center justify-center rounded-lg border border-dashed border-primary/20 bg-primary/5 py-16 text-center">
+                <Users class="h-12 w-12 text-primary/60" />
+                <h3 class="mt-4 text-lg font-semibold text-primary">No Clubs yet</h3>
                 <p class="mt-2 max-w-md text-sm text-muted-foreground">
-                    Get started by adding your first One Loft Racing organization to track seasons and race results.
+                    Get started by adding your first racing club to track seasons and race results.
                 </p>
                 <Button class="mt-4" as-child>
-                    <Link href="/olr-races/create">
+                    <Link href="/clubs/create">
                         <Plus class="mr-2 h-4 w-4" />
-                        Add OLR Race
+                        Add Club
                     </Link>
                 </Button>
             </div>
 
             <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card v-for="race in olrRaces" :key="race.id" class="group relative overflow-hidden transition-shadow hover:shadow-md">
+                <Card v-for="club in clubs" :key="club.id" class="group relative overflow-hidden transition-shadow hover:shadow-md">
                     <CardHeader class="pb-3">
                         <div class="flex items-start justify-between">
                             <div class="flex-1 min-w-0">
                                 <CardTitle class="truncate">
-                                    <Link :href="`/olr-races/${race.id}`" class="hover:text-primary hover:underline">
-                                        {{ race.name }}
+                                    <Link :href="`/clubs/${club.id}`" class="hover:text-primary hover:underline">
+                                        {{ club.name }}
                                     </Link>
                                 </CardTitle>
-                                <CardDescription v-if="race.organizer" class="mt-1">
-                                    {{ race.organizer }}
-                                </CardDescription>
                             </div>
-                            <Badge :variant="race.status === 'active' ? 'default' : 'secondary'">
-                                {{ race.status }}
+                            <Badge :variant="club.status === 'active' ? 'default' : 'secondary'">
+                                {{ club.status }}
                             </Badge>
                         </div>
                     </CardHeader>
                     <CardContent>
                         <div class="space-y-2 text-sm text-muted-foreground">
-                            <div v-if="race.location || race.country" class="flex items-center gap-2">
+                            <div v-if="club.location || club.country" class="flex items-center gap-2">
                                 <MapPin class="h-4 w-4" />
-                                <span>{{ [race.location, race.country].filter(Boolean).join(', ') }}</span>
+                                <span>{{ [club.location, club.country].filter(Boolean).join(', ') }}</span>
                             </div>
-                            <div v-if="race.website" class="flex items-center gap-2">
+                            <div v-if="club.website" class="flex items-center gap-2">
                                 <Globe class="h-4 w-4" />
-                                <a :href="race.website" target="_blank" class="text-primary hover:underline truncate">
-                                    {{ race.website }}
+                                <a :href="club.website" target="_blank" class="text-primary hover:underline truncate">
+                                    {{ club.website }}
                                 </a>
                             </div>
                             <div class="flex items-center gap-2 pt-2 border-t">
-                                <span class="font-medium text-foreground">{{ race.seasons_count }}</span>
-                                <span>{{ race.seasons_count === 1 ? 'Season' : 'Seasons' }}</span>
+                                <span class="font-medium text-foreground">{{ club.seasons_count }}</span>
+                                <span>{{ club.seasons_count === 1 ? 'Season' : 'Seasons' }}</span>
                             </div>
                         </div>
                         <div class="mt-4 flex flex-wrap items-center gap-2 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                             <Button variant="default" size="sm" as-child>
-                                <Link :href="`/olr-races/${race.id}`">
+                                <Link :href="`/clubs/${club.id}`">
                                     <Eye class="mr-1 h-3 w-3" />
                                     View
                                 </Link>
                             </Button>
                             <Button variant="outline" size="sm" as-child>
-                                <Link :href="`/olr-races/${race.id}/edit`">
+                                <Link :href="`/clubs/${club.id}/edit`">
                                     <Pencil class="mr-1 h-3 w-3" />
                                     Edit
                                 </Link>
                             </Button>
-                            <Button variant="destructive" size="sm" @click="handleDelete(race)">
+                            <Button variant="destructive" size="sm" @click="handleDelete(club)">
                                 <Trash2 class="mr-1 h-3 w-3" />
                                 Delete
                             </Button>

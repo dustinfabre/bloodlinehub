@@ -6,12 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class OlrRace extends Model
+class Club extends Model
 {
     protected $fillable = [
         'user_id',
         'name',
-        'organizer',
         'location',
         'country',
         'website',
@@ -26,11 +25,11 @@ class OlrRace extends Model
 
     public function seasons(): HasMany
     {
-        return $this->hasMany(OlrSeason::class);
+        return $this->hasMany(ClubSeason::class);
     }
 
     public function activeSeasons(): HasMany
     {
-        return $this->hasMany(OlrSeason::class)->where('status', 'active');
+        return $this->hasMany(ClubSeason::class)->where('status', 'active');
     }
 }

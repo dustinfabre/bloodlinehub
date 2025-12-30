@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/sidebar';
 import { urlIsActive } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import { index as clubRaces } from '@/routes/club-races';
+import { index as clubs } from '@/routes/clubs';
 import { index as olrRaces } from '@/routes/olr-races';
 import { index as pigeons } from '@/routes/pigeons';
 import { index as sales } from '@/routes/sales';
@@ -37,8 +37,8 @@ const mainNavItems: NavItem[] = [
         icon: Trophy,
     },
     {
-        title: 'Club Races',
-        href: clubRaces(),
+        title: 'Clubs',
+        href: clubs(),
         icon: Flag,
     },
     {

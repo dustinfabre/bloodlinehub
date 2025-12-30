@@ -8,40 +8,54 @@ import { Label } from '@/components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
 
+interface Club {
+    id: number;
+    name: string;
+    location: string | null;
+    country: string | null;
+    website: string | null;
+    description: string | null;
+    status: string;
+}
+
+const props = defineProps<{
+    club: Club;
+}>();
+
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'OLR Races', href: '/olr-races' },
-    { title: 'Create', href: '/olr-races/create' },
+    { title: 'Clubs', href: '/clubs' },
+    { title: props.club.name, href: `/clubs/${props.club.id}` },
+    { title: 'Edit', href: `/clubs/${props.club.id}/edit` },
 ];
 
 const form = useForm({
-    name: '',
-    organizer: '',
-    location: '',
-    country: '',
-    website: '',
-    description: '',
-    status: 'active',
+    name: props.club.name,
+    location: props.club.location || '',
+    country: props.club.country || '',
+    website: props.club.website || '',
+    description: props.club.description || '',
+    status: props.club.status,
 });
 
 const submit = () => {
-    form.post('/olr-races');
+    form.patch(`/clubs/${props.club.id}`);
 };
 </script>
 
 <template>
-    <Head title="Create OLR Race" />
+    <Head :title="`Edit ${club.name}`" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <div>
-                <h1 class="text-2xl font-semibold text-foreground">Create OLR Race</h1>
-                <p class="text-sm text-muted-foreground">Add a new One Loft Racing organization</p>
+                <h1 class="text-2xl font-semibold text-foreground">Edit Club</h1>
+                <p class="text-sm text-muted-foreground">Update {{ club.name }}</p>
             </div>
 
             <Card class="max-w-2xl">
                 <CardHeader>
-                    <CardTitle>OLR Race Details</CardTitle>
-                    <CardDescription>Enter the details of the OLR race organization</CardDescription>
+                    <CardTitle>Club Details</CardTitle>
+                    <CardDescription>Update the details of the racing club</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form @submit.prevent="submit" class="space-y-6">
@@ -51,19 +65,9 @@ const submit = () => {
                                 id="name"
                                 v-model="form.name"
                                 required
-                                placeholder="e.g., South African Million Dollar Race"
+                                placeholder="e.g., Metro Manila Racing Club"
                             />
                             <InputError :message="form.errors.name" />
-                        </div>
-
-                        <div class="space-y-2">
-                            <Label for="organizer">Organizer</Label>
-                            <Input
-                                id="organizer"
-                                v-model="form.organizer"
-                                placeholder="e.g., SAMDR Organization"
-                            />
-                            <InputError :message="form.errors.organizer" />
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-2">
@@ -72,7 +76,7 @@ const submit = () => {
                                 <Input
                                     id="location"
                                     v-model="form.location"
-                                    placeholder="e.g., Johannesburg"
+                                    placeholder="e.g., Manila"
                                 />
                                 <InputError :message="form.errors.location" />
                             </div>
@@ -82,7 +86,7 @@ const submit = () => {
                                 <Input
                                     id="country"
                                     v-model="form.country"
-                                    placeholder="e.g., South Africa"
+                                    placeholder="e.g., Philippines"
                                 />
                                 <InputError :message="form.errors.country" />
                             </div>
@@ -106,7 +110,7 @@ const submit = () => {
                                 v-model="form.description"
                                 rows="3"
                                 class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                placeholder="Brief description of the OLR race..."
+                                placeholder="Brief description of the club..."
                             />
                             <InputError :message="form.errors.description" />
                         </div>
@@ -127,10 +131,10 @@ const submit = () => {
 
                         <div class="flex gap-3">
                             <Button type="submit" :disabled="form.processing">
-                                {{ form.processing ? 'Creating...' : 'Create OLR Race' }}
+                                {{ form.processing ? 'Saving...' : 'Save Changes' }}
                             </Button>
                             <Button type="button" variant="outline" as-child>
-                                <Link href="/olr-races">Cancel</Link>
+                                <Link :href="`/clubs/${club.id}`">Cancel</Link>
                             </Button>
                         </div>
                     </form>

@@ -2,10 +2,10 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
 
 interface OlrRace {
@@ -14,11 +14,8 @@ interface OlrRace {
     organizer: string | null;
     location: string | null;
     country: string | null;
-    year: number | null;
-    start_date: string | null;
-    end_date: string | null;
+    website: string | null;
     description: string | null;
-    website_url: string | null;
     status: string;
 }
 
@@ -37,18 +34,13 @@ const form = useForm({
     organizer: props.olrRace.organizer || '',
     location: props.olrRace.location || '',
     country: props.olrRace.country || '',
-    year: props.olrRace.year || new Date().getFullYear(),
-    start_date: props.olrRace.start_date || '',
-    end_date: props.olrRace.end_date || '',
+    website: props.olrRace.website || '',
     description: props.olrRace.description || '',
-    website_url: props.olrRace.website_url || '',
     status: props.olrRace.status,
 });
 
 const submit = () => {
-    form.put(`/olr-races/${props.olrRace.id}`, {
-        preserveScroll: true,
-    });
+    form.patch(`/olr-races/${props.olrRace.id}`);
 };
 </script>
 
@@ -58,53 +50,45 @@ const submit = () => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <div>
-                <h1 class="text-2xl font-semibold text-foreground">
-                    Edit OLR Race
-                </h1>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Update the details of this One Loft Race.
-                </p>
+                <h1 class="text-2xl font-semibold text-foreground">Edit OLR Race</h1>
+                <p class="text-sm text-muted-foreground">Update {{ olrRace.name }}</p>
             </div>
 
-            <form @submit.prevent="submit" class="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Race Information</CardTitle>
-                    </CardHeader>
-                    <CardContent class="space-y-4">
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div class="space-y-2">
-                                <Label for="name">Race Name *</Label>
-                                <Input
-                                    id="name"
-                                    v-model="form.name"
-                                    type="text"
-                                    placeholder="e.g., South African Million Dollar"
-                                    required
-                                />
-                                <InputError :message="form.errors.name" />
-                            </div>
-
-                            <div class="space-y-2">
-                                <Label for="organizer">Organizer</Label>
-                                <Input
-                                    id="organizer"
-                                    v-model="form.organizer"
-                                    type="text"
-                                    placeholder="e.g., SAMDPR"
-                                />
-                                <InputError :message="form.errors.organizer" />
-                            </div>
+            <Card class="max-w-2xl">
+                <CardHeader>
+                    <CardTitle>OLR Race Details</CardTitle>
+                    <CardDescription>Update the details of the OLR race organization</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form @submit.prevent="submit" class="space-y-6">
+                        <div class="space-y-2">
+                            <Label for="name">Name *</Label>
+                            <Input
+                                id="name"
+                                v-model="form.name"
+                                required
+                                placeholder="e.g., South African Million Dollar Race"
+                            />
+                            <InputError :message="form.errors.name" />
                         </div>
 
-                        <div class="grid gap-4 md:grid-cols-3">
+                        <div class="space-y-2">
+                            <Label for="organizer">Organizer</Label>
+                            <Input
+                                id="organizer"
+                                v-model="form.organizer"
+                                placeholder="e.g., SAMDR Organization"
+                            />
+                            <InputError :message="form.errors.organizer" />
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
                                 <Label for="location">Location</Label>
                                 <Input
                                     id="location"
                                     v-model="form.location"
-                                    type="text"
-                                    placeholder="e.g., Sun City"
+                                    placeholder="e.g., Johannesburg"
                                 />
                                 <InputError :message="form.errors.location" />
                             </div>
@@ -114,56 +98,21 @@ const submit = () => {
                                 <Input
                                     id="country"
                                     v-model="form.country"
-                                    type="text"
                                     placeholder="e.g., South Africa"
                                 />
                                 <InputError :message="form.errors.country" />
                             </div>
-
-                            <div class="space-y-2">
-                                <Label for="year">Year</Label>
-                                <Input
-                                    id="year"
-                                    v-model="form.year"
-                                    type="number"
-                                    min="1900"
-                                    max="2100"
-                                />
-                                <InputError :message="form.errors.year" />
-                            </div>
-                        </div>
-
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div class="space-y-2">
-                                <Label for="start_date">Start Date</Label>
-                                <Input
-                                    id="start_date"
-                                    v-model="form.start_date"
-                                    type="date"
-                                />
-                                <InputError :message="form.errors.start_date" />
-                            </div>
-
-                            <div class="space-y-2">
-                                <Label for="end_date">End Date</Label>
-                                <Input
-                                    id="end_date"
-                                    v-model="form.end_date"
-                                    type="date"
-                                />
-                                <InputError :message="form.errors.end_date" />
-                            </div>
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="website_url">Website URL</Label>
+                            <Label for="website">Website</Label>
                             <Input
-                                id="website_url"
-                                v-model="form.website_url"
+                                id="website"
+                                v-model="form.website"
                                 type="url"
-                                placeholder="https://..."
+                                placeholder="https://example.com"
                             />
-                            <InputError :message="form.errors.website_url" />
+                            <InputError :message="form.errors.website" />
                         </div>
 
                         <div class="space-y-2">
@@ -172,37 +121,37 @@ const submit = () => {
                                 id="description"
                                 v-model="form.description"
                                 rows="3"
-                                class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                placeholder="Additional details about the race..."
+                                class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                placeholder="Brief description of the OLR race..."
                             />
                             <InputError :message="form.errors.description" />
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="status">Status</Label>
+                            <Label for="status">Status *</Label>
                             <select
                                 id="status"
                                 v-model="form.status"
+                                required
                                 class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                             >
                                 <option value="active">Active</option>
-                                <option value="completed">Completed</option>
-                                <option value="cancelled">Cancelled</option>
+                                <option value="inactive">Inactive</option>
                             </select>
                             <InputError :message="form.errors.status" />
                         </div>
-                    </CardContent>
-                </Card>
 
-                <div class="flex justify-end gap-4">
-                    <Button type="button" variant="outline" as-child>
-                        <a :href="`/olr-races/${olrRace.id}`">Cancel</a>
-                    </Button>
-                    <Button type="submit" :disabled="form.processing">
-                        {{ form.processing ? 'Saving...' : 'Save Changes' }}
-                    </Button>
-                </div>
-            </form>
+                        <div class="flex gap-3">
+                            <Button type="submit" :disabled="form.processing">
+                                {{ form.processing ? 'Saving...' : 'Save Changes' }}
+                            </Button>
+                            <Button type="button" variant="outline" as-child>
+                                <Link :href="`/olr-races/${olrRace.id}`">Cancel</Link>
+                            </Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
         </div>
     </AppLayout>
 </template>

@@ -62,17 +62,35 @@ class Pigeon extends Model
         return $this->belongsTo(self::class, 'dam_id');
     }
 
-    public function olrRaces(): BelongsToMany
+    // OLR Season Entries
+    public function olrSeasonEntries(): BelongsToMany
     {
-        return $this->belongsToMany(OlrRace::class, 'olr_race_pigeon')
-            ->withPivot('entry_number', 'result', 'notes')
+        return $this->belongsToMany(OlrSeason::class, 'olr_season_entries')
+            ->withPivot('id', 'entry_number', 'notes')
             ->withTimestamps();
     }
 
-    public function clubRaces(): BelongsToMany
+    // OLR Race Results
+    public function olrRaceResults(): BelongsToMany
     {
-        return $this->belongsToMany(ClubRace::class, 'club_race_pigeon')
-            ->withPivot('arrival_time', 'speed', 'position', 'notes')
+        return $this->belongsToMany(OlrSeasonRace::class, 'olr_race_results')
+            ->withPivot('id', 'position', 'arrival_time', 'speed', 'notes', 'did_not_arrive')
+            ->withTimestamps();
+    }
+
+    // Club Season Entries
+    public function clubSeasonEntries(): BelongsToMany
+    {
+        return $this->belongsToMany(ClubSeason::class, 'club_season_entries')
+            ->withPivot('id', 'entry_number', 'notes')
+            ->withTimestamps();
+    }
+
+    // Club Race Results
+    public function clubRaceResults(): BelongsToMany
+    {
+        return $this->belongsToMany(ClubSeasonRace::class, 'club_race_results')
+            ->withPivot('id', 'position', 'arrival_time', 'speed', 'notes', 'did_not_arrive')
             ->withTimestamps();
     }
 }
