@@ -41,6 +41,8 @@ class Pigeon extends Model
         'dam_ring_number',
         'dam_color',
         'dam_notes',
+        'pairing_id',
+        'clutch_id',
     ];
 
     protected $casts = [
@@ -61,6 +63,16 @@ class Pigeon extends Model
     public function dam(): BelongsTo
     {
         return $this->belongsTo(self::class, 'dam_id');
+    }
+
+    public function pairing(): BelongsTo
+    {
+        return $this->belongsTo(Pairing::class);
+    }
+
+    public function clutch(): BelongsTo
+    {
+        return $this->belongsTo(Clutch::class);
     }
 
     // OLR Season Entries

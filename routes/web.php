@@ -3,11 +3,13 @@
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ClubSeasonController;
 use App\Http\Controllers\ClubSeasonRaceController;
+use App\Http\Controllers\ClutchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\OlrSeasonController;
 use App\Http\Controllers\OlrSeasonRaceController;
+use App\Http\Controllers\PairingController;
 use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\SalesController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +30,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.pedigree');
     Route::get('pigeons/{pigeon}/print-pedigree', [PigeonController::class, 'printPedigree'])
         ->name('pigeons.printPedigree');
+
+    // Pairings management
+    Route::resource('pairings', PairingController::class);
+    Route::post('pairings/{pairing}/end-session', [PairingController::class, 'endSession'])
+        ->name('pairings.end-session');
+    
+    // Clutches management (nested under pairings)
+    Route::post('pairings/{pairing}/clutches', [ClutchController::class, 'store'])
+        ->name('pairings.clutches.store');
+    Route::patch('pairings/{pairing}/clutches/{clutch}', [ClutchController::class, 'update'])
+        ->name('pairings.clutches.update');
+    Route::delete('pairings/{pairing}/clutches/{clutch}', [ClutchController::class, 'destroy'])
+        ->name('pairings.clutches.destroy');
 
     // Sales management (authenticated)
     Route::get('sales', [SalesController::class, 'index'])

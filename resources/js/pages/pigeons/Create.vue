@@ -27,6 +27,13 @@ const props = defineProps<{
     };
     bloodlines: string[];
     colors: string[];
+    prefill?: {
+        sire_id?: string;
+        dam_id?: string;
+        pairing_id?: string;
+        clutch_id?: string;
+        hatch_date?: string;
+    };
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -42,7 +49,7 @@ const form = useForm({
     pigeon_status: 'stock',
     race_type: 'none',
     status: 'alive',
-    hatch_date: '',
+    hatch_date: props.prefill?.hatch_date || '',
     gender: '',
     color: '',
     remarks: '',
@@ -63,13 +70,25 @@ const form = useForm({
     sale_price: '',
     hide_price: false,
     sale_description: '',
+    pairing_id: null as number | null,
+    clutch_id: null as number | null,
 });
 
-const sireId = ref('');
-const damId = ref('');
+const sireId = ref(props.prefill?.sire_id || '');
+const damId = ref(props.prefill?.dam_id || '');
 const photosText = ref('');
 const sireFieldsReadonly = ref(false);
 const damFieldsReadonly = ref(false);
+
+// Set pairing_id if provided
+if (props.prefill?.pairing_id) {
+    form.pairing_id = Number(props.prefill.pairing_id);
+}
+
+// Set clutch_id if provided
+if (props.prefill?.clutch_id) {
+    form.clutch_id = Number(props.prefill.clutch_id);
+}
 
 watch(photosText, (value) => {
     form.photos = value.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);

@@ -12,11 +12,12 @@ import { urlIsActive } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { index as clubs } from '@/routes/clubs';
 import { index as olrRaces } from '@/routes/olr-races';
+import { index as pairings } from '@/routes/pairings';
 import { index as pigeons } from '@/routes/pigeons';
 import { index as sales } from '@/routes/sales';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Bird, LayoutGrid, DollarSign, Trophy, Flag } from 'lucide-vue-next';
+import { Bird, LayoutGrid, DollarSign, Trophy, Flag, Heart } from 'lucide-vue-next';
 
 const page = usePage();
 
@@ -30,6 +31,11 @@ const mainNavItems: NavItem[] = [
         title: 'Pigeons',
         href: pigeons(),
         icon: Bird,
+    },
+    {
+        title: 'Breeding',
+        href: pairings(),
+        icon: Heart,
     },
     {
         title: 'OLR Races',

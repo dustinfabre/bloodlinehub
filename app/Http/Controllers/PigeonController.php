@@ -108,10 +108,14 @@ class PigeonController extends Controller
             ->orderBy('color')
             ->pluck('color');
 
+        // Get pre-filled data from query params (from pairing)
+        $prefill = $request->only(['sire_id', 'dam_id', 'pairing_id', 'clutch_id', 'hatch_date']);
+
         return Inertia::render('pigeons/Create', [
             'parentOptions' => $this->parentOptions($user->id),
             'bloodlines' => $bloodlines,
             'colors' => $colors,
+            'prefill' => $prefill,
         ]);
     }
 
