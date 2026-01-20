@@ -14,6 +14,7 @@ class Pigeon extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'bloodline',
         'gender',
         'hatch_date',
         'status',

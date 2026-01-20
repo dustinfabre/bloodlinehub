@@ -1,35 +1,40 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { create, destroy, edit, index as indexRoute, show } from '@/routes/pigeons';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { ref, watch } from 'vue';
 import { type BreadcrumbItem } from '@/types';
-
-interface ParentSummary {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-}
+import { Plus, Search, Filter, Eye, Pencil, Trash2, Bird, X } from 'lucide-vue-next';
 
 interface Pigeon {
     id: number;
     name: string | null;
+    bloodline: string | null;
+    ring_number: string | null;
+    personal_number: string | null;
     gender: string | null;
     status: string;
     pigeon_status: string;
     race_type: string;
-    ring_number: string | null;
-    personal_number: string | null;
     color: string | null;
-    for_sale: boolean;
-    sire: ParentSummary | null;
-    dam: ParentSummary | null;
-    created_at: string;
+    hatch_date: string | null;
+    sire: {
+        id: number;
+        ring_number: string | null;
+        personal_number: string | null;
+        color: string | null;
+    } | null;
+    dam: {
+        id: number;
+        ring_number: string | null;
+        personal_number: string | null;
+        color: string | null;
+    } | null;
 }
 
 interface PaginationLink {
@@ -38,64 +43,107 @@ interface PaginationLink {
     active: boolean;
 }
 
-interface PaginationMeta {
-    from: number | null;
-    to: number | null;
-    total: number;
+interface PaginatedPigeons {
+    data: Pigeon[];
     current_page: number;
     last_page: number;
+    per_page: number;
+    total: number;
+    links: PaginationLink[];
 }
 
-interface Props {
-    pigeons: {
-        data: Pigeon[];
-        links: PaginationLink[];
-        meta: PaginationMeta;
+const props = defineProps<{
+    pigeons: PaginatedPigeons;
+    bloodlines: string[];
+    colors: string[];
+    filters: {
+        search?: string;
+        status?: string;
+        pigeon_status?: string;
+        race_type?: string;
+        bloodline?: string;
+        per_page: number;
     };
-}
-
-const props = defineProps<Props>();
+}>();
 
 const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Pigeons',
-        href: indexRoute().url,
-    },
+    { title: 'Pigeons', href: '/pigeons' },
 ];
 
-const normalizedLinks = computed(() =>
-    props.pigeons.links.filter((link) => link.url !== null),
-);
+const showFilters = ref(false);
+const search = ref(props.filters.search || '');
+const status = ref(props.filters.status || '');
+const pigeonStatus = ref(props.filters.pigeon_status || '');
+const raceType = ref(props.filters.race_type || '');
+const bloodline = ref(props.filters.bloodline || '');
+const perPage = ref(String(props.filters.per_page));
+
+const applyFilters = () => {
+    router.get('/pigeons', {
+        search: search.value || undefined,
+        status: status.value || undefined,
+        pigeon_status: pigeonStatus.value || undefined,
+        race_type: raceType.value || undefined,
+        bloodline: bloodline.value || undefined,
+        per_page: perPage.value,
+    }, {
+        preserveState: true,
+        preserveScroll: true,
+    });
+};
+
+const clearFilters = () => {
+    search.value = '';
+    status.value = '';
+    pigeonStatus.value = '';
+    raceType.value = '';
+    bloodline.value = '';
+    perPage.value = '10';
+    applyFilters();
+};
+
+watch(perPage, () => {
+    applyFilters();
+});
 
 const pigeonLabel = (pigeon: Pigeon) =>
     pigeon.name || pigeon.ring_number || pigeon.personal_number || `Pigeon #${pigeon.id}`;
 
-const parentLabel = (parent: ParentSummary | null) => {
-    if (!parent) return 'Not set';
-    return parent.name || parent.ring_number || parent.personal_number || `#${parent.id}`;
+const formatDate = (date: string | null) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
-
-const handleDelete = (pigeon: Pigeon) => {
-    const label = pigeonLabel(pigeon);
-    if (!window.confirm(`Remove ${label}? This action cannot be undone.`)) return;
-    
-    router.delete(destroy({ pigeon: pigeon.id }).url, {
-        preserveScroll: true,
-        preserveState: true,
-    });
-};
-
-const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
 
 const statusBadgeVariant = (status: string) => {
     if (status === 'alive') return 'default';
-    if (status === 'deceased') return 'destructive';
-    return 'secondary';
+    if (status === 'deceased') return 'secondary';
+    if (status === 'missing') return 'destructive';
+    return 'outline';
+};
+
+const pigeonStatusBadgeVariant = (status: string) => {
+    if (status === 'racing') return 'default';
+    if (status === 'breeding') return 'secondary';
+    return 'outline';
+};
+
+const raceTypeBadge = (type: string) => {
+    if (type === 'olr') return { label: 'OLR', variant: 'default' as const };
+    if (type === 'south') return { label: 'South', variant: 'secondary' as const };
+    if (type === 'north') return { label: 'North', variant: 'secondary' as const };
+    if (type === 'summer') return { label: 'Summer', variant: 'secondary' as const };
+    return { label: 'None', variant: 'outline' as const };
+};
+
+const handleDelete = (pigeon: Pigeon) => {
+    if (!confirm(`Delete ${pigeonLabel(pigeon)}? This action cannot be undone.`)) return;
+    router.delete(`/pigeons/${pigeon.id}`, {
+        preserveScroll: true,
+    });
+};
+
+const hasActiveFilters = () => {
+    return search.value || status.value || pigeonStatus.value || raceType.value || bloodline.value;
 };
 </script>
 
@@ -103,164 +151,279 @@ const statusBadgeVariant = (status: string) => {
     <Head title="Pigeons" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <div class="flex items-center justify-between">
+        <div class="flex h-full flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+            <!-- Header -->
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 class="text-2xl font-semibold text-foreground">
-                        Pigeon records
-                    </h1>
+                    <h1 class="text-xl font-semibold text-foreground sm:text-2xl">Pigeons</h1>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        Track your loft and manage pedigrees.
+                        Manage your pigeon records ({{ pigeons.total }})
                     </p>
                 </div>
-                <Button as-child>
-                    <Link :href="create().url">
-                        Add pigeon
+                <Button as-child class="w-full sm:w-auto">
+                    <Link href="/pigeons/create">
+                        <Plus class="mr-2 h-4 w-4" />
+                        Add Pigeon
                     </Link>
                 </Button>
             </div>
 
-            <Card class="flex-1">
-                <CardHeader class="flex flex-row items-center justify-between">
-                    <CardTitle>Pigeons</CardTitle>
-                    <p v-if="props.pigeons?.meta" class="text-sm text-muted-foreground">
-                        Showing
-                        <span class="font-medium text-foreground">
-                            {{ props.pigeons.meta.from ?? 0 }}-
-                            {{ props.pigeons.meta.to ?? 0 }}
-                        </span>
-                        of
-                        <span class="font-medium text-foreground">
-                            {{ props.pigeons.meta.total }}
-                        </span>
-                    </p>
+            <!-- Search and Filters -->
+            <Card>
+                <CardHeader class="pb-4">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex-1 max-w-md">
+                            <div class="relative">
+                                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    v-model="search"
+                                    @keyup.enter="applyFilters"
+                                    placeholder="Search by name, ring number, bloodline..."
+                                    class="pl-9"
+                                />
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <Button variant="outline" @click="applyFilters" class="flex-1 sm:flex-none">
+                                <Search class="mr-2 h-4 w-4" />
+                                Search
+                            </Button>
+                            <Button variant="outline" @click="showFilters = !showFilters" class="flex-1 sm:flex-none">
+                                <Filter class="mr-2 h-4 w-4" />
+                                Filters
+                                <Badge v-if="hasActiveFilters()" variant="secondary" class="ml-2">
+                                    {{ [search, status, pigeonStatus, raceType, bloodline].filter(Boolean).length }}
+                                </Badge>
+                            </Button>
+                            <Button
+                                v-if="hasActiveFilters()"
+                                variant="ghost"
+                                @click="clearFilters"
+                                class="flex-1 sm:flex-none"
+                            >
+                                <X class="mr-2 h-4 w-4" />
+                                Clear
+                            </Button>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Filters -->
+                    <div v-if="showFilters" class="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div class="space-y-2">
+                            <Label for="status">Status</Label>
+                            <Select v-model="status">
+                                <SelectTrigger id="status">
+                                    <SelectValue placeholder="All statuses" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All statuses</SelectItem>
+                                    <SelectItem value="alive">Alive</SelectItem>
+                                    <SelectItem value="deceased">Deceased</SelectItem>
+                                    <SelectItem value="missing">Missing</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-2">
+                            <Label for="pigeon_status">Pigeon Status</Label>
+                            <Select v-model="pigeonStatus">
+                                <SelectTrigger id="pigeon_status">
+                                    <SelectValue placeholder="All types" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All types</SelectItem>
+                                    <SelectItem value="racing">Racing</SelectItem>
+                                    <SelectItem value="breeding">Breeding</SelectItem>
+                                    <SelectItem value="stock">Stock</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-2">
+                            <Label for="race_type">Race Type</Label>
+                            <Select v-model="raceType">
+                                <SelectTrigger id="race_type">
+                                    <SelectValue placeholder="All types" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All types</SelectItem>
+                                    <SelectItem value="olr">OLR</SelectItem>
+                                    <SelectItem value="south">South</SelectItem>
+                                    <SelectItem value="north">North</SelectItem>
+                                    <SelectItem value="summer">Summer</SelectItem>
+                                    <SelectItem value="none">None</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-2">
+                            <Label for="bloodline">Bloodline</Label>
+                            <Select v-model="bloodline">
+                                <SelectTrigger id="bloodline">
+                                    <SelectValue placeholder="All bloodlines" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">All bloodlines</SelectItem>
+                                    <SelectItem
+                                        v-for="line in bloodlines"
+                                        :key="line"
+                                        :value="line"
+                                    >
+                                        {{ line }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent>
-                    <div
-                        v-if="props.pigeons.data.length === 0"
-                        class="flex flex-col items-center justify-center rounded-lg border border-dashed border-primary/20 bg-primary/5 py-16 text-center"
-                    >
-                        <h2 class="text-lg font-semibold text-primary">
-                            No pigeons yet
-                        </h2>
-                        <p class="mt-2 max-w-md text-sm text-muted-foreground">
-                            Start by adding your first pigeon to begin managing pedigrees.
-                        </p>
-                        <Button as-child class="mt-6">
-                            <Link :href="create().url">
-                                Add pigeon
-                            </Link>
-                        </Button>
-                    </div>
+            </Card>
 
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full min-w-[900px] table-auto border-collapse">
-                            <thead>
-                                <tr class="border-b border-border text-left text-sm text-muted-foreground">
-                                    <th class="py-3 pr-6 font-normal">Name/Ring</th>
-                                    <th class="py-3 pr-6 font-normal">Gender</th>
-                                    <th class="py-3 pr-6 font-normal">Status</th>
-                                    <th class="py-3 pr-6 font-normal">Type</th>
-                                    <th class="py-3 pr-6 font-normal">Sire</th>
-                                    <th class="py-3 pr-6 font-normal">Dam</th>
-                                    <th class="py-3 pr-6 font-normal">Added</th>
-                                    <th class="py-3 text-right font-normal">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr
-                                    v-for="pigeon in props.pigeons.data"
-                                    :key="pigeon.id"
-                                    class="border-b border-border/80 text-sm transition-colors hover:bg-accent/50"
-                                >
-                                    <td class="py-3 pr-6">
-                                        <div class="flex items-center gap-2">
-                                            <div>
-                                                <div class="font-medium text-foreground">
-                                                    {{ pigeonLabel(pigeon) }}
-                                                </div>
-                                                <div v-if="pigeon.color" class="text-xs text-muted-foreground">
-                                                    {{ pigeon.color }}
-                                                </div>
-                                            </div>
-                                            <Badge v-if="pigeon.for_sale" variant="default" class="ml-auto">
-                                                For Sale
-                                            </Badge>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 pr-6">
-                                        <Badge v-if="pigeon.gender" variant="outline" class="text-xs">
-                                            {{ pigeon.gender === 'male' ? 'Cock' : 'Hen' }}
-                                        </Badge>
-                                        <span v-else class="text-muted-foreground">—</span>
-                                    </td>
-                                    <td class="py-3 pr-6">
-                                        <Badge :variant="statusBadgeVariant(pigeon.status)" class="text-xs">
-                                            {{ pigeon.status }}
-                                        </Badge>
-                                    </td>
-                                    <td class="py-3 pr-6">
-                                        <div class="text-xs">
-                                            {{ pigeon.pigeon_status }}
-                                        </div>
-                                        <div v-if="pigeon.race_type !== 'none'" class="text-xs text-muted-foreground">
-                                            {{ pigeon.race_type.toUpperCase() }}
-                                        </div>
-                                    </td>
-                                    <td class="py-3 pr-6 text-xs">
-                                        {{ parentLabel(pigeon.sire) }}
-                                    </td>
-                                    <td class="py-3 pr-6 text-xs">
-                                        {{ parentLabel(pigeon.dam) }}
-                                    </td>
-                                    <td class="py-3 pr-6 text-xs">
-                                        {{ formatDate(pigeon.created_at) }}
-                                    </td>
-                                    <td class="py-3 text-right">
-                                        <div class="flex justify-end gap-2">
-                                            <Button as-child variant="outline" size="sm">
-                                                <Link :href="show({ pigeon: pigeon.id }).url">
-                                                    View
-                                                </Link>
-                                            </Button>
-                                            <Button as-child variant="outline" size="sm">
-                                                <Link :href="edit({ pigeon: pigeon.id }).url">
-                                                    Edit
-                                                </Link>
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                @click="handleDelete(pigeon)"
-                                            >
-                                                Delete
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- Pagination Controls -->
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-2">
+                    <Label for="per_page" class="text-sm text-muted-foreground whitespace-nowrap">Show:</Label>
+                    <Select v-model="perPage">
+                        <SelectTrigger id="per_page" class="w-24">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <span class="text-sm text-muted-foreground">
+                        of {{ pigeons.total }} pigeons
+                    </span>
+                </div>
+                
+                <div class="text-sm text-muted-foreground">
+                    Page {{ pigeons.current_page }} of {{ pigeons.last_page }}
+                </div>
+            </div>
 
-                    <nav
-                        v-if="normalizedLinks.length > 1"
-                        class="mt-6 flex items-center justify-end gap-2 text-sm"
-                    >
-                        <Link
-                            v-for="link in normalizedLinks"
-                            :key="`${link.label}-${link.url}`"
-                            :href="link.url ?? '#'"
-                            :class="[
-                                'rounded-md border px-3 py-1 transition-colors',
-                                link.active
-                                    ? 'border-primary bg-primary text-primary-foreground'
-                                    : 'border-border bg-background text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                            ]"
-                            v-html="link.label.replace('&laquo;', '‹').replace('&raquo;', '›')"
-                        />
-                    </nav>
+            <!-- No results message -->
+            <Card v-if="pigeons.data.length === 0">
+                <CardContent class="flex flex-col items-center justify-center py-12">
+                    <Bird class="h-12 w-12 text-muted-foreground/60" />
+                    <h3 class="mt-4 font-semibold">No pigeons found</h3>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                        <template v-if="hasActiveFilters()">
+                            Try adjusting your filters or search query.
+                        </template>
+                        <template v-else>
+                            Get started by adding your first pigeon.
+                        </template>
+                    </p>
+                    <Button v-if="!hasActiveFilters()" as-child class="mt-4">
+                        <Link href="/pigeons/create">
+                            <Plus class="mr-2 h-4 w-4" />
+                            Add Pigeon
+                        </Link>
+                    </Button>
                 </CardContent>
             </Card>
+
+            <!-- Pigeon Cards -->
+            <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Card
+                    v-for="pigeon in pigeons.data"
+                    :key="pigeon.id"
+                    class="group relative overflow-hidden transition-all hover:shadow-md"
+                >
+                    <CardHeader class="pb-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <CardTitle class="text-base truncate">
+                                    {{ pigeonLabel(pigeon) }}
+                                </CardTitle>
+                                <CardDescription v-if="pigeon.bloodline" class="mt-1">
+                                    {{ pigeon.bloodline }}
+                                </CardDescription>
+                            </div>
+                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100">
+                                <Button variant="ghost" size="sm" as-child>
+                                    <Link :href="`/pigeons/${pigeon.id}`">
+                                        <Eye class="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                                <Button variant="ghost" size="sm" as-child>
+                                    <Link :href="`/pigeons/${pigeon.id}/edit`">
+                                        <Pencil class="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                                <Button variant="ghost" size="sm" @click="handleDelete(pigeon)">
+                                    <Trash2 class="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1 mt-2">
+                            <Badge :variant="statusBadgeVariant(pigeon.status)" class="text-xs">
+                                {{ pigeon.status }}
+                            </Badge>
+                            <Badge :variant="pigeonStatusBadgeVariant(pigeon.pigeon_status)" class="text-xs">
+                                {{ pigeon.pigeon_status }}
+                            </Badge>
+                            <Badge :variant="raceTypeBadge(pigeon.race_type).variant" class="text-xs">
+                                {{ raceTypeBadge(pigeon.race_type).label }}
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent class="space-y-2 text-sm">
+                        <div v-if="pigeon.ring_number" class="flex justify-between">
+                            <span class="text-muted-foreground">Ring Number:</span>
+                            <span class="font-mono">{{ pigeon.ring_number }}</span>
+                        </div>
+                        <div v-if="pigeon.personal_number" class="flex justify-between">
+                            <span class="text-muted-foreground">Personal #:</span>
+                            <span class="font-mono">{{ pigeon.personal_number }}</span>
+                        </div>
+                        <div v-if="pigeon.color" class="flex justify-between">
+                            <span class="text-muted-foreground">Color:</span>
+                            <span>{{ pigeon.color }}</span>
+                        </div>
+                        <div v-if="pigeon.hatch_date" class="flex justify-between">
+                            <span class="text-muted-foreground">Hatch Date:</span>
+                            <span>{{ formatDate(pigeon.hatch_date) }}</span>
+                        </div>
+                        <div v-if="pigeon.gender" class="flex justify-between">
+                            <span class="text-muted-foreground">Gender:</span>
+                            <span class="capitalize">{{ pigeon.gender }}</span>
+                        </div>
+                        <div v-if="pigeon.sire" class="flex justify-between border-t pt-2 mt-2">
+                            <span class="text-muted-foreground">Sire:</span>
+                            <Link
+                                :href="`/pigeons/${pigeon.sire.id}`"
+                                class="font-mono text-xs hover:text-primary hover:underline"
+                            >
+                                {{ pigeon.sire.ring_number || pigeon.sire.personal_number }}
+                            </Link>
+                        </div>
+                        <div v-if="pigeon.dam" class="flex justify-between">
+                            <span class="text-muted-foreground">Dam:</span>
+                            <Link
+                                :href="`/pigeons/${pigeon.dam.id}`"
+                                class="font-mono text-xs hover:text-primary hover:underline"
+                            >
+                                {{ pigeon.dam.ring_number || pigeon.dam.personal_number }}
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <!-- Pagination -->
+            <div v-if="pigeons.last_page > 1" class="flex flex-wrap items-center justify-center gap-1">
+                <template v-for="(link, index) in pigeons.links" :key="index">
+                    <Button
+                        v-if="link.url"
+                        :variant="link.active ? 'default' : 'outline'"
+                        size="sm"
+                        @click="router.visit(link.url)"
+                        :disabled="!link.url"
+                        v-html="link.label"
+                        class="min-w-[2.5rem]"
+                    />
+                </template>
+            </div>
         </div>
     </AppLayout>
 </template>

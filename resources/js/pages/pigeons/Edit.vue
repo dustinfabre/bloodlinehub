@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { edit as editRoute, index as indexRoute, show, update } from '@/routes/pigeons';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -30,6 +31,7 @@ interface ParentOption {
 interface Pigeon {
     id: number;
     name: string | null;
+    bloodline: string | null;
     gender: string | null;
     hatch_date: string | null;
     status: string;
@@ -64,6 +66,8 @@ const props = defineProps<{
         sires: ParentOption[];
         dams: ParentOption[];
     };
+    bloodlines: string[];
+    colors: string[];
 }>();
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
@@ -75,14 +79,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const form = useForm({
+    ring_number: props.pigeon.ring_number ?? '',
+    bloodline: props.pigeon.bloodline ?? '',
     name: props.pigeon.name ?? '',
-    gender: props.pigeon.gender ?? '',
-    hatch_date: props.pigeon.hatch_date ?? '',
-    status: props.pigeon.status ?? 'alive',
+    personal_number: props.pigeon.personal_number ?? '',
     pigeon_status: props.pigeon.pigeon_status ?? 'stock',
     race_type: props.pigeon.race_type ?? 'none',
-    ring_number: props.pigeon.ring_number ?? '',
-    personal_number: props.pigeon.personal_number ?? '',
+    status: props.pigeon.status ?? 'alive',
+    hatch_date: props.pigeon.hatch_date ?? '',
+    gender: props.pigeon.gender ?? '',
     color: props.pigeon.color ?? '',
     remarks: props.pigeon.remarks ?? '',
     notes: props.pigeon.notes ?? '',
@@ -104,13 +109,15 @@ const form = useForm({
     sale_description: props.pigeon.sale_description ?? '',
 });
 
-const sireId = ref(form.sire_id ? form.sire_id.toString() : '');
-const damId = ref(form.dam_id ? form.dam_id.toString() : '');
-const photosText = ref((form.photos ?? []).join('\n'));
-const sireFieldsReadonly = ref(!!form.sire_id);
-const damFieldsReadonly = ref(!!form.dam_id);
+const sireId = ref(String(props.pigeon.sire?.id ?? ''));
+const damId = ref(String(props.pigeon.dam?.id ?? ''));
+const photosText = ref(props.pigeon.photos.join('\n'));
+const sireFieldsReadonly = ref(!!props.pigeon.sire);
+const damFieldsReadonly = ref(!!props.pigeon.dam);
 
-watch(photosText, (value) => { form.photos = value.split('\n').map((line) => line.trim()).filter((line) => line.length > 0); });
+watch(photosText, (value) => {
+    form.photos = value.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+});
 
 watch(sireId, (value) => {
     form.sire_id = value ? Number(value) : null;
@@ -122,7 +129,9 @@ watch(sireId, (value) => {
             form.sire_color = selectedSire.color || '';
             sireFieldsReadonly.value = true;
         }
-    } else { sireFieldsReadonly.value = false; }
+    } else {
+        sireFieldsReadonly.value = false;
+    }
 });
 
 watch(damId, (value) => {
@@ -135,120 +144,68 @@ watch(damId, (value) => {
             form.dam_color = selectedDam.color || '';
             damFieldsReadonly.value = true;
         }
-    } else { damFieldsReadonly.value = false; }
+    } else {
+        damFieldsReadonly.value = false;
+    }
 });
 
 const photosCount = computed(() => form.photos.length);
 
-const autoSaveTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
-const lastSaved = ref<Date | null>(null);
-const isSaving = ref(false);
-const showNotification = ref(false);
-
-const autoSave = () => {
-    if (autoSaveTimeout.value) {
-        clearTimeout(autoSaveTimeout.value);
-    }
-    autoSaveTimeout.value = setTimeout(() => {
-        isSaving.value = true;
-        form.put(update({ pigeon: props.pigeon.id }).url, {
-            preserveScroll: true,
-            onSuccess: () => {
-                lastSaved.value = new Date();
-                isSaving.value = false;
-                showNotification.value = true;
-                setTimeout(() => {
-                    showNotification.value = false;
-                }, 3000);
-            },
-            onError: () => {
-                isSaving.value = false;
-            },
-        });
-    }, 1500);
+const submit = () => {
+    form.patch(update({ pigeon: props.pigeon.id }).url, {
+        preserveScroll: true,
+    });
 };
-
-// Watch form fields for auto-save
-watch(() => form.data(), () => {
-    if (!form.processing) {
-        autoSave();
-    }
-}, { deep: true });
-
-const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { preserveScroll: true }); };
 </script>
 
 <template>
     <Head :title="`Edit ${pigeonLabel}`" />
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold">Edit {{ pigeonLabel }}</h1>
-                    <p class="text-sm text-muted-foreground mt-1">
-                        <span v-if="isSaving" class="text-blue-600">Saving...</span>
-                        <span v-else-if="lastSaved" class="text-green-600">Last saved {{ lastSaved.toLocaleTimeString() }}</span>
-                        <span v-else>Changes auto-save as you type</span>
-                    </p>
-                </div>
-                <div class="flex gap-2">
-                    <Link :href="indexRoute().url">
-                        <Button variant="outline">Back to table</Button>
-                    </Link>
-                    <Link :href="show({ pigeon: pigeon.id }).url">
-                        <Button variant="outline">View pigeon</Button>
-                    </Link>
-                </div>
-            </div>
+        <div class="flex h-full flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Edit {{ pigeonLabel }}</CardTitle>
-                    <p class="text-sm text-muted-foreground">
-                        <span v-if="isSaving" class="text-blue-600">Saving...</span>
-                        <span v-else-if="lastSaved" class="text-green-600">Last saved {{ lastSaved.toLocaleTimeString() }}</span>
-                        <span v-else>Update comprehensive details and lineage information.</span>
-                    </p>
+                    <div class="flex items-center justify-between">
+                        <CardTitle>Edit {{ pigeonLabel }}</CardTitle>
+                        <Button variant="outline" size="sm" as-child>
+                            <Link :href="show({ pigeon: pigeon.id }).url">View</Link>
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <form class="space-y-10" @submit.prevent="submit">
-                        <!-- Basic Information -->
+                    <form class="space-y-8" @submit.prevent="submit">
+                        <!-- Identification -->
                         <section class="space-y-6">
                             <div class="space-y-2">
-                                <h2 class="text-lg font-semibold text-foreground">Basic Information</h2>
-                                <p class="text-sm text-muted-foreground">Core identification and biological data.</p>
+                                <h2 class="text-lg font-semibold text-foreground">Identification</h2>
+                                <p class="text-sm text-muted-foreground">Core identification numbers and bloodline.</p>
                             </div>
-                            <div class="grid gap-6 md:grid-cols-2">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div class="grid gap-2">
+                                    <Label for="ring_number">Ring Number *</Label>
+                                    <Input id="ring_number" v-model="form.ring_number" required autocomplete="off" placeholder="e.g. PH 2024-12345" />
+                                    <InputError :message="form.errors.ring_number" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="bloodline">Bloodline</Label>
+                                    <Input id="bloodline" v-model="form.bloodline" autocomplete="off" placeholder="e.g. Janssen, Kipp" list="bloodline-list" />
+                                    <datalist id="bloodline-list">
+                                        <option v-for="line in bloodlines" :key="line" :value="line" />
+                                    </datalist>
+                                    <InputError :message="form.errors.bloodline" />
+                                </div>
                                 <div class="grid gap-2">
                                     <Label for="name">Name</Label>
                                     <Input id="name" v-model="form.name" autocomplete="off" placeholder="Optional pigeon name" />
                                     <InputError :message="form.errors.name" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label for="gender">Gender</Label>
-                                    <select id="gender" v-model="form.gender" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
-                                        <option value="">Not specified</option>
-                                        <option value="male">Male (Cock)</option>
-                                        <option value="female">Female (Hen)</option>
-                                    </select>
-                                    <InputError :message="form.errors.gender" />
-                                </div>
-                                <div class="grid gap-2">
-                                    <Label for="hatch_date">Hatch Date</Label>
-                                    <Input id="hatch_date" v-model="form.hatch_date" type="date" />
-                                    <InputError :message="form.errors.hatch_date" />
-                                </div>
-                                <div class="grid gap-2">
-                                    <Label for="status">Status *</Label>
-                                    <select id="status" v-model="form.status" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
-                                        <option value="alive">Alive</option>
-                                        <option value="deceased">Deceased</option>
-                                        <option value="missing">Missing in race</option>
-                                    </select>
-                                    <InputError :message="form.errors.status" />
+                                    <Label for="personal_number">Personal Ring Number</Label>
+                                    <Input id="personal_number" v-model="form.personal_number" autocomplete="off" placeholder="Loft reference" />
+                                    <InputError :message="form.errors.personal_number" />
                                 </div>
                                 <div class="grid gap-2">
                                     <Label for="pigeon_status">Pigeon Status *</Label>
-                                    <select id="pigeon_status" v-model="form.pigeon_status" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                                    <select id="pigeon_status" v-model="form.pigeon_status" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                         <option value="stock">In Stock</option>
                                         <option value="racing">Racing</option>
                                         <option value="breeding">Breeding</option>
@@ -257,47 +214,72 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                 </div>
                                 <div class="grid gap-2">
                                     <Label for="race_type">Race Type *</Label>
-                                    <select id="race_type" v-model="form.race_type" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                                    <select id="race_type" v-model="form.race_type" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                         <option value="none">None / Stock / Breeding</option>
-                                        <option value="south">South Race</option>
-                                        <option value="north">North Race</option>
-                                        <option value="summer">Summer Race</option>
-                                        <option value="olr">OLR Race</option>
+                                        <option value="olr">OLR</option>
+                                        <option value="south">South</option>
+                                        <option value="north">North</option>
+                                        <option value="summer">Summer</option>
                                     </select>
                                     <InputError :message="form.errors.race_type" />
                                 </div>
                             </div>
                         </section>
 
-                        <!-- Ring & Identification -->
+                        <Separator />
+
+                        <!-- Information -->
                         <section class="space-y-6">
                             <div class="space-y-2">
-                                <h2 class="text-lg font-semibold text-foreground">Ring & Identification</h2>
-                                <p class="text-sm text-muted-foreground">Official and personal identification numbers.</p>
+                                <h2 class="text-lg font-semibold text-foreground">Information</h2>
+                                <p class="text-sm text-muted-foreground">Biological and physical characteristics.</p>
                             </div>
-                            <div class="grid gap-6 md:grid-cols-2">
+                            <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="grid gap-2">
-                                    <Label for="ring_number">Ring number *</Label>
-                                    <Input id="ring_number" v-model="form.ring_number" required autocomplete="off" placeholder="e.g. PH 2024-12345" />
-                                    <InputError :message="form.errors.ring_number" />
+                                    <Label for="status">Status *</Label>
+                                    <select id="status" v-model="form.status" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                        <option value="alive">Alive</option>
+                                        <option value="deceased">Deceased</option>
+                                        <option value="missing">Missing in race</option>
+                                    </select>
+                                    <InputError :message="form.errors.status" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label for="personal_number">Personal number</Label>
-                                    <Input id="personal_number" v-model="form.personal_number" autocomplete="off" placeholder="Loft reference" />
-                                    <InputError :message="form.errors.personal_number" />
+                                    <Label for="hatch_date">Hatch Date</Label>
+                                    <Input id="hatch_date" v-model="form.hatch_date" type="date" />
+                                    <InputError :message="form.errors.hatch_date" />
                                 </div>
-                            </div>
-                            <div class="grid gap-2 md:w-1/2">
-                                <Label for="color">Color</Label>
-                                <Input id="color" v-model="form.color" autocomplete="off" placeholder="Blue bar, checkered, etc." />
-                                <InputError :message="form.errors.color" />
+                                <div class="grid gap-2">
+                                    <Label for="gender">Gender</Label>
+                                    <select id="gender" v-model="form.gender" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                        <option value="">Not specified</option>
+                                        <option value="male">Male (Cock)</option>
+                                        <option value="female">Female (Hen)</option>
+                                    </select>
+                                    <InputError :message="form.errors.gender" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="color">Color</Label>
+                                    <Input id="color" v-model="form.color" autocomplete="off" placeholder="Blue bar, checkered, etc." list="color-list" />
+                                    <datalist id="color-list">
+                                        <option v-for="colorOption in colors" :key="colorOption" :value="colorOption" />
+                                    </datalist>
+                                    <InputError :message="form.errors.color" />
+                                </div>
                             </div>
                             <div class="grid gap-2">
                                 <Label for="remarks">Remarks</Label>
-                                <textarea id="remarks" v-model="form.remarks" rows="3" class="min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground" placeholder="Quick notes like race results" />
+                                <textarea id="remarks" v-model="form.remarks" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Quick notes like race results" />
                                 <InputError :message="form.errors.remarks" />
                             </div>
+                            <div class="grid gap-2">
+                                <Label for="notes">Notes</Label>
+                                <textarea id="notes" v-model="form.notes" rows="4" class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Detailed notes about breeding performance, health history, etc." />
+                                <InputError :message="form.errors.notes" />
+                            </div>
                         </section>
+
+                        <Separator />
 
                         <!-- Parents -->
                         <section class="space-y-6">
@@ -305,12 +287,12 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                 <h2 class="text-lg font-semibold text-foreground">Parents</h2>
                                 <p class="text-sm text-muted-foreground">Link existing breeding/racing birds or capture external details.</p>
                             </div>
-                            <div class="grid gap-6 md:grid-cols-2">
+                            <div class="grid gap-6 sm:grid-cols-2">
                                 <!-- Sire -->
                                 <div class="space-y-4 rounded-lg border border-border/70 p-4">
                                     <div class="space-y-2">
                                         <Label for="sire_id">Sire (Male parent)</Label>
-                                        <select id="sire_id" v-model="sireId" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                                        <select id="sire_id" v-model="sireId" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                             <option value="">Unlinked / External</option>
                                             <option v-for="option in props.parentOptions.sires" :key="`sire-${option.id}`" :value="option.id.toString()">{{ option.label || `Pigeon #${option.id}` }}</option>
                                         </select>
@@ -333,7 +315,7 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                     </div>
                                     <div class="grid gap-2">
                                         <Label for="sire_notes">Sire notes</Label>
-                                        <textarea id="sire_notes" v-model="form.sire_notes" rows="3" class="min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground" />
+                                        <textarea id="sire_notes" v-model="form.sire_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
                                         <InputError :message="form.errors.sire_notes" />
                                     </div>
                                 </div>
@@ -341,7 +323,7 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                 <div class="space-y-4 rounded-lg border border-border/70 p-4">
                                     <div class="space-y-2">
                                         <Label for="dam_id">Dam (Female parent)</Label>
-                                        <select id="dam_id" v-model="damId" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]">
+                                        <select id="dam_id" v-model="damId" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                             <option value="">Unlinked / External</option>
                                             <option v-for="option in props.parentOptions.dams" :key="`dam-${option.id}`" :value="option.id.toString()">{{ option.label || `Pigeon #${option.id}` }}</option>
                                         </select>
@@ -364,36 +346,38 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                     </div>
                                     <div class="grid gap-2">
                                         <Label for="dam_notes">Dam notes</Label>
-                                        <textarea id="dam_notes" v-model="form.dam_notes" rows="3" class="min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground" />
+                                        <textarea id="dam_notes" v-model="form.dam_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
                                         <InputError :message="form.errors.dam_notes" />
                                     </div>
                                 </div>
                             </div>
                         </section>
 
-                        <!-- Photos & Notes -->
+                        <Separator />
+
+                        <!-- Photos & Pedigree -->
                         <section class="space-y-6">
                             <div class="space-y-2">
-                                <h2 class="text-lg font-semibold text-foreground">Photos & Notes</h2>
-                                <p class="text-sm text-muted-foreground">Add visual documentation and detailed notes.</p>
+                                <h2 class="text-lg font-semibold text-foreground">Photos & Pedigree</h2>
+                                <p class="text-sm text-muted-foreground">Add visual documentation.</p>
                             </div>
-                            <div class="grid gap-2">
-                                <Label for="photos">Photo URLs ({{ photosCount }} added)</Label>
-                                <textarea id="photos" v-model="photosText" rows="4" class="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground" placeholder="https://example.com/pigeon-1.jpg&#10;https://example.com/pigeon-2.jpg" />
-                                <InputError :message="form.errors.photos" />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="pedigree_image">Pedigree Image URL</Label>
-                                <Input id="pedigree_image" v-model="form.pedigree_image" autocomplete="off" placeholder="https://example.com/pedigree.jpg" />
-                                <p class="text-xs text-muted-foreground">Upload an existing or handwritten pedigree image</p>
-                                <InputError :message="form.errors.pedigree_image" />
-                            </div>
-                            <div class="grid gap-2">
-                                <Label for="notes">Notes</Label>
-                                <textarea id="notes" v-model="form.notes" rows="4" class="min-h-[128px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground" placeholder="Detailed notes about breeding performance, health history, etc." />
-                                <InputError :message="form.errors.notes" />
+                            <div class="grid gap-4">
+                                <div class="grid gap-2">
+                                    <Label for="photos">Photo URLs ({{ photosCount}} added)</Label>
+                                    <textarea id="photos" v-model="photosText" rows="4" class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="https://example.com/pigeon-1.jpg&#10;https://example.com/pigeon-2.jpg" />
+                                    <p class="text-xs text-muted-foreground">Enter one URL per line</p>
+                                    <InputError :message="form.errors.photos" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="pedigree_image">Pedigree Image URL</Label>
+                                    <Input id="pedigree_image" v-model="form.pedigree_image" autocomplete="off" placeholder="https://example.com/pedigree.jpg" />
+                                    <p class="text-xs text-muted-foreground">Upload an existing or handwritten pedigree image</p>
+                                    <InputError :message="form.errors.pedigree_image" />
+                                </div>
                             </div>
                         </section>
+
+                        <Separator />
 
                         <!-- Sales Settings -->
                         <section class="space-y-6">
@@ -407,7 +391,7 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                     <Label for="for_sale" class="font-medium">Mark as for sale</Label>
                                 </div>
                                 <div v-if="form.for_sale" class="space-y-4 rounded-lg border border-border/70 bg-muted/20 p-4">
-                                    <div class="grid gap-2 md:w-1/2">
+                                    <div class="grid gap-2 sm:w-1/2">
                                         <Label for="sale_price">Sale Price ($)</Label>
                                         <Input id="sale_price" v-model="form.sale_price" type="number" step="0.01" min="0" autocomplete="off" placeholder="0.00" />
                                         <InputError :message="form.errors.sale_price" />
@@ -418,34 +402,24 @@ const submit = () => { form.put(update({ pigeon: props.pigeon.id }).url, { prese
                                     </div>
                                     <div class="grid gap-2">
                                         <Label for="sale_description">Sale Description</Label>
-                                        <textarea id="sale_description" v-model="form.sale_description" rows="3" class="min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground" placeholder="Describe why this pigeon is for sale, special qualities, achievements, etc." />
+                                        <textarea id="sale_description" v-model="form.sale_description" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Describe why this pigeon is for sale, special qualities, achievements, etc." />
                                         <InputError :message="form.errors.sale_description" />
                                     </div>
                                 </div>
                             </div>
                         </section>
+
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                            <Button variant="outline" type="button" as-child class="w-full sm:w-auto">
+                                <Link :href="show({ pigeon: pigeon.id }).url">Cancel</Link>
+                            </Button>
+                            <Button type="submit" :disabled="form.processing" class="w-full sm:w-auto">
+                                Save changes
+                            </Button>
+                        </div>
                     </form>
                 </CardContent>
             </Card>
-
-            <!-- Notification Popup -->
-            <Transition
-                enter-active-class="transition ease-out duration-300"
-                enter-from-class="opacity-0 translate-y-2"
-                enter-to-class="opacity-100 translate-y-0"
-                leave-active-class="transition ease-in duration-200"
-                leave-from-class="opacity-100 translate-y-0"
-                leave-to-class="opacity-0 translate-y-2"
-            >
-                <div v-if="showNotification" class="fixed bottom-6 right-6 z-50 rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg">
-                    <div class="flex items-center gap-2">
-                        <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <p class="text-sm font-medium text-green-900">Changes saved successfully</p>
-                    </div>
-                </div>
-            </Transition>
         </div>
     </AppLayout>
 </template>

@@ -15,26 +15,103 @@ class PigeonController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        
+        $perPage = $request->input('per_page', 10);
+        $perPage = in_array($perPage, [10, 20, 50, 100]) ? $perPage : 10;
 
-        $pigeons = Pigeon::query()
+        $query = Pigeon::query()
             ->with([
                 'sire:id,ring_number,personal_number,color',
                 'dam:id,ring_number,personal_number,color',
             ])
-            ->where('user_id', $user->id)
-            ->latest()
-            ->paginate(10)
+            ->where('user_id', $user->id);
+
+        // Search functionality
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('ring_number', 'like', "%{$search}%")
+                    ->orWhere('personal_number', 'like', "%{$search}%")
+                    ->orWhere('bloodline', 'like', "%{$search}%")
+                    ->orWhere('color', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by status
+        if ($status = $request->input('status')) {
+            $query->where('status', $status);
+        }
+
+        // Filter by pigeon_status
+        if ($pigeonStatus = $request->input('pigeon_status')) {
+            $query->where('pigeon_status', $pigeonStatus);
+        }
+
+        // Filter by race_type
+        if ($raceType = $request->input('race_type')) {
+            $query->where('race_type', $raceType);
+        }
+
+        // Filter by bloodline
+        if ($bloodline = $request->input('bloodline')) {
+            $query->where('bloodline', $bloodline);
+        }
+
+        $pigeons = $query->latest()
+            ->paginate($perPage)
+            ->withQueryString()
             ->through(fn (Pigeon $pigeon) => $this->transformPigeon($pigeon));
+
+        // Get unique bloodlines for filter
+        $bloodlines = Pigeon::where('user_id', $user->id)
+            ->whereNotNull('bloodline')
+            ->distinct()
+            ->orderBy('bloodline')
+            ->pluck('bloodline');
+
+        // Get unique colors for filter
+        $colors = Pigeon::where('user_id', $user->id)
+            ->whereNotNull('color')
+            ->distinct()
+            ->orderBy('color')
+            ->pluck('color');
 
         return Inertia::render('pigeons/Index', [
             'pigeons' => $pigeons,
+            'bloodlines' => $bloodlines,
+            'colors' => $colors,
+            'filters' => [
+                'search' => $request->input('search'),
+                'status' => $request->input('status'),
+                'pigeon_status' => $request->input('pigeon_status'),
+                'race_type' => $request->input('race_type'),
+                'bloodline' => $request->input('bloodline'),
+                'per_page' => $perPage,
+            ],
         ]);
     }
 
     public function create(Request $request): Response
     {
+        $user = $request->user();
+        
+        // Get unique bloodlines and colors for autocomplete
+        $bloodlines = Pigeon::where('user_id', $user->id)
+            ->whereNotNull('bloodline')
+            ->distinct()
+            ->orderBy('bloodline')
+            ->pluck('bloodline');
+            
+        $colors = Pigeon::where('user_id', $user->id)
+            ->whereNotNull('color')
+            ->distinct()
+            ->orderBy('color')
+            ->pluck('color');
+
         return Inertia::render('pigeons/Create', [
-            'parentOptions' => $this->parentOptions($request->user()->id),
+            'parentOptions' => $this->parentOptions($user->id),
+            'bloodlines' => $bloodlines,
+            'colors' => $colors,
         ]);
     }
 
@@ -72,10 +149,27 @@ class PigeonController extends Controller
     public function edit(Request $request, Pigeon $pigeon): Response
     {
         $this->ensureOwner($request, $pigeon);
+        
+        $user = $request->user();
+        
+        // Get unique bloodlines and colors for autocomplete
+        $bloodlines = Pigeon::where('user_id', $user->id)
+            ->whereNotNull('bloodline')
+            ->distinct()
+            ->orderBy('bloodline')
+            ->pluck('bloodline');
+            
+        $colors = Pigeon::where('user_id', $user->id)
+            ->whereNotNull('color')
+            ->distinct()
+            ->orderBy('color')
+            ->pluck('color');
 
         return Inertia::render('pigeons/Edit', [
             'pigeon' => $this->transformPigeon($pigeon),
-            'parentOptions' => $this->parentOptions($request->user()->id, $pigeon->id),
+            'parentOptions' => $this->parentOptions($user->id, $pigeon->id),
+            'bloodlines' => $bloodlines,
+            'colors' => $colors,
         ]);
     }
 
@@ -140,6 +234,7 @@ class PigeonController extends Controller
         return [
             'id' => $pigeon->id,
             'name' => $pigeon->name,
+            'bloodline' => $pigeon->bloodline,
             'gender' => $pigeon->gender,
             'hatch_date' => $pigeon->hatch_date?->format('Y-m-d'),
             'status' => $pigeon->status,
