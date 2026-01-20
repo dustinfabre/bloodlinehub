@@ -135,10 +135,13 @@ const raceTypeBadge = (type: string) => {
     return { label: 'None', variant: 'outline' as const };
 };
 
+const { success } = useToast();
+
 const handleDelete = (pigeon: Pigeon) => {
     if (!confirm(`Delete ${pigeonLabel(pigeon)}? This action cannot be undone.`)) return;
     router.delete(`/pigeons/${pigeon.id}`, {
         preserveScroll: true,
+        onSuccess: () => success('Pigeon deleted successfully!'),
     });
 };
 

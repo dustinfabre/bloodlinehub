@@ -151,9 +151,12 @@ watch(damId, (value) => {
 
 const photosCount = computed(() => form.photos.length);
 
+const { success } = useToast();
+
 const submit = () => {
     form.patch(update({ pigeon: props.pigeon.id }).url, {
         preserveScroll: true,
+        onSuccess: () => success('Pigeon updated successfully!'),
     });
 };
 </script>

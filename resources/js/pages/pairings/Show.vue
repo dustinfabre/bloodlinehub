@@ -14,6 +14,7 @@ import { index as pairingsIndex, edit as pairingsEdit, endSession as pairingsEnd
 import { create as pigeonsCreate, show as pigeonsShow } from '@/routes/pigeons';
 import { store as clutchStore, update as clutchUpdate, destroy as clutchDestroy } from '@/routes/pairings/clutches';
 import { type BreadcrumbItem } from '@/types';
+import { useToast } from '@/composables/useToast';
 
 interface Pigeon {
     id: number;
@@ -66,6 +67,8 @@ const showDeleteClutch = ref(false);
 const showEndSession = ref(false);
 const selectedClutch = ref<Clutch | null>(null);
 
+const { success } = useToast();
+
 const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -96,6 +99,7 @@ const addClutch = () => {
         onSuccess: () => {
             clutchForm.reset();
             showAddClutch.value = false;
+            success('Clutch added successfully!');
         },
     });
 };
@@ -118,6 +122,7 @@ const updateClutch = () => {
             editClutchForm.reset();
             showEditClutch.value = false;
             selectedClutch.value = null;
+            success('Clutch updated successfully!');
         },
     });
 };
@@ -135,6 +140,7 @@ const deleteClutch = () => {
         onSuccess: () => {
             showDeleteClutch.value = false;
             selectedClutch.value = null;
+            success('Clutch deleted successfully!');
         },
     });
 };
@@ -154,6 +160,7 @@ const endSession = () => {
         preserveScroll: true,
         onSuccess: () => {
             showEndSession.value = false;
+            success('Breeding session ended successfully!');
         },
     });
 };

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { index as salesIndex, store as salesStore, destroy as salesDestroy } from '@/routes/sales';
+import { useToast } from '@/composables/useToast';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';

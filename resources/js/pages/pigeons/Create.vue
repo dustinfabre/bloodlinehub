@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { index as indexRoute, store } from '@/routes/pigeons';
+import { useToast } from '@/composables/useToast';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { type BreadcrumbItem } from '@/types';

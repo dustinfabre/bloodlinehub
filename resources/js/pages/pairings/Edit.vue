@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { show as pairingsShow, update as pairingsUpdate, index as pairingsIndex } from '@/routes/pairings';
+import { useToast } from '@/composables/useToast';
 import { type BreadcrumbItem } from '@/types';
 
 interface Pigeon {
@@ -43,9 +44,12 @@ const form = useForm({
     pair_name: props.pairing.pair_name,
 });
 
+const { success } = useToast();
+
 const submit = () => {
     form.patch(pairingsUpdate(props.pairing.id).url, {
         preserveScroll: true,
+        onSuccess: () => success('Pairing updated successfully!'),
     });
 };
 </script>

@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { index as pairingsIndex, create as pairingsCreate, show as pairingsShow, edit as pairingsEdit, destroy as pairingsDestroy } from '@/routes/pairings';
 import { show as pigeonsShow } from '@/routes/pigeons';
+import { useToast } from '@/composables/useToast';
 import { type BreadcrumbItem } from '@/types';
 
 interface Pigeon {
