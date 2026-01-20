@@ -48,6 +48,8 @@ class Pigeon extends Model
     protected $casts = [
         'photos' => 'array',
         'hatch_date' => 'date',
+        'for_sale' => 'boolean',
+        'hide_price' => 'boolean',
     ];
 
     public function user(): BelongsTo

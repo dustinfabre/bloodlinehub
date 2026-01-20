@@ -1,19 +1,24 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue';
 import { useForm, Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { index as pairingsIndex, store as pairingsStore } from '@/routes/pairings';
 import { type BreadcrumbItem } from '@/types';
+import { Check, ChevronsUpDown } from 'lucide-vue-next';
+import { cn } from '@/lib/utils';
 
 interface Pigeon {
     id: number;
     name: string;
     ring_number: string;
     bloodline?: string;
+    color?: string;
 }
 
 interface Props {
@@ -33,6 +38,45 @@ const form = useForm({
     dam_id: '',
     pair_name: '',
 });
+
+const openSire = ref(false);
+const openDam = ref(false);
+const sireSearch = ref('');
+const damSearch = ref('');
+
+const filteredSires = computed(() => {
+    if (!sireSearch.value) return props.sires;
+    const search = sireSearch.value.toLowerCase();
+    return props.sires.filter(s => 
+        s.name.toLowerCase().includes(search) ||
+        s.ring_number.toLowerCase().includes(search) ||
+        s.bloodline?.toLowerCase().includes(search) ||
+        s.color?.toLowerCase().includes(search)
+    );
+});
+
+const filteredDams = computed(() => {
+    if (!damSearch.value) return props.dams;
+    const search = damSearch.value.toLowerCase();
+    return props.dams.filter(d => 
+        d.name.toLowerCase().includes(search) ||
+        d.ring_number.toLowerCase().includes(search) ||
+        d.bloodline?.toLowerCase().includes(search) ||
+        d.color?.toLowerCase().includes(search)
+    );
+});
+
+const selectedSire = computed(() => props.sires.find(s => s.id.toString() === form.sire_id));
+const selectedDam = computed(() => props.dams.find(d => d.id.toString() === form.dam_id));
+
+const formatPigeonLabel = (pigeon: Pigeon) => {
+    let label = `${pigeon.name} - ${pigeon.ring_number}`;
+    const details = [];
+    if (pigeon.bloodline) details.push(pigeon.bloodline);
+    if (pigeon.color) details.push(pigeon.color);
+    if (details.length) label += ` (${details.join(', ')})`;
+    return label;
+};
 
 const submit = () => {
     form.post(pairingsStore().url, {
@@ -68,19 +112,51 @@ const submit = () => {
                         <!-- Sire Selection -->
                         <div class="space-y-2">
                             <Label for="sire_id">Sire (Male) *</Label>
-                            <Select v-model="form.sire_id" required>
-                                <SelectTrigger id="sire_id">
-                                    <SelectValue placeholder="Select a sire..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="sire in sires" :key="sire.id" :value="sire.id.toString()">
-                                        {{ sire.name }} - {{ sire.ring_number }}
-                                        <span v-if="sire.bloodline" class="text-muted-foreground text-sm">
-                                            ({{ sire.bloodline }})
-                                        </span>
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Popover v-model:open="openSire">
+                                <PopoverTrigger as-child>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        :aria-expanded="openSire"
+                                        class="w-full justify-between"
+                                    >
+                                        {{ selectedSire ? formatPigeonLabel(selectedSire) : "Select a sire..." }}
+                                        <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent class="w-full p-0" align="start">
+                                    <Command>
+                                        <CommandInput v-model="sireSearch" placeholder="Search sires..." />
+                                        <CommandList>
+                                            <CommandEmpty>No sire found.</CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    v-for="sire in filteredSires"
+                                                    :key="sire.id"
+                                                    :value="sire.id.toString()"
+                                                    @select="() => {
+                                                        form.sire_id = sire.id.toString();
+                                                        openSire = false;
+                                                    }"
+                                                >
+                                                    <Check
+                                                        :class="cn(
+                                                            'mr-2 h-4 w-4',
+                                                            form.sire_id === sire.id.toString() ? 'opacity-100' : 'opacity-0'
+                                                        )"
+                                                    />
+                                                    <div class="flex flex-col">
+                                                        <span class="font-medium">{{ sire.name }} - {{ sire.ring_number }}</span>
+                                                        <span v-if="sire.bloodline || sire.color" class="text-xs text-muted-foreground">
+                                                            {{ [sire.bloodline, sire.color].filter(Boolean).join(' • ') }}
+                                                        </span>
+                                                    </div>
+                                                </CommandItem>
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                             <p v-if="form.errors.sire_id" class="text-sm text-destructive">
                                 {{ form.errors.sire_id }}
                             </p>
@@ -89,19 +165,51 @@ const submit = () => {
                         <!-- Dam Selection -->
                         <div class="space-y-2">
                             <Label for="dam_id">Dam (Female) *</Label>
-                            <Select v-model="form.dam_id" required>
-                                <SelectTrigger id="dam_id">
-                                    <SelectValue placeholder="Select a dam..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem v-for="dam in dams" :key="dam.id" :value="dam.id.toString()">
-                                        {{ dam.name }} - {{ dam.ring_number }}
-                                        <span v-if="dam.bloodline" class="text-muted-foreground text-sm">
-                                            ({{ dam.bloodline }})
-                                        </span>
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Popover v-model:open="openDam">
+                                <PopoverTrigger as-child>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        :aria-expanded="openDam"
+                                        class="w-full justify-between"
+                                    >
+                                        {{ selectedDam ? formatPigeonLabel(selectedDam) : "Select a dam..." }}
+                                        <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent class="w-full p-0" align="start">
+                                    <Command>
+                                        <CommandInput v-model="damSearch" placeholder="Search dams..." />
+                                        <CommandList>
+                                            <CommandEmpty>No dam found.</CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    v-for="dam in filteredDams"
+                                                    :key="dam.id"
+                                                    :value="dam.id.toString()"
+                                                    @select="() => {
+                                                        form.dam_id = dam.id.toString();
+                                                        openDam = false;
+                                                    }"
+                                                >
+                                                    <Check
+                                                        :class="cn(
+                                                            'mr-2 h-4 w-4',
+                                                            form.dam_id === dam.id.toString() ? 'opacity-100' : 'opacity-0'
+                                                        )"
+                                                    />
+                                                    <div class="flex flex-col">
+                                                        <span class="font-medium">{{ dam.name }} - {{ dam.ring_number }}</span>
+                                                        <span v-if="dam.bloodline || dam.color" class="text-xs text-muted-foreground">
+                                                            {{ [dam.bloodline, dam.color].filter(Boolean).join(' • ') }}
+                                                        </span>
+                                                    </div>
+                                                </CommandItem>
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                             <p v-if="form.errors.dam_id" class="text-sm text-destructive">
                                 {{ form.errors.dam_id }}
                             </p>

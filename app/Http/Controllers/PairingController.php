@@ -13,8 +13,14 @@ use Illuminate\Http\RedirectResponse;
 
 class PairingController extends Controller
 {
-    /**
-     * Display a listing of pairings.
+    /**     * Get the appropriate case-insensitive LIKE operator for the current database.
+     */
+    private function likeOperator(): string
+    {
+        return config('database.default') === 'pgsql' ? 'ilike' : 'like';
+    }
+
+    /**     * Display a listing of pairings.
      */
     public function index(Request $request): Response
     {
@@ -30,18 +36,19 @@ class PairingController extends Controller
 
         // Filter by pair name
         if ($request->filled('pair_name')) {
-            $query->where('pair_name', 'like', '%' . $request->pair_name . '%');
+            $query->where('pair_name', $this->likeOperator(), '%' . $request->pair_name . '%');
         }
 
         // Search across sire and dam details
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('sire', function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('ring_number', 'like', '%' . $search . '%');
-            })->orWhereHas('dam', function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('ring_number', 'like', '%' . $search . '%');
+            $likeOp = $this->likeOperator();
+            $query->whereHas('sire', function ($q) use ($search, $likeOp) {
+                $q->where('name', $likeOp, '%' . $search . '%')
+                    ->orWhere('ring_number', $likeOp, '%' . $search . '%');
+            })->orWhereHas('dam', function ($q) use ($search, $likeOp) {
+                $q->where('name', $likeOp, '%' . $search . '%')
+                    ->orWhere('ring_number', $likeOp, '%' . $search . '%');
             });
         }
 
@@ -71,7 +78,7 @@ class PairingController extends Controller
             ->whereDoesntHave('pairing', function ($query) {
                 $query->where('status', 'active');
             })
-            ->select('id', 'name', 'ring_number', 'bloodline')
+            ->select('id', 'name', 'ring_number', 'bloodline', 'color')
             ->orderBy('name')
             ->get();
 
@@ -82,7 +89,7 @@ class PairingController extends Controller
             ->whereDoesntHave('pairing', function ($query) {
                 $query->where('status', 'active');
             })
-            ->select('id', 'name', 'ring_number', 'bloodline')
+            ->select('id', 'name', 'ring_number', 'bloodline', 'color')
             ->orderBy('name')
             ->get();
 

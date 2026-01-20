@@ -20,6 +20,26 @@ class UpdatePigeonRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        // Ensure boolean fields have proper defaults when not provided
+        $this->merge([
+            'for_sale' => $this->boolean('for_sale'),
+            'hide_price' => $this->boolean('hide_price'),
+        ]);
+
+        // Uppercase name and ring_number
+        if ($this->has('name')) {
+            $this->merge(['name' => strtoupper($this->input('name'))]);
+        }
+        if ($this->has('ring_number')) {
+            $this->merge(['ring_number' => strtoupper($this->input('ring_number'))]);
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
@@ -34,7 +54,7 @@ class UpdatePigeonRequest extends FormRequest
             'name' => ['nullable', 'string', 'max:255'],
             'gender' => ['nullable', 'in:male,female'],
             'hatch_date' => ['nullable', 'date'],
-            'status' => ['required', 'in:alive,deceased,missing'],
+            'status' => ['required', 'in:alive,deceased,missing,flyaway'],
             'pigeon_status' => ['required', 'in:racing,breeding,stock'],
             'race_type' => ['required', 'in:south,north,summer,olr,none'],
             'bloodline' => ['nullable', 'string', 'max:255'],

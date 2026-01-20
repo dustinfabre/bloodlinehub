@@ -219,6 +219,7 @@ const submit = () => {
                                         <option value="alive">Alive</option>
                                         <option value="deceased">Deceased</option>
                                         <option value="missing">Missing in race</option>
+                                        <option value="flyaway">Fly away</option>
                                     </select>
                                     <InputError :message="form.errors.status" />
                                 </div>

@@ -12,6 +12,14 @@ use Inertia\Response;
 
 class PigeonController extends Controller
 {
+    /**
+     * Get the appropriate case-insensitive LIKE operator for the current database.
+     */
+    private function likeOperator(): string
+    {
+        return config('database.default') === 'pgsql' ? 'ilike' : 'like';
+    }
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -28,12 +36,13 @@ class PigeonController extends Controller
 
         // Search functionality
         if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('ring_number', 'like', "%{$search}%")
-                    ->orWhere('personal_number', 'like', "%{$search}%")
-                    ->orWhere('bloodline', 'like', "%{$search}%")
-                    ->orWhere('color', 'like', "%{$search}%");
+            $likeOp = $this->likeOperator();
+            $query->where(function ($q) use ($search, $likeOp) {
+                $q->where('name', $likeOp, "%{$search}%")
+                    ->orWhere('ring_number', $likeOp, "%{$search}%")
+                    ->orWhere('personal_number', $likeOp, "%{$search}%")
+                    ->orWhere('bloodline', $likeOp, "%{$search}%")
+                    ->orWhere('color', $likeOp, "%{$search}%");
             });
         }
 
