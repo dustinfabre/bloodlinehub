@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from 'vue-sonner';
 
 export const useToast = () => {
     const success = (message: string) => {

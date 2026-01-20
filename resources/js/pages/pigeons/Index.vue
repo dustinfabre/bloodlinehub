@@ -10,6 +10,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 import { Plus, Search, Filter, Eye, Pencil, Trash2, Bird, X } from 'lucide-vue-next';
+import { useToast } from '@/composables/useToast';
 
 interface Pigeon {
     id: number;
