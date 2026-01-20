@@ -29,6 +29,7 @@ class StorePigeonRequest extends FormRequest
             'status' => ['required', 'in:alive,deceased,missing'],
             'pigeon_status' => ['required', 'in:racing,breeding,stock'],
             'race_type' => ['required', 'in:south,north,summer,olr,none'],
+            'bloodline' => ['nullable', 'string', 'max:255'],
             'color' => ['nullable', 'string', 'max:255'],
             'ring_number' => ['required', 'string', 'max:255'],
             'personal_number' => ['nullable', 'string', 'max:255'],
