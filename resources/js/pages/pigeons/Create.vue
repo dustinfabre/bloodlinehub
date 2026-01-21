@@ -55,8 +55,8 @@ const form = useForm({
     color: '',
     remarks: '',
     notes: '',
-    photos: [] as string[],
-    pedigree_image: '',
+    photo: null as File | null,
+    pedigree_images: [] as File[],
     sire_id: null as number | null,
     dam_id: null as number | null,
     sire_name: '',
@@ -77,7 +77,8 @@ const form = useForm({
 
 const sireId = ref(props.prefill?.sire_id || '');
 const damId = ref(props.prefill?.dam_id || '');
-const photosText = ref('');
+const photoPreview = ref<string | null>(null);
+const pedigreePreviews = ref<string[]>([]);
 const sireFieldsReadonly = ref(false);
 const damFieldsReadonly = ref(false);
 
@@ -91,9 +92,39 @@ if (props.prefill?.clutch_id) {
     form.clutch_id = Number(props.prefill.clutch_id);
 }
 
-watch(photosText, (value) => {
-    form.photos = value.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
-});
+const handlePhotoChange = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file) {
+        form.photo = file;
+        photoPreview.value = URL.createObjectURL(file);
+    }
+};
+
+const handlePedigreeChange = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const files = Array.from(target.files || []);
+    if (files.length + form.pedigree_images.length > 2) {
+        alert('You can only upload up to 2 pedigree images');
+        return;
+    }
+    form.pedigree_images = [...form.pedigree_images, ...files];
+    pedigreePreviews.value = [...pedigreePreviews.value, ...files.map(file => URL.createObjectURL(file))];
+};
+
+const removePedigreeImage = (index: number) => {
+    URL.revokeObjectURL(pedigreePreviews.value[index]);
+    form.pedigree_images = form.pedigree_images.filter((_, i) => i !== index);
+    pedigreePreviews.value = pedigreePreviews.value.filter((_, i) => i !== index);
+};
+
+const removePhoto = () => {
+    if (photoPreview.value) {
+        URL.revokeObjectURL(photoPreview.value);
+    }
+    form.photo = null;
+    photoPreview.value = null;
+};
 
 watch(sireId, (value) => {
     form.sire_id = value ? Number(value) : null;
@@ -125,18 +156,25 @@ watch(damId, (value) => {
     }
 });
 
-const photosCount = computed(() => form.photos.length);
+const { success } = useToast();
 
 const submit = () => {
     form.post(store().url, {
         preserveScroll: true,
+        forceFormData: true,
         onSuccess: () => {
+            success('Pigeon created successfully!');
             form.reset();
-            photosText.value = '';
             sireId.value = '';
             damId.value = '';
             sireFieldsReadonly.value = false;
             damFieldsReadonly.value = false;
+            if (photoPreview.value) {
+                URL.revokeObjectURL(photoPreview.value);
+                photoPreview.value = null;
+            }
+            pedigreePreviews.value.forEach(url => URL.revokeObjectURL(url));
+            pedigreePreviews.value = [];
         },
     });
 };
@@ -343,16 +381,53 @@ const submit = () => {
                             </div>
                             <div class="grid gap-4">
                                 <div class="grid gap-2">
-                                    <Label for="photos">Photo URLs ({{ photosCount}} added)</Label>
-                                    <textarea id="photos" v-model="photosText" rows="4" class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="https://example.com/pigeon-1.jpg&#10;https://example.com/pigeon-2.jpg" />
-                                    <p class="text-xs text-muted-foreground">Enter one URL per line</p>
-                                    <InputError :message="form.errors.photos" />
+                                    <Label for="photo">Pigeon Photo (Max 1)</Label>
+                                    <Input 
+                                        id="photo" 
+                                        type="file" 
+                                        accept="image/*" 
+                                        @change="handlePhotoChange"
+                                    />
+                                    <div v-if="photoPreview" class="relative mt-2">
+                                        <img :src="photoPreview" alt="Photo preview" class="w-32 h-32 object-cover rounded-md" />
+                                        <Button 
+                                            type="button" 
+                                            size="sm" 
+                                            variant="destructive" 
+                                            class="absolute top-1 right-1"
+                                            @click="removePhoto"
+                                        >
+                                            Remove
+                                        </Button>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground">Images will be optimized and converted to WebP format</p>
+                                    <InputError :message="form.errors.photo" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label for="pedigree_image">Pedigree Image URL</Label>
-                                    <Input id="pedigree_image" v-model="form.pedigree_image" autocomplete="off" placeholder="https://example.com/pedigree.jpg" />
-                                    <p class="text-xs text-muted-foreground">Upload an existing or handwritten pedigree image</p>
-                                    <InputError :message="form.errors.pedigree_image" />
+                                    <Label for="pedigree_images">Pedigree Images (Max 2)</Label>
+                                    <Input 
+                                        id="pedigree_images" 
+                                        type="file" 
+                                        accept="image/*" 
+                                        multiple
+                                        @change="handlePedigreeChange"
+                                    />
+                                    <div v-if="pedigreePreviews.length > 0" class="grid grid-cols-2 gap-2 mt-2">
+                                        <div v-for="(preview, index) in pedigreePreviews" :key="index" class="relative">
+                                            <img :src="preview" alt="Pedigree preview" class="w-full h-32 object-cover rounded-md" />
+                                            <Button 
+                                                type="button" 
+                                                size="sm" 
+                                                variant="destructive" 
+                                                class="absolute top-1 right-1"
+                                                @click="removePedigreeImage(index)"
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground">Upload existing or handwritten pedigree images</p>
+                                    <InputError :message="form.errors.pedigree_images" />
                                 </div>
                             </div>
                         </section>

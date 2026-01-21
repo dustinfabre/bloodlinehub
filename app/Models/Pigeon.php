@@ -25,8 +25,8 @@ class Pigeon extends Model
         'personal_number',
         'remarks',
         'notes',
-        'photos',
-        'pedigree_image',
+        'photo_url',
+        'pedigree_images',
         'for_sale',
         'sale_price',
         'hide_price',
@@ -46,7 +46,7 @@ class Pigeon extends Model
     ];
 
     protected $casts = [
-        'photos' => 'array',
+        'pedigree_images' => 'array',
         'hatch_date' => 'date',
         'for_sale' => 'boolean',
         'hide_price' => 'boolean',

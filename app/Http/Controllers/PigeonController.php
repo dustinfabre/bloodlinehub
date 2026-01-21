@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePigeonRequest;
 use App\Http\Requests\UpdatePigeonRequest;
 use App\Models\Pigeon;
+use App\Services\ImageUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -128,11 +129,30 @@ class PigeonController extends Controller
         ]);
     }
 
-    public function store(StorePigeonRequest $request): RedirectResponse
+    public function store(StorePigeonRequest $request, ImageUploadService $imageService): RedirectResponse
     {
         $data = $request->validated();
         $data['user_id'] = $request->user()->id;
-        $data['photos'] = $data['photos'] ?? [];
+
+        // Handle photo upload
+        if ($request->hasFile('photo')) {
+            $data['photo_url'] = $imageService->upload(
+                $request->file('photo'),
+                'pigeons/photos',
+                1200,
+                85
+            );
+        }
+
+        // Handle pedigree images upload
+        if ($request->hasFile('pedigree_images')) {
+            $data['pedigree_images'] = $imageService->uploadMultiple(
+                $request->file('pedigree_images'),
+                'pigeons/pedigree',
+                1200,
+                85
+            );
+        }
 
         $pigeon = Pigeon::create($data);
 
@@ -186,10 +206,52 @@ class PigeonController extends Controller
         ]);
     }
 
-    public function update(UpdatePigeonRequest $request, Pigeon $pigeon): RedirectResponse
+    public function update(UpdatePigeonRequest $request, Pigeon $pigeon, ImageUploadService $imageService): RedirectResponse
     {
         $data = $request->validated();
-        $data['photos'] = $data['photos'] ?? [];
+
+        // Handle photo upload
+        if ($request->hasFile('photo')) {
+            // Delete old photo if exists
+            if ($pigeon->photo_url) {
+                $imageService->delete($pigeon->photo_url);
+            }
+            $data['photo_url'] = $imageService->upload(
+                $request->file('photo'),
+                'pigeons/photos',
+                1200,
+                85
+            );
+        }
+
+        // Handle photo removal
+        if ($request->input('remove_photo')) {
+            if ($pigeon->photo_url) {
+                $imageService->delete($pigeon->photo_url);
+            }
+            $data['photo_url'] = null;
+        }
+
+        // Handle pedigree images upload
+        if ($request->hasFile('pedigree_images')) {
+            $newImages = $imageService->uploadMultiple(
+                $request->file('pedigree_images'),
+                'pigeons/pedigree',
+                1200,
+                85
+            );
+            // Merge with existing pedigree images
+            $existingImages = $pigeon->pedigree_images ?? [];
+            $data['pedigree_images'] = array_merge($existingImages, $newImages);
+        }
+
+        // Handle pedigree image removal
+        if ($request->input('remove_pedigree')) {
+            $toRemove = $request->input('remove_pedigree');
+            $imageService->deleteMultiple($toRemove);
+            $existingImages = $pigeon->pedigree_images ?? [];
+            $data['pedigree_images'] = array_values(array_diff($existingImages, $toRemove));
+        }
 
         $pigeon->update($data);
 
