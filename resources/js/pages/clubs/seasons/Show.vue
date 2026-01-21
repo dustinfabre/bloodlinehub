@@ -124,7 +124,7 @@ const addEntry = () => {
 };
 
 const removeEntry = (entry: ClubSeasonEntry) => {
-    if (!confirm(`Remove ${entry.pigeon.band_number} from this season?`)) return;
+    if (!confirm(`Remove ${entry.pigeon.ring_number || entry.pigeon.name || 'this pigeon'} from this season?`)) return;
     router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/${entry.id}`, {
         preserveScroll: true,
     });
@@ -217,7 +217,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                                 :key="pigeon.id"
                                                 :value="String(pigeon.id)"
                                             >
-                                                {{ pigeon.band_number }} {{ pigeon.name ? `- ${pigeon.name}` : '' }}
+                                                {{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }} - {{ pigeon.name || 'Unnamed' }}
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -251,7 +251,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                         >
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-medium truncate">{{ entry.pigeon.band_number }}</span>
+                                    <span class="font-medium truncate">{{ entry.pigeon.ring_number || entry.pigeon.personal_number }} - {{ entry.pigeon.name || 'Unnamed' }}</span>
                                     <Badge v-if="getPigeonStatusBadge(entry.pigeon)" :variant="getPigeonStatusBadge(entry.pigeon)!.variant" class="text-xs">
                                         <AlertTriangle class="mr-1 h-3 w-3" />
                                         {{ getPigeonStatusBadge(entry.pigeon)!.label }}
@@ -282,10 +282,10 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                 :key="entry.id"
                                 :class="{ 'bg-destructive/5': entry.pigeon.status !== 'alive' }"
                             >
-                                <TableCell class="font-medium">{{ entry.pigeon.band_number }}</TableCell>
+                                <TableCell class="font-medium">{{ entry.pigeon.ring_number || entry.pigeon.personal_number }}</TableCell>
                                 <TableCell>{{ entry.pigeon.name || '-' }}</TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" class="capitalize">{{ entry.pigeon.sex }}</Badge>
+                                    <Badge variant="outline" class="capitalize">{{ entry.pigeon.gender }}</Badge>
                                 </TableCell>
                                 <TableCell>
                                     <Badge v-if="getPigeonStatusBadge(entry.pigeon)" :variant="getPigeonStatusBadge(entry.pigeon)!.variant">

@@ -200,7 +200,7 @@ const addAllEntries = () => {
 };
 
 const removeResult = (result: ClubRaceResult) => {
-    if (!confirm(`Remove ${result.pigeon.band_number} from this race?`)) return;
+    if (!confirm(`Remove ${result.pigeon.ring_number || result.pigeon.name || 'this pigeon'} from this race?`)) return;
     router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/races/${props.race.id}/results/${result.id}`, {
         preserveScroll: true,
     });
@@ -323,7 +323,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                                     :key="pigeon.id"
                                     :value="String(pigeon.id)"
                                 >
-                                    {{ pigeon.band_number }} {{ pigeon.name ? `- ${pigeon.name}` : '' }}
+                                    {{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }} - {{ pigeon.name || 'Unnamed' }}
                                 </SelectItem>
                             </SelectContent>
                         </Select>
@@ -421,7 +421,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                                 <TableCell class="font-bold">
                                     {{ result.position || '-' }}
                                 </TableCell>
-                                <TableCell class="font-medium">{{ result.pigeon.band_number }}</TableCell>
+                                <TableCell class="font-medium">{{ result.pigeon.ring_number || result.pigeon.personal_number }}</TableCell>
                                 <TableCell>{{ result.pigeon.name || '-' }}</TableCell>
                                 <TableCell>
                                     <Badge v-if="getPigeonStatusBadge(result.pigeon)" :variant="getPigeonStatusBadge(result.pigeon)!.variant" class="text-xs">
@@ -461,7 +461,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                 <DialogHeader>
                     <DialogTitle>Edit Result</DialogTitle>
                     <DialogDescription v-if="editingResult">
-                        {{ editingResult.pigeon.band_number }} {{ editingResult.pigeon.name ? `- ${editingResult.pigeon.name}` : '' }}
+                        {{ editingResult.pigeon.ring_number || editingResult.pigeon.personal_number }} - {{ editingResult.pigeon.name || 'Unnamed' }}
                     </DialogDescription>
                 </DialogHeader>
                 <div class="space-y-4 py-4">
