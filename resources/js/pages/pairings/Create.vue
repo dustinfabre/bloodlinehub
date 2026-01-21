@@ -70,39 +70,24 @@ const filteredDams = computed(() => {
 const selectedSire = computed(() => props.sires.find(s => s.id.toString() === form.sire_id));
 const selectedDam = computed(() => props.dams.find(d => d.id.toString() === form.dam_id));
 
-const formatPigeonLabel = (pigeon: Pigeon) => {
-    let label = `${pigeon.name} - ${pigeon.ring_number}`;
-    const details = [];
-    if (pigeon.bloodline) details.push(pigeon.bloodline);
-    if (pigeon.color) details.push(pigeon.color);
-    
-    // Add parent info
-    const parents = [];
-    if (pigeon.sire?.ring_number || pigeon.sire?.name) {
-        parents.push(`S: ${pigeon.sire.ring_number || ''} ${pigeon.sire.name || ''}`.trim());
-    }
-    if (pigeon.dam?.ring_number || pigeon.dam?.name) {
-        parents.push(`D: ${pigeon.dam.ring_number || ''} ${pigeon.dam.name || ''}`.trim());
-    }
-    if (parents.length) details.push(parents.join(' | '));
-    
-    // Add notes/remarks
-    if (pigeon.notes) details.push(`Notes: ${pigeon.notes}`);
-    if (pigeon.remarks) details.push(`Remarks: ${pigeon.remarks}`);
-    
-    if (details.length) label += ` (${details.join(', ')})`;
-    return label;
+// Format selected pigeon - simplified display (name/ring + bloodline)
+const formatSelectedPigeon = (pigeon: Pigeon) => {
+    const parts = [];
+    if (pigeon.name) parts.push(pigeon.name);
+    if (pigeon.ring_number) parts.push(pigeon.ring_number);
+    if (pigeon.bloodline) parts.push(`- ${pigeon.bloodline}`);
+    return parts.join(' ');
 };
 
 const selectSire = (sire: Pigeon) => {
     form.sire_id = sire.id.toString();
-    sireSearch.value = formatPigeonLabel(sire);
+    sireSearch.value = formatSelectedPigeon(sire);
     showSireDropdown.value = false;
 };
 
 const selectDam = (dam: Pigeon) => {
     form.dam_id = dam.id.toString();
-    damSearch.value = formatPigeonLabel(dam);
+    damSearch.value = formatSelectedPigeon(dam);
     showDamDropdown.value = false;
 };
 
@@ -168,11 +153,20 @@ const submit = () => {
                                     :key="sire.id"
                                     type="button"
                                     @click="selectSire(sire)"
-                                    class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b last:border-b-0 focus:outline-none focus:bg-gray-100"
+                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
                                 >
-                                    <div class="font-medium">{{ sire.name }} - {{ sire.ring_number }}</div>
-                                    <div v-if="sire.bloodline || sire.color" class="text-xs text-gray-500">
-                                        {{ [sire.bloodline, sire.color].filter(Boolean).join(' • ') }}
+                                    <div class="font-medium text-sm">{{ sire.name }} - {{ sire.ring_number }}</div>
+                                    <div class="text-xs text-gray-600 mt-1 space-y-0.5">
+                                        <div v-if="sire.bloodline || sire.color">
+                                            {{ [sire.bloodline, sire.color].filter(Boolean).join(' • ') }}
+                                        </div>
+                                        <div v-if="sire.sire || sire.dam" class="text-gray-500">
+                                            <span v-if="sire.sire">S: {{ sire.sire.ring_number || sire.sire.name }}</span>
+                                            <span v-if="sire.sire && sire.dam"> | </span>
+                                            <span v-if="sire.dam">D: {{ sire.dam.ring_number || sire.dam.name }}</span>
+                                        </div>
+                                        <div v-if="sire.notes" class="text-gray-500 italic truncate">{{ sire.notes }}</div>
+                                        <div v-if="sire.remarks" class="text-gray-500 italic truncate">{{ sire.remarks }}</div>
                                     </div>
                                 </button>
                             </div>
@@ -204,11 +198,20 @@ const submit = () => {
                                     :key="dam.id"
                                     type="button"
                                     @click="selectDam(dam)"
-                                    class="w-full px-4 py-2 text-left hover:bg-gray-100 border-b last:border-b-0 focus:outline-none focus:bg-gray-100"
+                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
                                 >
-                                    <div class="font-medium">{{ dam.name }} - {{ dam.ring_number }}</div>
-                                    <div v-if="dam.bloodline || dam.color" class="text-xs text-gray-500">
-                                        {{ [dam.bloodline, dam.color].filter(Boolean).join(' • ') }}
+                                    <div class="font-medium text-sm">{{ dam.name }} - {{ dam.ring_number }}</div>
+                                    <div class="text-xs text-gray-600 mt-1 space-y-0.5">
+                                        <div v-if="dam.bloodline || dam.color">
+                                            {{ [dam.bloodline, dam.color].filter(Boolean).join(' • ') }}
+                                        </div>
+                                        <div v-if="dam.sire || dam.dam" class="text-gray-500">
+                                            <span v-if="dam.sire">S: {{ dam.sire.ring_number || dam.sire.name }}</span>
+                                            <span v-if="dam.sire && dam.dam"> | </span>
+                                            <span v-if="dam.dam">D: {{ dam.dam.ring_number || dam.dam.name }}</span>
+                                        </div>
+                                        <div v-if="dam.notes" class="text-gray-500 italic truncate">{{ dam.notes }}</div>
+                                        <div v-if="dam.remarks" class="text-gray-500 italic truncate">{{ dam.remarks }}</div>
                                     </div>
                                 </button>
                             </div>
