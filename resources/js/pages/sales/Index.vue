@@ -98,7 +98,10 @@ const submitSale = () => {
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
 
-    form.post(salesStore().url, {
+    form.transform((data) => ({
+        ...data,
+        hide_price: data.hide_price ? 1 : 0,
+    })).post(salesStore().url, {
         preserveScroll: true,
         onSuccess: () => {
             cancelAdd();

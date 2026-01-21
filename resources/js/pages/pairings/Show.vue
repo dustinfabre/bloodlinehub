@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { index as pairingsIndex, edit as pairingsEdit, endSession as pairingsEndSession, show as pairingsShow } from '@/routes/pairings';
-import { create as pigeonsCreate, show as pigeonsShow } from '@/routes/pigeons';
+import { create as pigeonsCreate, show as pigeonsShow, store } from '@/routes/pigeons';
 import { store as clutchStore, update as clutchUpdate, destroy as clutchDestroy } from '@/routes/pairings/clutches';
 import { type BreadcrumbItem } from '@/types';
 import { useToast } from '@/composables/useToast';
@@ -65,6 +65,7 @@ const showAddClutch = ref(false);
 const showEditClutch = ref(false);
 const showDeleteClutch = ref(false);
 const showEndSession = ref(false);
+const showAddOffspring = ref(false);
 const selectedClutch = ref<Clutch | null>(null);
 
 const { success } = useToast();
@@ -90,6 +91,25 @@ const editClutchForm = useForm({
     eggs_laid_date: '',
     hatched_date: '',
     status: 'pending' as 'pending' | 'successful' | 'unsuccessful',
+    notes: '',
+});
+
+const offspringForm = useForm({
+    ring_number: '',
+    personal_number: '',
+    color: '',
+    gender: '',
+    sire_id: null as number | null,
+    dam_id: null as number | null,
+    pairing_id: null as number | null,
+    clutch_id: null as number | null,
+    hatch_date: '',
+    name: '',
+    bloodline: '',
+    pigeon_status: 'stock',
+    race_type: 'none',
+    status: 'alive',
+    remarks: '',
     notes: '',
 });
 
@@ -146,12 +166,30 @@ const deleteClutch = () => {
 };
 
 const addOffspringToClutch = (clutch: Clutch) => {
-    router.get(pigeonsCreate().url, {
-        sire_id: props.pairing.sire.id,
-        dam_id: props.pairing.dam.id,
-        pairing_id: props.pairing.id,
-        clutch_id: clutch.id,
-        hatch_date: clutch.hatched_date || undefined,
+    selectedClutch.value = clutch;
+    offspringForm.sire_id = props.pairing.sire.id;
+    offspringForm.dam_id = props.pairing.dam.id;
+    offspringForm.pairing_id = props.pairing.id;
+    offspringForm.clutch_id = clutch.id;
+    offspringForm.hatch_date = clutch.hatched_date || '';
+    offspringForm.bloodline = props.pairing.sire.bloodline || '';
+    showAddOffspring.value = true;
+};
+
+const submitOffspring = () => {
+    offspringForm.transform((data) => ({
+        ...data,
+        for_sale: 0,
+        hide_price: 0,
+    })).post(store().url, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            showAddOffspring.value = false;
+            offspringForm.reset();
+            selectedClutch.value = null;
+            success('Offspring added successfully!');
+        },
     });
 };
 
@@ -603,6 +641,90 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                             <Button variant="outline" @click="showDeleteClutch = false">Cancel</Button>
                             <Button variant="destructive" @click="deleteClutch">Delete</Button>
                         </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                <!-- Add Offspring Dialog -->
+                <Dialog v-model:open="showAddOffspring">
+                    <DialogContent class="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Add Offspring to Clutch #{{ selectedClutch?.clutch_number }}</DialogTitle>
+                            <DialogDescription>
+                                Enter basic information for the new pigeon. Parents will be linked automatically.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form @submit.prevent="submitOffspring" class="space-y-4">
+                            <div class="space-y-2">
+                                <Label for="offspring_ring_number">Ring Number *</Label>
+                                <Input
+                                    id="offspring_ring_number"
+                                    v-model="offspringForm.ring_number"
+                                    required
+                                    autofocus
+                                    autocomplete="off"
+                                    placeholder="e.g. PH 2024-12345"
+                                />
+                                <p v-if="offspringForm.errors.ring_number" class="text-sm text-red-600">
+                                    {{ offspringForm.errors.ring_number }}
+                                </p>
+                            </div>
+                            <div class="space-y-2">
+                                <Label for="offspring_personal_number">Personal Ring Number</Label>
+                                <Input
+                                    id="offspring_personal_number"
+                                    v-model="offspringForm.personal_number"
+                                    autocomplete="off"
+                                    placeholder="Loft reference"
+                                />
+                                <p v-if="offspringForm.errors.personal_number" class="text-sm text-red-600">
+                                    {{ offspringForm.errors.personal_number }}
+                                </p>
+                            </div>
+                            <div class="space-y-2">
+                                <Label for="offspring_gender">Gender</Label>
+                                <Select v-model="offspringForm.gender">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Not specified" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectItem value="">Not specified</SelectItem>
+                                            <SelectItem value="male">Male (Cock)</SelectItem>
+                                            <SelectItem value="female">Female (Hen)</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                                <p v-if="offspringForm.errors.gender" class="text-sm text-red-600">
+                                    {{ offspringForm.errors.gender }}
+                                </p>
+                            </div>
+                            <div class="space-y-2">
+                                <Label for="offspring_color">Color</Label>
+                                <Input
+                                    id="offspring_color"
+                                    v-model="offspringForm.color"
+                                    autocomplete="off"
+                                    placeholder="e.g. Blue Bar, Red Checker"
+                                />
+                                <p v-if="offspringForm.errors.color" class="text-sm text-red-600">
+                                    {{ offspringForm.errors.color }}
+                                </p>
+                            </div>
+                            <div class="rounded-lg bg-muted p-3 text-sm">
+                                <p class="font-medium mb-1">Auto-filled:</p>
+                                <p class="text-muted-foreground">Sire: {{ pairing.sire.ring_number }}</p>
+                                <p class="text-muted-foreground">Dam: {{ pairing.dam.ring_number }}</p>
+                                <p class="text-muted-foreground" v-if="selectedClutch?.hatched_date">Hatch Date: {{ formatDate(selectedClutch.hatched_date) }}</p>
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" @click="showAddOffspring = false">
+                                    Cancel
+                                </Button>
+                                <Button type="submit" :disabled="offspringForm.processing">
+                                    Add Offspring
+                                </Button>
+                            </DialogFooter>
+                        </form>
                     </DialogContent>
                 </Dialog>
 

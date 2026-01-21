@@ -269,7 +269,11 @@ watch(damId, (value) => {
 const { success } = useToast();
 
 const submit = () => {
-    form.patch(update({ pigeon: props.pigeon.id }).url, {
+    form.transform((data) => ({
+        ...data,
+        for_sale: data.for_sale ? 1 : 0,
+        hide_price: data.hide_price ? 1 : 0,
+    })).patch(update({ pigeon: props.pigeon.id }).url, {
         preserveScroll: true,
         forceFormData: true,
         onSuccess: () => success('Pigeon updated successfully!'),
