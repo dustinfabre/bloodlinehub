@@ -121,6 +121,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Club Season Entries
     Route::post('clubs/{club}/seasons/{season}/entries', [ClubSeasonController::class, 'addEntry'])
         ->name('clubs.seasons.entries.store');
+    Route::post('clubs/{club}/seasons/{season}/entries/bulk', [ClubSeasonController::class, 'addBulkEntries'])
+        ->name('clubs.seasons.entries.bulk');
     Route::delete('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'removeEntry'])
         ->name('clubs.seasons.entries.destroy');
     Route::patch('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'updateEntry'])

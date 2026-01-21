@@ -73,6 +73,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 const showAddEntryModal = ref(false);
 const showAddRaceModal = ref(false);
 const selectedPigeonId = ref<string>('');
+const searchQuery = ref('');
+const selectedPigeonIds = ref<number[]>([]);
+const selectAll = ref(false);
 
 const raceForm = useForm({
     release_point: '',
@@ -110,17 +113,56 @@ const activeEntriesCount = computed(() => {
     return props.season.entries.filter(e => e.pigeon.status === 'alive').length;
 });
 
-const addEntry = () => {
-    if (!selectedPigeonId.value) return;
-    router.post(`/clubs/${props.club.id}/seasons/${props.season.id}/entries`, {
-        pigeon_id: selectedPigeonId.value,
+const filteredPigeons = computed(() => {
+    if (!searchQuery.value) return props.availablePigeons;
+    const query = searchQuery.value.toLowerCase();
+    return props.availablePigeons.filter(p => 
+        (p.ring_number?.toLowerCase().includes(query)) ||
+        (p.personal_number?.toLowerCase().includes(query)) ||
+        (p.name?.toLowerCase().includes(query)) ||
+        (p.bloodline?.toLowerCase().includes(query)) ||
+        (p.color?.toLowerCase().includes(query))
+    );
+});
+
+const toggleSelectAll = () => {
+    if (selectAll.value) {
+        selectedPigeonIds.value = filteredPigeons.value.map(p => p.id);
+    } else {
+        selectedPigeonIds.value = [];
+    }
+};
+
+const addBulkEntries = () => {
+    if (selectedPigeonIds.value.length === 0) return;
+    
+    router.post(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/bulk`, {
+        pigeon_ids: selectedPigeonIds.value,
     }, {
         preserveScroll: true,
         onSuccess: () => {
-            selectedPigeonId.value = '';
+            selectedPigeonIds.value = [];
+            selectAll.value = false;
+            searchQuery.value = '';
             showAddEntryModal.value = false;
         },
     });
+};
+
+const addEntry = () => {
+    if (selectedPigeonIds.value.length > 0) {
+        addBulkEntries();
+    } else if (selectedPigeonId.value) {
+        router.post(`/clubs/${props.club.id}/seasons/${props.season.id}/entries`, {
+            pigeon_id: selectedPigeonId.value,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                selectedPigeonId.value = '';
+                showAddEntryModal.value = false;
+            },
+        });
+    }
 };
 
 const removeEntry = (entry: ClubSeasonEntry) => {
@@ -197,38 +239,94 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                 Add Entry
                             </Button>
                         </DialogTrigger>
-                        <DialogContent class="sm:max-w-md">
+                        <DialogContent class="sm:max-w-2xl">
                             <DialogHeader>
-                                <DialogTitle>Add Pigeon Entry</DialogTitle>
+                                <DialogTitle>Add Pigeon Entries</DialogTitle>
                                 <DialogDescription>
-                                    Select a pigeon to add to this season
+                                    Search and select pigeons to add to this season
                                 </DialogDescription>
                             </DialogHeader>
                             <div class="space-y-4 py-4">
+                                <!-- Search Input -->
                                 <div class="space-y-2">
-                                    <Label for="pigeon">Select Pigeon</Label>
-                                    <Select v-model="selectedPigeonId">
-                                        <SelectTrigger class="w-full">
-                                            <SelectValue placeholder="Select a pigeon..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem
-                                                v-for="pigeon in availablePigeons"
-                                                :key="pigeon.id"
-                                                :value="String(pigeon.id)"
-                                            >
-                                                {{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }} - {{ pigeon.name || 'Unnamed' }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Label for="search">Search Pigeons</Label>
+                                    <Input 
+                                        id="search" 
+                                        v-model="searchQuery" 
+                                        placeholder="Search by ring number, name, bloodline, color..."
+                                        class="w-full"
+                                    />
+                                </div>
+
+                                <!-- Select All Checkbox -->
+                                <div v-if="filteredPigeons.length > 0" class="flex items-center space-x-2 py-2 border-b">
+                                    <input 
+                                        type="checkbox" 
+                                        id="select-all"
+                                        v-model="selectAll"
+                                        @change="toggleSelectAll"
+                                        class="h-4 w-4 rounded border-gray-300"
+                                    />
+                                    <Label for="select-all" class="font-medium cursor-pointer">
+                                        Select All ({{ filteredPigeons.length }})
+                                    </Label>
+                                </div>
+
+                                <!-- Pigeon List with Checkboxes -->
+                                <div class="max-h-96 overflow-y-auto space-y-2">
+                                    <div v-if="filteredPigeons.length === 0" class="text-center py-8 text-muted-foreground">
+                                        No pigeons found
+                                    </div>
+                                    <div 
+                                        v-for="pigeon in filteredPigeons" 
+                                        :key="pigeon.id"
+                                        class="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer"
+                                        @click="() => {
+                                            const index = selectedPigeonIds.indexOf(pigeon.id);
+                                            if (index > -1) {
+                                                selectedPigeonIds.splice(index, 1);
+                                            } else {
+                                                selectedPigeonIds.push(pigeon.id);
+                                            }
+                                        }"
+                                    >
+                                        <input 
+                                            type="checkbox" 
+                                            :id="`pigeon-${pigeon.id}`"
+                                            :checked="selectedPigeonIds.includes(pigeon.id)"
+                                            class="h-4 w-4 rounded border-gray-300"
+                                            @click.stop
+                                            @change="() => {
+                                                const index = selectedPigeonIds.indexOf(pigeon.id);
+                                                if (index > -1) {
+                                                    selectedPigeonIds.splice(index, 1);
+                                                } else {
+                                                    selectedPigeonIds.push(pigeon.id);
+                                                }
+                                            }"
+                                        />
+                                        <Label :for="`pigeon-${pigeon.id}`" class="flex-1 cursor-pointer">
+                                            <div class="font-medium">{{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }}</div>
+                                            <div class="text-sm text-muted-foreground">
+                                                {{ pigeon.name || 'Unnamed' }}
+                                                <span v-if="pigeon.bloodline"> • {{ pigeon.bloodline }}</span>
+                                                <span v-if="pigeon.color"> • {{ pigeon.color }}</span>
+                                            </div>
+                                        </Label>
+                                    </div>
+                                </div>
+
+                                <!-- Selected Count -->
+                                <div v-if="selectedPigeonIds.length > 0" class="text-sm text-muted-foreground">
+                                    {{ selectedPigeonIds.length }} pigeon(s) selected
                                 </div>
                             </div>
                             <DialogFooter class="flex-col gap-2 sm:flex-row">
                                 <Button variant="outline" @click="showAddEntryModal = false" class="w-full sm:w-auto">
                                     Cancel
                                 </Button>
-                                <Button @click="addEntry" :disabled="!selectedPigeonId" class="w-full sm:w-auto">
-                                    Add Entry
+                                <Button @click="addEntry" :disabled="selectedPigeonIds.length === 0" class="w-full sm:w-auto">
+                                    Add {{ selectedPigeonIds.length > 0 ? `${selectedPigeonIds.length} ` : '' }}Entr{{ selectedPigeonIds.length === 1 ? 'y' : 'ies' }}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

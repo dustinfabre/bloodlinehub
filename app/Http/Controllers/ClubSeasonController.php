@@ -132,6 +132,34 @@ class ClubSeasonController extends Controller
         return back()->with('success', 'Pigeon added to season.');
     }
 
+    public function addBulkEntries(Request $request, Club $club, ClubSeason $season): RedirectResponse
+    {
+        abort_if($club->user_id !== auth()->id(), 403);
+
+        $validated = $request->validate([
+            'pigeon_ids' => ['required', 'array'],
+            'pigeon_ids.*' => ['exists:pigeons,id'],
+        ]);
+
+        // Verify all pigeons belong to the user
+        $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
+            ->where('user_id', auth()->id())
+            ->pluck('id');
+
+        if ($pigeons->count() !== count($validated['pigeon_ids'])) {
+            return back()->withErrors(['pigeon_ids' => 'Some pigeons do not belong to you.']);
+        }
+
+        // Attach all pigeons
+        foreach ($pigeons as $pigeonId) {
+            if (!$season->entries()->where('pigeon_id', $pigeonId)->exists()) {
+                $season->entries()->attach($pigeonId);
+            }
+        }
+
+        return back()->with('success', count($pigeons) . ' pigeon(s) added to season.');
+    }
+
     public function removeEntry(Club $club, ClubSeason $season, Pigeon $pigeon): RedirectResponse
     {
         abort_if($club->user_id !== auth()->id(), 403);

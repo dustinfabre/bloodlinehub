@@ -126,6 +126,19 @@ const removePhoto = () => {
     photoPreview.value = null;
 };
 
+// Auto-uppercase ring_number, name, and bloodline
+watch(() => form.ring_number, (value) => {
+    if (value) form.ring_number = value.toUpperCase();
+});
+
+watch(() => form.name, (value) => {
+    if (value) form.name = value.toUpperCase();
+});
+
+watch(() => form.bloodline, (value) => {
+    if (value) form.bloodline = value.toUpperCase();
+});
+
 watch(sireId, (value) => {
     form.sire_id = value ? Number(value) : null;
     if (value) {

@@ -45,8 +45,8 @@ const filteredSires = computed(() => {
     if (!sireSearch.value) return props.sires;
     const search = sireSearch.value.toLowerCase();
     return props.sires.filter(s => 
-        s.name.toLowerCase().includes(search) ||
-        s.ring_number.toLowerCase().includes(search) ||
+        s.name?.toLowerCase().includes(search) ||
+        s.ring_number?.toLowerCase().includes(search) ||
         s.bloodline?.toLowerCase().includes(search) ||
         s.color?.toLowerCase().includes(search)
     );
@@ -56,8 +56,8 @@ const filteredDams = computed(() => {
     if (!damSearch.value) return props.dams;
     const search = damSearch.value.toLowerCase();
     return props.dams.filter(d => 
-        d.name.toLowerCase().includes(search) ||
-        d.ring_number.toLowerCase().includes(search) ||
+        d.name?.toLowerCase().includes(search) ||
+        d.ring_number?.toLowerCase().includes(search) ||
         d.bloodline?.toLowerCase().includes(search) ||
         d.color?.toLowerCase().includes(search)
     );
