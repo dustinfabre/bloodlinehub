@@ -54,6 +54,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const page = usePage();
+const { success } = useToast();
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Breeding', href: pairingsIndex().url },
@@ -107,6 +108,7 @@ const deletePairing = (pairing: Pairing) => {
         preserveScroll: true,
         onSuccess: () => {
             pairingToDelete.value = null;
+            success('Pairing deleted successfully!');
         },
     });
 };

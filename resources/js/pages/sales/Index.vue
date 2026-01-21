@@ -54,6 +54,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { success } = useToast();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -101,6 +102,7 @@ const submitSale = () => {
         preserveScroll: true,
         onSuccess: () => {
             cancelAdd();
+            success('Pigeon added to sales successfully!');
         },
     });
 };
@@ -110,6 +112,7 @@ const removeSale = (saleId: number) => {
     
     router.delete(salesDestroy({ sale: saleId }).url, {
         preserveScroll: true,
+        onSuccess: () => success('Pigeon removed from sales successfully!'),
     });
 };
 
