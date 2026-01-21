@@ -26,6 +26,11 @@ interface ParentOption {
     ring_number: string | null;
     personal_number: string | null;
     color: string | null;
+    bloodline: string | null;
+    sire?: { ring_number?: string; name?: string; };
+    dam?: { ring_number?: string; name?: string; };
+    notes?: string;
+    remarks?: string;
     label: string;
 }
 
@@ -116,6 +121,10 @@ const form = useForm({
 
 const sireId = ref(String(props.pigeon.sire?.id ?? ''));
 const damId = ref(String(props.pigeon.dam?.id ?? ''));
+const sireSearch = ref('');
+const damSearch = ref('');
+const showSireDropdown = ref(false);
+const showDamDropdown = ref(false);
 const photoPreview = ref<string | null>(null);
 const pedigreePreviews = ref<string[]>([]);
 const sireFieldsReadonly = ref(!!props.pigeon.sire);
@@ -174,6 +183,58 @@ watch(() => form.name, (value) => {
 watch(() => form.bloodline, (value) => {
     if (value) form.bloodline = value.toUpperCase();
 });
+
+// Searchable sire/dam filtering
+const filteredSires = computed(() => {
+    if (!sireSearch.value) return props.parentOptions.sires;
+    const search = sireSearch.value.toLowerCase();
+    return props.parentOptions.sires.filter(s => 
+        s.name?.toLowerCase().includes(search) ||
+        s.ring_number?.toLowerCase().includes(search) ||
+        s.bloodline?.toLowerCase().includes(search) ||
+        s.color?.toLowerCase().includes(search)
+    );
+});
+
+const filteredDams = computed(() => {
+    if (!damSearch.value) return props.parentOptions.dams;
+    const search = damSearch.value.toLowerCase();
+    return props.parentOptions.dams.filter(d => 
+        d.name?.toLowerCase().includes(search) ||
+        d.ring_number?.toLowerCase().includes(search) ||
+        d.bloodline?.toLowerCase().includes(search) ||
+        d.color?.toLowerCase().includes(search)
+    );
+});
+
+// Format selected pigeon - simplified display (name/ring + bloodline)
+const formatSelectedParent = (parent: ParentOption) => {
+    const parts = [];
+    if (parent.name) parts.push(parent.name);
+    if (parent.ring_number) parts.push(parent.ring_number);
+    if (parent.bloodline) parts.push(`- ${parent.bloodline}`);
+    return parts.join(' ');
+};
+
+const selectSire = (sire: ParentOption) => {
+    sireId.value = sire.id.toString();
+    sireSearch.value = formatSelectedParent(sire);
+    showSireDropdown.value = false;
+};
+
+const selectDam = (dam: ParentOption) => {
+    damId.value = dam.id.toString();
+    damSearch.value = formatSelectedParent(dam);
+    showDamDropdown.value = false;
+};
+
+const handleSireBlur = () => {
+    window.setTimeout(() => showSireDropdown.value = false, 200);
+};
+
+const handleDamBlur = () => {
+    window.setTimeout(() => showDamDropdown.value = false, 200);
+};
 
 watch(sireId, (value) => {
     form.sire_id = value ? Number(value) : null;
@@ -299,6 +360,7 @@ const submit = () => {
                                         <option value="alive">Alive</option>
                                         <option value="deceased">Deceased</option>
                                         <option value="missing">Missing in race</option>
+                                        <option value="flyaway">Fly away</option>
                                     </select>
                                     <InputError :message="form.errors.status" />
                                 </div>
@@ -348,12 +410,52 @@ const submit = () => {
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <!-- Sire -->
                                 <div class="space-y-4 rounded-lg border border-border/70 p-4">
-                                    <div class="space-y-2">
-                                        <Label for="sire_id">Sire (Male parent)</Label>
-                                        <select id="sire_id" v-model="sireId" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                            <option value="">Unlinked / External</option>
-                                            <option v-for="option in props.parentOptions.sires" :key="`sire-${option.id}`" :value="option.id.toString()">{{ option.label || `Pigeon #${option.id}` }}</option>
-                                        </select>
+                                    <div class="space-y-2 relative">
+                                        <Label for="sire_search">Sire (Male parent)</Label>
+                                        <Input
+                                            id="sire_search"
+                                            v-model="sireSearch"
+                                            @focus="showSireDropdown = true"
+                                            @blur="handleSireBlur"
+                                            placeholder="Search sires by name, ring, bloodline, or color..."
+                                            autocomplete="off"
+                                        />
+                                        <div
+                                            v-if="showSireDropdown && filteredSires.length > 0"
+                                            class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto"
+                                        >
+                                            <button
+                                                type="button"
+                                                @click="() => { sireId = ''; sireSearch = ''; showSireDropdown = false; }"
+                                                class="w-full px-4 py-2 text-left hover:bg-gray-50 border-b focus:outline-none focus:bg-gray-50 text-sm text-gray-600"
+                                            >
+                                                Unlinked / External
+                                            </button>
+                                            <button
+                                                v-for="sire in filteredSires"
+                                                :key="sire.id"
+                                                type="button"
+                                                @click="selectSire(sire)"
+                                                class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
+                                            >
+                                                <div class="font-medium text-sm">{{ sire.name || 'Unnamed' }} - {{ sire.ring_number || sire.personal_number }}</div>
+                                                <div class="text-xs text-gray-600 mt-1 space-y-0.5">
+                                                    <div v-if="sire.bloodline || sire.color">
+                                                        {{ [sire.bloodline, sire.color].filter(Boolean).join(' • ') }}
+                                                    </div>
+                                                    <div v-if="sire.sire || sire.dam" class="text-gray-500">
+                                                        <span v-if="sire.sire">S: {{ sire.sire.ring_number || sire.sire.name }}</span>
+                                                        <span v-if="sire.sire && sire.dam"> | </span>
+                                                        <span v-if="sire.dam">D: {{ sire.dam.ring_number || sire.dam.name }}</span>
+                                                    </div>
+                                                    <div v-if="sire.notes" class="text-gray-500 italic truncate">{{ sire.notes }}</div>
+                                                    <div v-if="sire.remarks" class="text-gray-500 italic truncate">{{ sire.remarks }}</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                        <div v-if="showSireDropdown && filteredSires.length === 0" class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg p-4 text-center text-gray-500">
+                                            No sires found
+                                        </div>
                                         <InputError :message="form.errors.sire_id" />
                                     </div>
                                     <div class="grid gap-2">
@@ -379,12 +481,52 @@ const submit = () => {
                                 </div>
                                 <!-- Dam -->
                                 <div class="space-y-4 rounded-lg border border-border/70 p-4">
-                                    <div class="space-y-2">
-                                        <Label for="dam_id">Dam (Female parent)</Label>
-                                        <select id="dam_id" v-model="damId" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                            <option value="">Unlinked / External</option>
-                                            <option v-for="option in props.parentOptions.dams" :key="`dam-${option.id}`" :value="option.id.toString()">{{ option.label || `Pigeon #${option.id}` }}</option>
-                                        </select>
+                                    <div class="space-y-2 relative">
+                                        <Label for="dam_search">Dam (Female parent)</Label>
+                                        <Input
+                                            id="dam_search"
+                                            v-model="damSearch"
+                                            @focus="showDamDropdown = true"
+                                            @blur="handleDamBlur"
+                                            placeholder="Search dams by name, ring, bloodline, or color..."
+                                            autocomplete="off"
+                                        />
+                                        <div
+                                            v-if="showDamDropdown && filteredDams.length > 0"
+                                            class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto"
+                                        >
+                                            <button
+                                                type="button"
+                                                @click="() => { damId = ''; damSearch = ''; showDamDropdown = false; }"
+                                                class="w-full px-4 py-2 text-left hover:bg-gray-50 border-b focus:outline-none focus:bg-gray-50 text-sm text-gray-600"
+                                            >
+                                                Unlinked / External
+                                            </button>
+                                            <button
+                                                v-for="dam in filteredDams"
+                                                :key="dam.id"
+                                                type="button"
+                                                @click="selectDam(dam)"
+                                                class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
+                                            >
+                                                <div class="font-medium text-sm">{{ dam.name || 'Unnamed' }} - {{ dam.ring_number || dam.personal_number }}</div>
+                                                <div class="text-xs text-gray-600 mt-1 space-y-0.5">
+                                                    <div v-if="dam.bloodline || dam.color">
+                                                        {{ [dam.bloodline, dam.color].filter(Boolean).join(' • ') }}
+                                                    </div>
+                                                    <div v-if="dam.sire || dam.dam" class="text-gray-500">
+                                                        <span v-if="dam.sire">S: {{ dam.sire.ring_number || dam.sire.name }}</span>
+                                                        <span v-if="dam.sire && dam.dam"> | </span>
+                                                        <span v-if="dam.dam">D: {{ dam.dam.ring_number || dam.dam.name }}</span>
+                                                    </div>
+                                                    <div v-if="dam.notes" class="text-gray-500 italic truncate">{{ dam.notes }}</div>
+                                                    <div v-if="dam.remarks" class="text-gray-500 italic truncate">{{ dam.remarks }}</div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                        <div v-if="showDamDropdown && filteredDams.length === 0" class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg p-4 text-center text-gray-500">
+                                            No dams found
+                                        </div>
                                         <InputError :message="form.errors.dam_id" />
                                     </div>
                                     <div class="grid gap-2">
