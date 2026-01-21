@@ -2,6 +2,8 @@
 
 @import 'tw-animate-css';
 
+@import 'vue-sonner/style.css';
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
@@ -169,4 +171,65 @@
     body {
         @apply bg-background text-foreground;
     }
+}
+
+/* Vue Sonner Toast Customization */
+:root {
+    --normal-bg: hsl(var(--card));
+    --normal-border: hsl(var(--border));
+    --normal-text: hsl(var(--card-foreground));
+    
+    --success-bg: hsl(142.1 76.2% 36.3%);
+    --success-border: hsl(142.1 76.2% 36.3%);
+    --success-text: hsl(0 0% 100%);
+    
+    --error-bg: hsl(0 84.2% 60.2%);
+    --error-border: hsl(0 84.2% 60.2%);
+    --error-text: hsl(0 0% 100%);
+    
+    --info-bg: hsl(221.2 83.2% 53.3%);
+    --info-border: hsl(221.2 83.2% 53.3%);
+    --info-text: hsl(0 0% 100%);
+    
+    --warning-bg: hsl(38 92% 50%);
+    --warning-border: hsl(38 92% 50%);
+    --warning-text: hsl(0 0% 100%);
+}
+
+[data-sonner-toaster] {
+    --width: 356px;
+    --toast-close-button-start: auto;
+    --toast-close-button-end: 0;
+    --toast-close-button-transform: translate(-35%, -35%);
+}
+
+[data-sonner-toast] {
+    background: var(--normal-bg) !important;
+    border: 1px solid var(--normal-border) !important;
+    color: var(--normal-text) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+    background: var(--success-bg) !important;
+    border-color: var(--success-border) !important;
+    color: var(--success-text) !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+    background: var(--error-bg) !important;
+    border-color: var(--error-border) !important;
+    color: var(--error-text) !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+    background: var(--info-bg) !important;
+    border-color: var(--info-border) !important;
+    color: var(--info-text) !important;
+}
+
+[data-sonner-toast][data-type="warning"] {
+    background: var(--warning-bg) !important;
+    border-color: var(--warning-border) !important;
+    color: var(--warning-text) !important;
 }
