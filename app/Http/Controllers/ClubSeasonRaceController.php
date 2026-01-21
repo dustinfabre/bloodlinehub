@@ -52,8 +52,8 @@ class ClubSeasonRaceController extends Controller
         $race->load(['results.pigeon' => function ($query) {
             $query->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
         }]);
-        $season->load(['entries.pigeon' => function ($query) {
-            $query->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
+        $season->load(['entries' => function ($query) {
+            $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
         }]);
 
         return Inertia::render('clubs/seasons/races/Show', [

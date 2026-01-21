@@ -78,7 +78,11 @@ class PairingController extends Controller
             ->whereDoesntHave('pairing', function ($query) {
                 $query->where('status', 'active');
             })
-            ->select('id', 'name', 'ring_number', 'bloodline', 'color')
+            ->with([
+                'sire:id,ring_number,name',
+                'dam:id,ring_number,name'
+            ])
+            ->select('id', 'name', 'ring_number', 'bloodline', 'color', 'sire_id', 'dam_id', 'notes', 'remarks')
             ->orderBy('name')
             ->get();
 
@@ -89,7 +93,11 @@ class PairingController extends Controller
             ->whereDoesntHave('pairing', function ($query) {
                 $query->where('status', 'active');
             })
-            ->select('id', 'name', 'ring_number', 'bloodline', 'color')
+            ->with([
+                'sire:id,ring_number,name',
+                'dam:id,ring_number,name'
+            ])
+            ->select('id', 'name', 'ring_number', 'bloodline', 'color', 'sire_id', 'dam_id', 'notes', 'remarks')
             ->orderBy('name')
             ->get();
 

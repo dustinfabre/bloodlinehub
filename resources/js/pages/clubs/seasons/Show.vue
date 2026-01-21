@@ -15,18 +15,19 @@ import { ref, computed } from 'vue';
 
 interface Pigeon {
     id: number;
-    band_number: string;
+    ring_number: string;
+    personal_number: string;
     name: string | null;
-    sex: string;
+    gender: string;
     status?: string;
     pigeon_status?: string;
-}
-
-interface ClubSeasonEntry {
-    id: number;
-    pigeon_id: number;
-    notes: string | null;
-    pigeon: Pigeon;
+    color?: string;
+    bloodline?: string;
+    pivot?: {
+        id: number;
+        entry_number: string | null;
+        notes: string | null;
+    };
 }
 
 interface ClubSeasonRace {
@@ -49,7 +50,7 @@ interface ClubSeason {
     start_date: string | null;
     end_date: string | null;
     status: string;
-    entries: ClubSeasonEntry[];
+    entries: Pigeon[];
     races: ClubSeasonRace[];
 }
 
@@ -165,9 +166,9 @@ const addEntry = () => {
     }
 };
 
-const removeEntry = (entry: ClubSeasonEntry) => {
-    if (!confirm(`Remove ${entry.pigeon.ring_number || entry.pigeon.name || 'this pigeon'} from this season?`)) return;
-    router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/${entry.id}`, {
+const removeEntry = (entry: Pigeon) => {
+    if (!confirm(`Remove ${entry.ring_number || entry.name || 'this pigeon'} from this season?`)) return;
+    router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/${entry.pivot!.id}`, {
         preserveScroll: true,
     });
 };
@@ -345,17 +346,17 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             v-for="entry in season.entries"
                             :key="entry.id"
                             class="flex items-center justify-between rounded-lg border p-3"
-                            :class="{ 'bg-destructive/5': entry.pigeon.status !== 'alive' }"
+                            :class="{ 'bg-destructive/5': entry.status !== 'alive' }"
                         >
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-medium truncate">{{ entry.pigeon.ring_number || entry.pigeon.personal_number }} - {{ entry.pigeon.name || 'Unnamed' }}</span>
-                                    <Badge v-if="getPigeonStatusBadge(entry.pigeon)" :variant="getPigeonStatusBadge(entry.pigeon)!.variant" class="text-xs">
+                                    <span class="font-medium truncate">{{ entry.ring_number || entry.personal_number }} - {{ entry.name || 'Unnamed' }}</span>
+                                    <Badge v-if="getPigeonStatusBadge(entry)" :variant="getPigeonStatusBadge(entry)!.variant" class="text-xs">
                                         <AlertTriangle class="mr-1 h-3 w-3" />
-                                        {{ getPigeonStatusBadge(entry.pigeon)!.label }}
+                                        {{ getPigeonStatusBadge(entry)!.label }}
                                     </Badge>
                                 </div>
-                                <p class="text-sm text-muted-foreground truncate">{{ entry.pigeon.name || '-' }}</p>
+                                <p class="text-sm text-muted-foreground truncate">{{ entry.name || '-' }}</p>
                             </div>
                             <Button variant="ghost" size="sm" @click="removeEntry(entry)">
                                 <Trash2 class="h-4 w-4 text-destructive" />
@@ -378,17 +379,17 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             <TableRow
                                 v-for="entry in season.entries"
                                 :key="entry.id"
-                                :class="{ 'bg-destructive/5': entry.pigeon.status !== 'alive' }"
+                                :class="{ 'bg-destructive/5': entry.status !== 'alive' }"
                             >
-                                <TableCell class="font-medium">{{ entry.pigeon.ring_number || entry.pigeon.personal_number }}</TableCell>
-                                <TableCell>{{ entry.pigeon.name || '-' }}</TableCell>
+                                <TableCell class="font-medium">{{ entry.ring_number || entry.personal_number }}</TableCell>
+                                <TableCell>{{ entry.name || '-' }}</TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" class="capitalize">{{ entry.pigeon.gender }}</Badge>
+                                    <Badge variant="outline" class="capitalize">{{ entry.gender }}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="getPigeonStatusBadge(entry.pigeon)" :variant="getPigeonStatusBadge(entry.pigeon)!.variant">
-                                        <AlertTriangle class="mr-1 h-3 w-3" />
-                                        {{ getPigeonStatusBadge(entry.pigeon)!.label }}
+                                    <Badge v-if="getPigeonStatusBadge(entry)" :variant="getPigeonStatusBadge(entry)!.variant">
+                                        <AlertCircle v-if="entry.status !== 'alive'" class="h-3 w-3 mr-1" />
+                                        {{ getPigeonStatusBadge(entry)!.label }}
                                     </Badge>
                                     <Badge v-else variant="secondary">Active</Badge>
                                 </TableCell>

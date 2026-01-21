@@ -16,6 +16,10 @@ interface Pigeon {
     ring_number: string;
     bloodline?: string;
     color?: string;
+    sire?: { ring_number?: string; name?: string; };
+    dam?: { ring_number?: string; name?: string; };
+    notes?: string;
+    remarks?: string;
 }
 
 interface Props {
@@ -71,6 +75,21 @@ const formatPigeonLabel = (pigeon: Pigeon) => {
     const details = [];
     if (pigeon.bloodline) details.push(pigeon.bloodline);
     if (pigeon.color) details.push(pigeon.color);
+    
+    // Add parent info
+    const parents = [];
+    if (pigeon.sire?.ring_number || pigeon.sire?.name) {
+        parents.push(`S: ${pigeon.sire.ring_number || ''} ${pigeon.sire.name || ''}`.trim());
+    }
+    if (pigeon.dam?.ring_number || pigeon.dam?.name) {
+        parents.push(`D: ${pigeon.dam.ring_number || ''} ${pigeon.dam.name || ''}`.trim());
+    }
+    if (parents.length) details.push(parents.join(' | '));
+    
+    // Add notes/remarks
+    if (pigeon.notes) details.push(`Notes: ${pigeon.notes}`);
+    if (pigeon.remarks) details.push(`Remarks: ${pigeon.remarks}`);
+    
     if (details.length) label += ` (${details.join(', ')})`;
     return label;
 };

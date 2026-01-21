@@ -43,8 +43,8 @@ class ClubSeasonController extends Controller
     {
         abort_if($club->user_id !== auth()->id(), 403);
 
-        $season->load(['entries.pigeon' => function ($query) {
-            $query->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
+        $season->load(['entries' => function ($query) {
+            $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
         }, 'races' => function ($query) {
             $query->orderBy('race_date', 'desc');
         }]);
@@ -59,7 +59,7 @@ class ClubSeasonController extends Controller
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->where('pigeon_status', 'racing')
             ->where('status', 'alive')
-            ->whereNotIn('id', $season->entries->pluck('pigeon_id'))
+            ->whereNotIn('id', $season->entries->pluck('id'))
             ->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'color', 'bloodline')
             ->get();
 

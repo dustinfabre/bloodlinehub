@@ -25,8 +25,8 @@ class PigeonController extends Controller
     {
         $user = $request->user();
         
-        $perPage = $request->input('per_page', 10);
-        $perPage = in_array($perPage, [10, 20, 50, 100]) ? $perPage : 10;
+        $perPage = $request->input('per_page', 12);
+        $perPage = in_array($perPage, [12, 21, 52, 104]) ? $perPage : 12;
 
         $query = Pigeon::query()
             ->with([
@@ -359,20 +359,38 @@ class PigeonController extends Controller
             ->where('user_id', $userId)
             ->where('gender', 'male')
             ->when($excludeId, fn ($query) => $query->where('id', '<>', $excludeId))
+            ->with([
+                'sire:id,ring_number,name',
+                'dam:id,ring_number,name'
+            ])
             ->orderBy('name')
             ->orderBy('ring_number')
-            ->get(['id', 'name', 'ring_number', 'personal_number', 'color'])
+            ->get(['id', 'name', 'ring_number', 'personal_number', 'color', 'bloodline', 'sire_id', 'dam_id', 'notes', 'remarks'])
             ->map(fn (Pigeon $pigeon) => [
                 'id' => $pigeon->id,
                 'name' => $pigeon->name,
                 'ring_number' => $pigeon->ring_number,
                 'personal_number' => $pigeon->personal_number,
                 'color' => $pigeon->color,
+                'bloodline' => $pigeon->bloodline,
+                'sire' => $pigeon->sire ? [
+                    'ring_number' => $pigeon->sire->ring_number,
+                    'name' => $pigeon->sire->name,
+                ] : null,
+                'dam' => $pigeon->dam ? [
+                    'ring_number' => $pigeon->dam->ring_number,
+                    'name' => $pigeon->dam->name,
+                ] : null,
+                'notes' => $pigeon->notes,
+                'remarks' => $pigeon->remarks,
                 'label' => trim(implode(' ', array_filter([
                     $pigeon->name,
                     $pigeon->ring_number,
                     $pigeon->personal_number,
                     $pigeon->color,
+                    $pigeon->bloodline,
+                    $pigeon->sire ? "S:{$pigeon->sire->ring_number}" : null,
+                    $pigeon->dam ? "D:{$pigeon->dam->ring_number}" : null,
                 ]))),
             ]);
 
@@ -380,20 +398,38 @@ class PigeonController extends Controller
             ->where('user_id', $userId)
             ->where('gender', 'female')
             ->when($excludeId, fn ($query) => $query->where('id', '<>', $excludeId))
+            ->with([
+                'sire:id,ring_number,name',
+                'dam:id,ring_number,name'
+            ])
             ->orderBy('name')
             ->orderBy('ring_number')
-            ->get(['id', 'name', 'ring_number', 'personal_number', 'color'])
+            ->get(['id', 'name', 'ring_number', 'personal_number', 'color', 'bloodline', 'sire_id', 'dam_id', 'notes', 'remarks'])
             ->map(fn (Pigeon $pigeon) => [
                 'id' => $pigeon->id,
                 'name' => $pigeon->name,
                 'ring_number' => $pigeon->ring_number,
                 'personal_number' => $pigeon->personal_number,
                 'color' => $pigeon->color,
+                'bloodline' => $pigeon->bloodline,
+                'sire' => $pigeon->sire ? [
+                    'ring_number' => $pigeon->sire->ring_number,
+                    'name' => $pigeon->sire->name,
+                ] : null,
+                'dam' => $pigeon->dam ? [
+                    'ring_number' => $pigeon->dam->ring_number,
+                    'name' => $pigeon->dam->name,
+                ] : null,
+                'notes' => $pigeon->notes,
+                'remarks' => $pigeon->remarks,
                 'label' => trim(implode(' ', array_filter([
                     $pigeon->name,
                     $pigeon->ring_number,
                     $pigeon->personal_number,
                     $pigeon->color,
+                    $pigeon->bloodline,
+                    $pigeon->sire ? "S:{$pigeon->sire->ring_number}" : null,
+                    $pigeon->dam ? "D:{$pigeon->dam->ring_number}" : null,
                 ]))),
             ]);
 

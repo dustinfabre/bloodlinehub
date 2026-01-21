@@ -18,6 +18,11 @@ interface ParentOption {
     ring_number: string | null;
     personal_number: string | null;
     color: string | null;
+    bloodline: string | null;
+    sire?: { ring_number?: string; name?: string; };
+    dam?: { ring_number?: string; name?: string; };
+    notes?: string;
+    remarks?: string;
     label: string;
 }
 
