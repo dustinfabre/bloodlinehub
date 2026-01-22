@@ -513,9 +513,11 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                         </p>
                                         <Button
                                             size="sm"
-                                            variant="ghost"
+                                            variant="default"
                                             @click="addOffspringToClutch(clutch)"
+                                            class="gap-1.5"
                                         >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                                             Add Offspring
                                         </Button>
                                     </div>
@@ -663,6 +665,7 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                     autofocus
                                     autocomplete="off"
                                     placeholder="e.g. PH 2024-12345"
+                                    @input="offspringForm.ring_number = ($event.target as HTMLInputElement).value.toUpperCase()"
                                 />
                                 <p v-if="offspringForm.errors.ring_number" class="text-sm text-red-600">
                                     {{ offspringForm.errors.ring_number }}

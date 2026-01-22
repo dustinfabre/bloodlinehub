@@ -19,5 +19,9 @@ class DatabaseSeeder extends Seeder
             'name' => 'Dustin Fabre',
             'email' => 'dac.fabre@gmail.com',
         ]);
+
+        $this->call([
+            PigeonSeeder::class,
+        ]);
     }
 }

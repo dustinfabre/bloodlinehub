@@ -134,10 +134,6 @@ class PigeonController extends Controller
         $data = $request->validated();
         $data['user_id'] = $request->user()->id;
 
-        // Explicitly cast boolean fields for PostgreSQL
-        $data['for_sale'] = (bool) ($data['for_sale'] ?? false);
-        $data['hide_price'] = (bool) ($data['hide_price'] ?? false);
-
         // Handle photo upload
         if ($request->hasFile('photo')) {
             $data['photo_url'] = $imageService->upload(
@@ -213,10 +209,6 @@ class PigeonController extends Controller
     public function update(UpdatePigeonRequest $request, Pigeon $pigeon, ImageUploadService $imageService): RedirectResponse
     {
         $data = $request->validated();
-
-        // Explicitly cast boolean fields for PostgreSQL
-        $data['for_sale'] = (bool) ($data['for_sale'] ?? false);
-        $data['hide_price'] = (bool) ($data['hide_price'] ?? false);
 
         // Handle photo upload
         if ($request->hasFile('photo')) {
