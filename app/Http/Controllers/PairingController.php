@@ -172,9 +172,17 @@ class PairingController extends Controller
             abort(403);
         }
 
-        $pairing->load(['sire', 'dam', 'offspring', 'clutches' => function ($query) {
-            $query->orderBy('clutch_number');
-        }]);
+        $pairing->load([
+            'sire', 
+            'dam', 
+            'offspring' => function ($query) {
+                $query->orderBy('hatch_date', 'desc')
+                      ->orderBy('created_at', 'desc');
+            }, 
+            'clutches' => function ($query) {
+                $query->orderBy('clutch_number');
+            }
+        ]);
 
         return Inertia::render('pairings/Show', [
             'pairing' => $pairing,

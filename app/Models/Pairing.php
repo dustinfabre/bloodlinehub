@@ -56,7 +56,7 @@ class Pairing extends Model
      */
     public function offspring(): HasMany
     {
-        return $this->hasMany(Pigeon::class, 'pairing_id');
+        return $this->hasMany(Pigeon::class, 'clutch_id');
     }
 
     /**

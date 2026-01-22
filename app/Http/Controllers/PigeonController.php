@@ -153,8 +153,11 @@ class PigeonController extends Controller
                 85
             );
         }
+        \Log::info('Creating pigeon with data: ', $data);
 
         $pigeon = Pigeon::create($data);
+
+        \Log::info('Created pigeon: ', $pigeon->toArray());
 
         // If creating offspring from a pairing, redirect back to the pairing page
         if ($request->input('pairing_id')) {

@@ -62,6 +62,8 @@ class StorePigeonRequest extends FormRequest
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'hide_price' => ['boolean'],
             'sale_description' => ['nullable', 'string'],
+            'clutch_id' => ['nullable','integer'],
+                
 
             'sire_id' => [
                 'nullable',

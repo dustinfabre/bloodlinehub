@@ -147,6 +147,10 @@ const updateClutch = () => {
     });
 };
 
+const hatchToday = () => {
+    editClutchForm.hatched_date = getTodayDate();
+};
+
 const openDeleteClutch = (clutch: Clutch) => {
     selectedClutch.value = clutch;
     showDeleteClutch.value = true;
@@ -167,6 +171,10 @@ const deleteClutch = () => {
 
 const addOffspringToClutch = (clutch: Clutch) => {
     selectedClutch.value = clutch;
+    // Reset form first
+    offspringForm.clearErrors();
+    offspringForm.reset();
+    // Then set the values
     offspringForm.sire_id = props.pairing.sire.id;
     offspringForm.dam_id = props.pairing.dam.id;
     offspringForm.pairing_id = props.pairing.id;
@@ -179,18 +187,14 @@ const addOffspringToClutch = (clutch: Clutch) => {
 const submitOffspring = () => {
     offspringForm.transform((data) => ({
         ...data,
-        for_sale: 0,
-        hide_price: 0,
+        for_sale: false,
+        hide_price: false,
     })).post(store().url, {
         preserveScroll: true,
         forceFormData: true,
         onSuccess: () => {
             showAddOffspring.value = false;
-            offspringForm.reset();
-            selectedClutch.value = null;
             success('Offspring added successfully!');
-            // Reload the pairing data to show the new offspring
-            router.reload({ only: ['pairing'] });
         },
     });
 };
@@ -580,7 +584,17 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                 </p>
                             </div>
                             <div class="space-y-2">
-                                <Label for="edit_hatched_date">Hatched Date</Label>
+                                <div class="flex items-center justify-between">
+                                    <Label for="edit_hatched_date">Hatched Date</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        @click="hatchToday"
+                                    >
+                                        Hatch Today
+                                    </Button>
+                                </div>
                                 <Input
                                     id="edit_hatched_date"
                                     v-model="editClutchForm.hatched_date"
@@ -650,9 +664,9 @@ const getClutchAgeInfo = (clutch: Clutch) => {
 
                 <!-- Add Offspring Dialog -->
                 <Dialog v-model:open="showAddOffspring">
-                    <DialogContent class="max-w-md">
+                    <DialogContent v-if="showAddOffspring && selectedClutch" class="max-w-md">
                         <DialogHeader>
-                            <DialogTitle>Add Offspring to Clutch #{{ selectedClutch?.clutch_number }}</DialogTitle>
+                            <DialogTitle>Add Offspring to Clutch #{{ selectedClutch.clutch_number }}</DialogTitle>
                             <DialogDescription>
                                 Enter basic information for the new pigeon. Parents will be linked automatically.
                             </DialogDescription>
@@ -689,11 +703,10 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                 <Label for="offspring_gender">Gender</Label>
                                 <Select v-model="offspringForm.gender">
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Not specified" />
+                                        <SelectValue placeholder="Select gender (optional)" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
-                                            <SelectItem value="">Not specified</SelectItem>
                                             <SelectItem value="male">Male (Cock)</SelectItem>
                                             <SelectItem value="female">Female (Hen)</SelectItem>
                                         </SelectGroup>
@@ -719,7 +732,7 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                 <p class="font-medium mb-1">Auto-filled:</p>
                                 <p class="text-muted-foreground">Sire: {{ pairing.sire.ring_number }}</p>
                                 <p class="text-muted-foreground">Dam: {{ pairing.dam.ring_number }}</p>
-                                <p class="text-muted-foreground" v-if="selectedClutch?.hatched_date">Hatch Date: {{ formatDate(selectedClutch.hatched_date) }}</p>
+                                <p class="text-muted-foreground" v-if="selectedClutch && selectedClutch.hatched_date">Hatch Date: {{ formatDate(selectedClutch.hatched_date) }}</p>
                             </div>
                             <DialogFooter>
                                 <Button type="button" variant="outline" @click="showAddOffspring = false">
