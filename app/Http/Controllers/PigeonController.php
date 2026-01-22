@@ -156,6 +156,13 @@ class PigeonController extends Controller
 
         $pigeon = Pigeon::create($data);
 
+        // If creating offspring from a pairing, redirect back to the pairing page
+        if ($request->input('pairing_id')) {
+            return redirect()
+                ->route('pairings.show', $request->input('pairing_id'))
+                ->with('success', 'Offspring added successfully.');
+        }
+
         return redirect()
             ->route('pigeons.index')
             ->with('success', 'Pigeon created successfully.');

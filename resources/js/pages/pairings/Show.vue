@@ -189,6 +189,8 @@ const submitOffspring = () => {
             offspringForm.reset();
             selectedClutch.value = null;
             success('Offspring added successfully!');
+            // Reload the pairing data to show the new offspring
+            router.reload({ only: ['pairing'] });
         },
     });
 };
