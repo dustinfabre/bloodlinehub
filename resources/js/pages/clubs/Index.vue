@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
@@ -97,25 +97,18 @@ const handleDelete = (club: Club) => {
                                 <span>{{ club.seasons_count === 1 ? 'Season' : 'Seasons' }}</span>
                             </div>
                         </div>
-                        <div class="mt-4 flex flex-wrap items-center gap-2 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-                            <Button variant="default" size="sm" as-child>
-                                <Link :href="`/clubs/${club.id}`">
-                                    <Eye class="mr-1 h-3 w-3" />
-                                    View
-                                </Link>
-                            </Button>
-                            <Button variant="outline" size="sm" as-child>
-                                <Link :href="`/clubs/${club.id}/edit`">
-                                    <Pencil class="mr-1 h-3 w-3" />
-                                    Edit
-                                </Link>
-                            </Button>
-                            <Button variant="destructive" size="sm" @click="handleDelete(club)">
-                                <Trash2 class="mr-1 h-3 w-3" />
-                                Delete
-                            </Button>
-                        </div>
                     </CardContent>
+                    <CardFooter class="flex gap-2">
+                        <Button variant="outline" size="sm" as-child class="flex-1">
+                            <Link :href="`/clubs/${club.id}`">View</Link>
+                        </Button>
+                        <Button variant="outline" size="sm" as-child class="flex-1">
+                            <Link :href="`/clubs/${club.id}/edit`">Edit</Link>
+                        </Button>
+                        <Button variant="destructive" size="sm" @click="handleDelete(club)">
+                            Delete
+                        </Button>
+                    </CardFooter>
                 </Card>
             </div>
         </div>

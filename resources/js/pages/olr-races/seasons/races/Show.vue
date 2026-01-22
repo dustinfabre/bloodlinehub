@@ -570,9 +570,9 @@ const handleDelete = () => {
                                     {{ pigeon.pivot?.notes || '-' }}
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 sm:opacity-100">
+                                    <div class="flex items-center justify-end gap-1">
                                         <Button variant="ghost" size="sm" @click="startEditResult(pigeon)">
-                                            <Pencil class="h-4 w-4" />
+                                            Edit
                                         </Button>
                                         <Button variant="ghost" size="sm" @click="removeResult(pigeon)">
                                             <Trash2 class="h-4 w-4 text-destructive" />

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -331,7 +331,7 @@ const hasActiveFilters = () => {
                 <Card
                     v-for="pigeon in pigeons.data"
                     :key="pigeon.id"
-                    class="group relative overflow-hidden transition-all hover:shadow-md"
+                    class="overflow-hidden transition-all hover:shadow-md"
                 >
                     <CardHeader class="pb-3">
                         <div class="flex items-start justify-between gap-2">
@@ -342,21 +342,6 @@ const hasActiveFilters = () => {
                                 <CardDescription v-if="pigeon.bloodline" class="mt-1">
                                     {{ pigeon.bloodline }}
                                 </CardDescription>
-                            </div>
-                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100">
-                                <Button variant="ghost" size="sm" as-child>
-                                    <Link :href="`/pigeons/${pigeon.id}`">
-                                        <Eye class="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                                <Button variant="ghost" size="sm" as-child>
-                                    <Link :href="`/pigeons/${pigeon.id}/edit`">
-                                        <Pencil class="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                                <Button variant="ghost" size="sm" @click="handleDelete(pigeon)">
-                                    <Trash2 class="h-4 w-4 text-destructive" />
-                                </Button>
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-1 mt-2">
@@ -411,6 +396,17 @@ const hasActiveFilters = () => {
                             </Link>
                         </div>
                     </CardContent>
+                    <CardFooter class="flex gap-2">
+                        <Button asChild variant="outline" size="sm" class="flex-1">
+                            <Link :href="`/pigeons/${pigeon.id}`">View</Link>
+                        </Button>
+                        <Button asChild variant="outline" size="sm" class="flex-1">
+                            <Link :href="`/pigeons/${pigeon.id}/edit`">Edit</Link>
+                        </Button>
+                        <Button variant="destructive" size="sm" @click="handleDelete(pigeon)">
+                            Delete
+                        </Button>
+                    </CardFooter>
                 </Card>
             </div>
 
