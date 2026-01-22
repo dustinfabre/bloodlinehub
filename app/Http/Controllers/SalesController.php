@@ -88,6 +88,9 @@ class SalesController extends Controller
         ]);
 
         $validated['user_id'] = $request->user()->id;
+        
+        // Explicitly cast boolean field for PostgreSQL
+        $validated['hide_price'] = (bool) ($validated['hide_price'] ?? false);
 
         Sale::create($validated);
 
