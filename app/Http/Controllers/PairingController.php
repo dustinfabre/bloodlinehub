@@ -180,12 +180,33 @@ class PairingController extends Controller
                       ->orderBy('created_at', 'desc');
             }, 
             'clutches' => function ($query) {
-                $query->orderBy('clutch_number');
+                $query->with(['biologicalParents.sire', 'biologicalParents.dam'])
+                      ->orderBy('clutch_number');
+            },
+            'fosterClutches' => function ($query) {
+                $query->with(['pairing.sire', 'pairing.dam'])
+                      ->orderBy('clutch_number');
             }
         ]);
 
+        // Get all user's active pairings for foster selection
+        $activePairings = Pairing::where('user_id', $request->user()->id)
+            ->where('status', 'active')
+            ->where('id', '!=', $pairing->id)
+            ->with(['sire', 'dam'])
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'pair_name' => $p->pair_name,
+                    'sire_name' => $p->sire->name ?? $p->sire->ring_number,
+                    'dam_name' => $p->dam->name ?? $p->dam->ring_number,
+                ];
+            });
+
         return Inertia::render('pairings/Show', [
             'pairing' => $pairing,
+            'activePairings' => $activePairings,
         ]);
     }
 

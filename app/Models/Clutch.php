@@ -15,16 +15,27 @@ class Clutch extends Model
         'hatched_date',
         'status',
         'notes',
+        'is_fostered',
+        'biological_pairing_id',
     ];
 
     protected $casts = [
         'eggs_laid_date' => 'date',
         'hatched_date' => 'date',
+        'is_fostered' => 'boolean',
     ];
 
     public function pairing(): BelongsTo
     {
         return $this->belongsTo(Pairing::class);
+    }
+
+    /**
+     * Get the biological parents (when this is a fostered clutch).
+     */
+    public function biologicalParents(): BelongsTo
+    {
+        return $this->belongsTo(Pairing::class, 'biological_pairing_id');
     }
 
     public function offspring(): HasMany

@@ -143,6 +143,7 @@ const submit = () => {
                                 @blur="handleSireBlur"
                                 placeholder="Search sires by name, ring, bloodline, or color..."
                                 autocomplete="off"
+                                class="w-full"
                             />
                             <div
                                 v-if="showSireDropdown && filteredSires.length > 0"

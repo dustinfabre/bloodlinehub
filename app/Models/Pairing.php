@@ -68,6 +68,14 @@ class Pairing extends Model
     }
 
     /**
+     * Get all clutches where this pairing's eggs were fostered by another pair.
+     */
+    public function fosterClutches(): HasMany
+    {
+        return $this->hasMany(Clutch::class, 'biological_pairing_id');
+    }
+
+    /**
      * Scope to get only active pairings.
      */
     public function scopeActive($query)

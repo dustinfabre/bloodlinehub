@@ -17,6 +17,8 @@ class ClutchController extends Controller
             'eggs_laid_date' => ['nullable', 'date'],
             'hatched_date' => ['nullable', 'date', 'after_or_equal:eggs_laid_date'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'is_fostered' => ['boolean'],
+            'biological_pairing_id' => ['nullable', 'exists:pairings,id'],
         ]);
 
         // Calculate next clutch number
@@ -28,6 +30,8 @@ class ClutchController extends Controller
             'hatched_date' => $validated['hatched_date'] ?? null,
             'status' => 'pending',
             'notes' => $validated['notes'] ?? null,
+            'is_fostered' => $validated['is_fostered'] ?? false,
+            'biological_pairing_id' => !empty($validated['biological_pairing_id']) ? $validated['biological_pairing_id'] : null,
         ]);
 
         // Update pairing's current clutch number
@@ -52,7 +56,14 @@ class ClutchController extends Controller
             'hatched_date' => ['nullable', 'date', 'after_or_equal:eggs_laid_date'],
             'status' => ['required', 'in:pending,successful,unsuccessful'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'is_fostered' => ['boolean'],
+            'biological_pairing_id' => ['nullable', 'exists:pairings,id'],
         ]);
+
+        // Convert empty string to null
+        if (isset($validated['biological_pairing_id']) && empty($validated['biological_pairing_id'])) {
+            $validated['biological_pairing_id'] = null;
+        }
 
         $clutch->update($validated);
 

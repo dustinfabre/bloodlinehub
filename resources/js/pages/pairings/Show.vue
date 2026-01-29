@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,6 +34,14 @@ interface Clutch {
     hatched_date?: string;
     status: 'pending' | 'successful' | 'unsuccessful';
     notes?: string;
+    is_fostered: boolean;
+    biological_pairing_id?: number;
+    biological_parents?: {
+        id: number;
+        pair_name: string;
+        sire: Pigeon;
+        dam: Pigeon;
+    };
     created_at: string;
     updated_at: string;
 }
@@ -48,10 +57,17 @@ interface Pairing {
     dam: Pigeon;
     offspring: Pigeon[];
     clutches: Clutch[];
+    foster_clutches?: Clutch[];
 }
 
 interface Props {
     pairing: Pairing;
+    activePairings: Array<{
+        id: number;
+        pair_name: string;
+        sire_name: string;
+        dam_name: string;
+    }>;
 }
 
 const props = defineProps<Props>();
@@ -85,6 +101,8 @@ const clutchForm = useForm({
     eggs_laid_date: getTodayDate(),
     hatched_date: '',
     notes: '',
+    is_fostered: false,
+    biological_pairing_id: '' as string,
 });
 
 const editClutchForm = useForm({
@@ -92,6 +110,8 @@ const editClutchForm = useForm({
     hatched_date: '',
     status: 'pending' as 'pending' | 'successful' | 'unsuccessful',
     notes: '',
+    is_fostered: false,
+    biological_pairing_id: '' as string,
 });
 
 const offspringForm = useForm({
@@ -130,6 +150,8 @@ const openEditClutch = (clutch: Clutch) => {
     editClutchForm.hatched_date = clutch.hatched_date ? formatDateForInput(clutch.hatched_date) : getTodayDate();
     editClutchForm.status = clutch.status;
     editClutchForm.notes = clutch.notes || '';
+    editClutchForm.is_fostered = clutch.is_fostered || false;
+    editClutchForm.biological_pairing_id = clutch.biological_pairing_id ? clutch.biological_pairing_id.toString() : '';
     showEditClutch.value = true;
 };
 
@@ -149,6 +171,17 @@ const updateClutch = () => {
 
 const hatchToday = () => {
     editClutchForm.hatched_date = getTodayDate();
+};
+
+const quickHatchClutch = (clutch: Clutch) => {
+    router.patch(clutchUpdate({ pairing: props.pairing.id, clutch: clutch.id }).url, {
+        hatched_date: getTodayDate(),
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            success('Clutch hatched successfully!');
+        },
+    });
 };
 
 const openDeleteClutch = (clutch: Clutch) => {
@@ -174,13 +207,19 @@ const addOffspringToClutch = (clutch: Clutch) => {
     // Reset form first
     offspringForm.clearErrors();
     offspringForm.reset();
+    
+    // Use biological parents if this is a fostered clutch, otherwise use foster parents
+    const biologicalParents = clutch.is_fostered && clutch.biological_parents 
+        ? clutch.biological_parents 
+        : props.pairing;
+    
     // Then set the values
-    offspringForm.sire_id = props.pairing.sire.id;
-    offspringForm.dam_id = props.pairing.dam.id;
-    offspringForm.pairing_id = props.pairing.id;
+    offspringForm.sire_id = biologicalParents.sire.id;
+    offspringForm.dam_id = biologicalParents.dam.id;
+    offspringForm.pairing_id = clutch.is_fostered ? clutch.biological_pairing_id! : props.pairing.id;
     offspringForm.clutch_id = clutch.id;
     offspringForm.hatch_date = clutch.hatched_date || '';
-    offspringForm.bloodline = props.pairing.sire.bloodline || '';
+    offspringForm.bloodline = biologicalParents.sire.bloodline || '';
     showAddOffspring.value = true;
 };
 
@@ -292,7 +331,12 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                 {{ pairing.status }}
                             </Badge>
                         </div>
-                        <p class="text-muted-foreground mt-1">{{ pairing.clutches.length }} clutch(es)</p>
+                        <p class="text-muted-foreground mt-1">
+                            {{ pairing.clutches.length }} clutch(es)
+                            <span v-if="pairing.foster_clutches && pairing.foster_clutches.length > 0" class="text-amber-600 dark:text-amber-400">
+                                • {{ pairing.foster_clutches.length }} fostered
+                            </span>
+                        </p>
                     </div>
                     <div class="flex gap-2">
                         <Button asChild variant="outline">
@@ -444,6 +488,46 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                                 rows="3"
                                             />
                                         </div>
+                                        
+                                        <!-- Foster Tracking -->
+                                        <div class="space-y-3 pt-4 border-t">
+                                            <div class="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id="is_fostered"
+                                                    v-model="clutchForm.is_fostered"
+                                                />
+                                                <Label for="is_fostered" class="cursor-pointer">
+                                                    This is a foster egg (from another pair)
+                                                </Label>
+                                            </div>
+                                            
+                                            <div v-if="clutchForm.is_fostered" class="space-y-2 pl-6">
+                                                <Label for="biological_pairing">Biological Parents *</Label>
+                                                <Select v-model="clutchForm.biological_pairing_id">
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select the biological parents..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectGroup>
+                                                            <SelectItem
+                                                                v-for="p in activePairings"
+                                                                :key="p.id"
+                                                                :value="p.id.toString()"
+                                                            >
+                                                                {{ p.pair_name || `${p.sire_name} × ${p.dam_name}` }}
+                                                            </SelectItem>
+                                                        </SelectGroup>
+                                                    </SelectContent>
+                                                </Select>
+                                                <p v-if="activePairings.length === 0" class="text-xs text-amber-600">
+                                                    No other active pairings available. You need at least one other active pairing to foster eggs.
+                                                </p>
+                                                <p v-else class="text-xs text-muted-foreground">
+                                                    Select which pair laid these eggs that you're fostering
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
                                         <DialogFooter>
                                             <Button type="button" variant="outline" @click="showAddClutch = false">
                                                 Cancel
@@ -490,10 +574,29 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                             <p v-if="clutch.hatched_date">
                                                 <span class="font-medium">Hatched:</span> {{ formatDate(clutch.hatched_date) }}
                                             </p>
+                                            <div v-if="clutch.is_fostered && clutch.biological_parents" class="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                                                <div>
+                                                    <span class="font-medium">Foster Egg</span> - Biological parents: 
+                                                    <span class="font-semibold">
+                                                        {{ clutch.biological_parents.pair_name || 
+                                                           `${clutch.biological_parents.sire.name || clutch.biological_parents.sire.ring_number} × 
+                                                            ${clutch.biological_parents.dam.name || clutch.biological_parents.dam.ring_number}` }}
+                                                    </span>
+                                                </div>
+                                            </div>
                                             <p v-if="clutch.notes" class="text-xs italic">{{ clutch.notes }}</p>
                                         </div>
                                     </div>
                                     <div class="flex gap-2">
+                                        <Button
+                                            v-if="!clutch.hatched_date"
+                                            size="sm"
+                                            variant="default"
+                                            @click="quickHatchClutch(clutch)"
+                                        >
+                                            Hatch Today
+                                        </Button>
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -562,6 +665,86 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                     </CardContent>
                 </Card>
 
+                <!-- Foster Clutches Section (eggs from this pair raised by others) -->
+                <Card v-if="pairing.foster_clutches && pairing.foster_clutches.length > 0">
+                    <CardHeader>
+                        <CardTitle>Foster Clutches</CardTitle>
+                        <CardDescription>Eggs from this pair that were fostered by other pairs</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div class="space-y-4">
+                            <div
+                                v-for="clutch in pairing.foster_clutches"
+                                :key="clutch.id"
+                                class="border border-amber-200 dark:border-amber-800 rounded-lg p-4 space-y-3 bg-amber-50 dark:bg-amber-950/20"
+                            >
+                                <!-- Clutch Header -->
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <h3 class="font-semibold text-lg">Clutch #{{ clutch.clutch_number }}</h3>
+                                            <Badge :variant="getStatusVariant(clutch.status)">
+                                                {{ clutch.status }}
+                                            </Badge>
+                                            <Badge variant="outline" class="bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700">
+                                                Fostered
+                                            </Badge>
+                                        </div>
+                                        <div class="text-sm text-muted-foreground mt-1 space-y-1">
+                                            <p v-if="clutch.pairing" class="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                                <span>
+                                                    <span class="font-medium">Raised by:</span> 
+                                                    {{ clutch.pairing.pair_name || 
+                                                       `${clutch.pairing.sire.name || clutch.pairing.sire.ring_number} × 
+                                                        ${clutch.pairing.dam.name || clutch.pairing.dam.ring_number}` }}
+                                                </span>
+                                            </p>
+                                            <p v-if="clutch.eggs_laid_date">
+                                                <span class="font-medium">Eggs Laid:</span> {{ formatDate(clutch.eggs_laid_date) }}
+                                            </p>
+                                            <p v-if="clutch.hatched_date">
+                                                <span class="font-medium">Hatched:</span> {{ formatDate(clutch.hatched_date) }}
+                                            </p>
+                                            <p v-if="clutch.notes" class="text-xs italic">{{ clutch.notes }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Offspring for this clutch -->
+                                <div class="pl-4 border-l-2 border-amber-300 dark:border-amber-700 space-y-2">
+                                    <p class="text-sm font-medium text-muted-foreground">
+                                        Offspring ({{ getClutchOffspring(clutch.id).length }})
+                                    </p>
+                                    <div v-if="getClutchOffspring(clutch.id).length > 0" class="space-y-2">
+                                        <div
+                                            v-for="offspring in getClutchOffspring(clutch.id)"
+                                            :key="offspring.id"
+                                            class="flex items-center justify-between p-2 rounded bg-white dark:bg-amber-900/20"
+                                        >
+                                            <div>
+                                                <Link
+                                                    :href="pigeonsShow({ pigeon: offspring.id }).url"
+                                                    class="text-sm font-medium text-blue-600 hover:underline"
+                                                >
+                                                    {{ offspring.name }}
+                                                </Link>
+                                                <p class="text-xs text-muted-foreground">{{ offspring.ring_number }}</p>
+                                            </div>
+                                            <Button asChild variant="ghost" size="sm">
+                                                <Link :href="pigeonsShow({ pigeon: offspring.id }).url">View</Link>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <p v-else class="text-sm text-muted-foreground italic">
+                                        No offspring recorded for this clutch yet
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <!-- Edit Clutch Dialog -->
                 <Dialog v-model:open="showEditClutch">
                     <DialogContent>
@@ -584,17 +767,7 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                 </p>
                             </div>
                             <div class="space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <Label for="edit_hatched_date">Hatched Date</Label>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        @click="hatchToday"
-                                    >
-                                        Hatch Today
-                                    </Button>
-                                </div>
+                                <Label for="edit_hatched_date">Hatched Date</Label>
                                 <Input
                                     id="edit_hatched_date"
                                     v-model="editClutchForm.hatched_date"
@@ -631,6 +804,47 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                     rows="3"
                                 />
                             </div>
+                            
+                            <!-- Foster Tracking -->
+                            <div class="space-y-3 pt-4 border-t">
+                                <div class="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="edit_is_fostered"
+                                        :checked="editClutchForm.is_fostered"
+                                        @update:checked="editClutchForm.is_fostered = $event"
+                                    />
+                                    <Label for="edit_is_fostered" class="cursor-pointer">
+                                        This is a foster egg (from another pair)
+                                    </Label>
+                                </div>
+                                
+                                <div v-if="editClutchForm.is_fostered" class="space-y-2 pl-6">
+                                    <Label for="edit_biological_pairing">Biological Parents *</Label>
+                                    <Select v-model="editClutchForm.biological_pairing_id">
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select the biological parents..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectItem
+                                                    v-for="p in activePairings"
+                                                    :key="p.id"
+                                                    :value="p.id.toString()"
+                                                >
+                                                    {{ p.pair_name || `${p.sire_name} × ${p.dam_name}` }}
+                                                </SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                    <p v-if="activePairings.length === 0" class="text-xs text-amber-600">
+                                        No other active pairings available. You need at least one other active pairing to foster eggs.
+                                    </p>
+                                    <p v-else class="text-xs text-muted-foreground">
+                                        Select which pair laid these eggs that you're fostering
+                                    </p>
+                                </div>
+                            </div>
+                            
                             <DialogFooter>
                                 <Button type="button" variant="outline" @click="showEditClutch = false">
                                     Cancel
@@ -668,7 +882,14 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                         <DialogHeader>
                             <DialogTitle>Add Offspring to Clutch #{{ selectedClutch.clutch_number }}</DialogTitle>
                             <DialogDescription>
-                                Enter basic information for the new pigeon. Parents will be linked automatically.
+                                <template v-if="selectedClutch.is_fostered && selectedClutch.biological_parents">
+                                    <span class="text-amber-600 dark:text-amber-400 font-medium">Foster Clutch:</span> 
+                                    Biological parents are {{ selectedClutch.biological_parents.sire.name || selectedClutch.biological_parents.sire.ring_number }} × 
+                                    {{ selectedClutch.biological_parents.dam.name || selectedClutch.biological_parents.dam.ring_number }}
+                                </template>
+                                <template v-else>
+                                    Enter basic information for the new pigeon. Parents will be linked automatically.
+                                </template>
                             </DialogDescription>
                         </DialogHeader>
                         <form @submit.prevent="submitOffspring" class="space-y-4">
@@ -730,8 +951,14 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                             </div>
                             <div class="rounded-lg bg-muted p-3 text-sm">
                                 <p class="font-medium mb-1">Auto-filled:</p>
-                                <p class="text-muted-foreground">Sire: {{ pairing.sire.ring_number }}</p>
-                                <p class="text-muted-foreground">Dam: {{ pairing.dam.ring_number }}</p>
+                                <template v-if="selectedClutch.is_fostered && selectedClutch.biological_parents">
+                                    <p class="text-muted-foreground">Sire: {{ selectedClutch.biological_parents.sire.ring_number }}</p>
+                                    <p class="text-muted-foreground">Dam: {{ selectedClutch.biological_parents.dam.ring_number }}</p>
+                                </template>
+                                <template v-else>
+                                    <p class="text-muted-foreground">Sire: {{ pairing.sire.ring_number }}</p>
+                                    <p class="text-muted-foreground">Dam: {{ pairing.dam.ring_number }}</p>
+                                </template>
                                 <p class="text-muted-foreground" v-if="selectedClutch && selectedClutch.hatched_date">Hatch Date: {{ formatDate(selectedClutch.hatched_date) }}</p>
                             </div>
                             <DialogFooter>
