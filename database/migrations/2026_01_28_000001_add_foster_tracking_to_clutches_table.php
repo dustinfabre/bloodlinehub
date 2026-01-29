@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
+     * Disable transaction for Neon.tech pooling compatibility.
+     */
+    public $withinTransaction = false;
+    
+    /**
      * Run the migrations.
      */
     public function up(): void
