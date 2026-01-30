@@ -6,24 +6,55 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
-import { Plus, Search, Filter, Eye, Pencil, Trash2, Bird, X } from 'lucide-vue-next';
+import { Plus, Search, Filter, Eye, Pencil, Trash2, Bird, X, AlertTriangle } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
+import axios from 'axios';
+
+interface DuplicateMatch {
+    pigeon: {
+        id: number;
+        ring_number: string;
+        personal_number: string | null;
+        name: string | null;
+        gender: string | null;
+        status: string | null;
+        bloodline: string | null;
+        photo: string | null;
+    };
+    similarity: number;
+}
+
+interface BloodlineOption {
+    id: number;
+    name: string;
+}
+
+interface SelectedBloodline {
+    id: number;
+    name: string;
+    is_primary: boolean;
+}
 
 interface Pigeon {
     id: number;
     name: string | null;
     bloodline: string | null;
+    bloodlines?: SelectedBloodline[];
     ring_number: string | null;
     personal_number: string | null;
     gender: string | null;
     status: string;
-    pigeon_status: string;
-    race_type: string;
     color: string | null;
     hatch_date: string | null;
+    color_tag?: {
+        id: number;
+        name: string;
+        color: string;
+    } | null;
     sire: {
         id: number;
         ring_number: string | null;
@@ -53,16 +84,22 @@ interface PaginatedPigeons {
     links: PaginationLink[];
 }
 
+interface ColorTag {
+    id: number;
+    name: string;
+    color: string;
+}
+
 const props = defineProps<{
     pigeons: PaginatedPigeons;
-    bloodlines: string[];
+    bloodlines: BloodlineOption[];
+    colorTags: ColorTag[];
     colors: string[];
     filters: {
         search?: string;
         status?: string;
-        pigeon_status?: string;
-        race_type?: string;
         bloodline?: string;
+        gender?: string;
         per_page: number;
     };
 }>();
@@ -73,19 +110,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const showFilters = ref(false);
 const search = ref(props.filters.search || '');
-const status = ref(props.filters.status || '');
-const pigeonStatus = ref(props.filters.pigeon_status || '');
-const raceType = ref(props.filters.race_type || '');
-const bloodline = ref(props.filters.bloodline || '');
+const status = ref(props.filters.status || 'all');
+const bloodline = ref(props.filters.bloodline || 'all');
+const gender = ref(props.filters.gender || 'all');
 const perPage = ref(String(props.filters.per_page));
 
 const applyFilters = () => {
     router.get('/pigeons', {
         search: search.value || undefined,
-        status: status.value || undefined,
-        pigeon_status: pigeonStatus.value || undefined,
-        race_type: raceType.value || undefined,
-        bloodline: bloodline.value || undefined,
+        status: status.value === 'all' ? undefined : status.value,
+        bloodline: bloodline.value === 'all' ? undefined : bloodline.value,
+        gender: gender.value === 'all' ? undefined : gender.value,
         per_page: perPage.value,
     }, {
         preserveState: true,
@@ -95,11 +130,10 @@ const applyFilters = () => {
 
 const clearFilters = () => {
     search.value = '';
-    status.value = '';
-    pigeonStatus.value = '';
-    raceType.value = '';
-    bloodline.value = '';
-    perPage.value = '10';
+    status.value = 'all';
+    bloodline.value = 'all';
+    gender.value = 'all';
+    perPage.value = '12';
     applyFilters();
 };
 
@@ -115,39 +149,161 @@ const formatDate = (date: string | null) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const statusBadgeVariant = (status: string) => {
-    if (status === 'alive') return 'default';
-    if (status === 'deceased') return 'secondary';
-    if (status === 'missing') return 'destructive';
-    return 'outline';
-};
-
-const pigeonStatusBadgeVariant = (status: string) => {
-    if (status === 'racing') return 'default';
-    if (status === 'breeding') return 'secondary';
-    return 'outline';
-};
-
-const raceTypeBadge = (type: string) => {
-    if (type === 'olr') return { label: 'OLR', variant: 'default' as const };
-    if (type === 'south') return { label: 'South', variant: 'secondary' as const };
-    if (type === 'north') return { label: 'North', variant: 'secondary' as const };
-    if (type === 'summer') return { label: 'Summer', variant: 'secondary' as const };
-    return { label: 'None', variant: 'outline' as const };
+// Status badge styles with new color scheme
+const getStatusBadgeStyle = (status: string) => {
+    const styles: Record<string, { bg: string; text: string; label: string }> = {
+        stock: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Stock' },
+        racing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Racing' },
+        breeding: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Breeding' },
+        injured: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Injured' },
+        deceased: { bg: 'bg-red-100', text: 'text-red-700', label: 'Deceased' },
+        flyaway: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Flyaway' },
+        missing: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Missing' },
+    };
+    return styles[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status };
 };
 
 const { success } = useToast();
 
-const handleDelete = (pigeon: Pigeon) => {
-    if (!confirm(`Delete ${pigeonLabel(pigeon)}? This action cannot be undone.`)) return;
-    router.delete(`/pigeons/${pigeon.id}`, {
+// Delete confirmation modal state
+const showDeleteModal = ref(false);
+const pigeonToDelete = ref<Pigeon | null>(null);
+const deleteConfirmInput = ref('');
+const isDeleting = ref(false);
+
+const deleteConfirmationRing = computed(() => {
+    if (!pigeonToDelete.value) return '';
+    return pigeonToDelete.value.ring_number || pigeonToDelete.value.personal_number || `#${pigeonToDelete.value.id}`;
+});
+
+const canConfirmDelete = computed(() => {
+    return deleteConfirmInput.value.toUpperCase() === deleteConfirmationRing.value.toUpperCase();
+});
+
+const openDeleteModal = (pigeon: Pigeon) => {
+    pigeonToDelete.value = pigeon;
+    deleteConfirmInput.value = '';
+    showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+    showDeleteModal.value = false;
+    pigeonToDelete.value = null;
+    deleteConfirmInput.value = '';
+    isDeleting.value = false;
+};
+
+const confirmDelete = () => {
+    if (!pigeonToDelete.value || !canConfirmDelete.value) return;
+    
+    isDeleting.value = true;
+    router.delete(`/pigeons/${pigeonToDelete.value.id}`, {
         preserveScroll: true,
-        onSuccess: () => success('Pigeon deleted successfully!'),
+        onSuccess: () => {
+            success('Pigeon deleted successfully!');
+            closeDeleteModal();
+        },
+        onError: () => {
+            isDeleting.value = false;
+        },
     });
 };
 
 const hasActiveFilters = () => {
-    return search.value || status.value || pigeonStatus.value || raceType.value || bloodline.value;
+    return search.value || (status.value && status.value !== 'all') || (bloodline.value && bloodline.value !== 'all') || (gender.value && gender.value !== 'all');
+};
+
+// Quick Add modal state
+const showQuickAddModal = ref(false);
+const isQuickAdding = ref(false);
+const quickAddForm = ref({
+    ring_number: '',
+    gender: '' as string,
+    status: 'stock',
+});
+const quickAddErrors = ref<Record<string, string>>({});
+
+// Quick Add duplicate checking
+const quickAddCheckingRing = ref(false);
+const quickAddExactMatch = ref<DuplicateMatch['pigeon'] | null>(null);
+const quickAddSimilarMatches = ref<DuplicateMatch[]>([]);
+const quickAddDuplicateDismissed = ref(false);
+
+const checkQuickAddRingNumber = async () => {
+    if (!quickAddForm.value.ring_number || quickAddForm.value.ring_number.length < 3) {
+        quickAddExactMatch.value = null;
+        quickAddSimilarMatches.value = [];
+        return;
+    }
+
+    quickAddCheckingRing.value = true;
+    try {
+        const response = await axios.get('/pigeons/check-ring-number', {
+            params: { ring_number: quickAddForm.value.ring_number }
+        });
+        
+        quickAddExactMatch.value = response.data.exact_match;
+        quickAddSimilarMatches.value = response.data.similar_matches || [];
+    } catch (error) {
+        console.error('Error checking ring number:', error);
+    } finally {
+        quickAddCheckingRing.value = false;
+    }
+};
+
+// Reset duplicate check when ring number changes
+watch(() => quickAddForm.value.ring_number, () => {
+    quickAddExactMatch.value = null;
+    quickAddSimilarMatches.value = [];
+    quickAddDuplicateDismissed.value = false;
+});
+
+const openQuickAddModal = () => {
+    quickAddForm.value = {
+        ring_number: '',
+        gender: '',
+        status: 'stock',
+    };
+    quickAddErrors.value = {};
+    showQuickAddModal.value = true;
+};
+
+const closeQuickAddModal = () => {
+    showQuickAddModal.value = false;
+    quickAddForm.value = {
+        ring_number: '',
+        gender: '',
+        status: 'stock',
+    };
+    quickAddErrors.value = {};
+    isQuickAdding.value = false;
+};
+
+const submitQuickAdd = () => {
+    quickAddErrors.value = {};
+    
+    // Basic validation
+    if (!quickAddForm.value.ring_number.trim()) {
+        quickAddErrors.value.ring_number = 'Ring number is required';
+        return;
+    }
+    
+    isQuickAdding.value = true;
+    router.post('/pigeons', {
+        ring_number: quickAddForm.value.ring_number.toUpperCase(),
+        gender: quickAddForm.value.gender || null,
+        status: quickAddForm.value.status,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            success('Pigeon added successfully!');
+            closeQuickAddModal();
+        },
+        onError: (errors) => {
+            quickAddErrors.value = errors as Record<string, string>;
+            isQuickAdding.value = false;
+        },
+    });
 };
 </script>
 
@@ -164,12 +320,18 @@ const hasActiveFilters = () => {
                         Manage your pigeon records ({{ pigeons.total }})
                     </p>
                 </div>
-                <Button as-child class="w-full sm:w-auto">
-                    <Link href="/pigeons/create">
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <Button variant="outline" @click="openQuickAddModal" class="w-full sm:w-auto">
                         <Plus class="mr-2 h-4 w-4" />
-                        Add Pigeon
-                    </Link>
-                </Button>
+                        Quick Add
+                    </Button>
+                    <Button as-child class="w-full sm:w-auto">
+                        <Link href="/pigeons/create">
+                            <Plus class="mr-2 h-4 w-4" />
+                            Add Pigeon
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             <!-- Search and Filters -->
@@ -196,7 +358,7 @@ const hasActiveFilters = () => {
                                 <Filter class="mr-2 h-4 w-4" />
                                 Filters
                                 <Badge v-if="hasActiveFilters()" variant="secondary" class="ml-2">
-                                    {{ [search, status, pigeonStatus, raceType, bloodline].filter(Boolean).length }}
+                                    {{ [search, status !== 'all' && status, bloodline !== 'all' && bloodline, gender !== 'all' && gender].filter(Boolean).length }}
                                 </Badge>
                             </Button>
                             <Button
@@ -212,7 +374,20 @@ const hasActiveFilters = () => {
                     </div>
 
                     <!-- Advanced Filters -->
-                    <div v-if="showFilters" class="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div v-if="showFilters" class="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-3">
+                        <div class="space-y-2">
+                            <Label for="gender">Gender</Label>
+                            <Select v-model="gender">
+                                <SelectTrigger id="gender">
+                                    <SelectValue placeholder="All genders" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All genders</SelectItem>
+                                    <SelectItem value="male">Male (Cock)</SelectItem>
+                                    <SelectItem value="female">Female (Hen)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div class="space-y-2">
                             <Label for="status">Status</Label>
                             <Select v-model="status">
@@ -220,40 +395,14 @@ const hasActiveFilters = () => {
                                     <SelectValue placeholder="All statuses" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All statuses</SelectItem>
-                                    <SelectItem value="alive">Alive</SelectItem>
-                                    <SelectItem value="deceased">Deceased</SelectItem>
-                                    <SelectItem value="missing">Missing</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="space-y-2">
-                            <Label for="pigeon_status">Pigeon Status</Label>
-                            <Select v-model="pigeonStatus">
-                                <SelectTrigger id="pigeon_status">
-                                    <SelectValue placeholder="All types" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All types</SelectItem>
+                                    <SelectItem value="all">All statuses</SelectItem>
+                                    <SelectItem value="stock">In Stock</SelectItem>
                                     <SelectItem value="racing">Racing</SelectItem>
                                     <SelectItem value="breeding">Breeding</SelectItem>
-                                    <SelectItem value="stock">Stock</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="space-y-2">
-                            <Label for="race_type">Race Type</Label>
-                            <Select v-model="raceType">
-                                <SelectTrigger id="race_type">
-                                    <SelectValue placeholder="All types" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="">All types</SelectItem>
-                                    <SelectItem value="olr">OLR</SelectItem>
-                                    <SelectItem value="south">South</SelectItem>
-                                    <SelectItem value="north">North</SelectItem>
-                                    <SelectItem value="summer">Summer</SelectItem>
-                                    <SelectItem value="none">None</SelectItem>
+                                    <SelectItem value="injured">Injured</SelectItem>
+                                    <SelectItem value="deceased">Deceased</SelectItem>
+                                    <SelectItem value="flyaway">Flyaway</SelectItem>
+                                    <SelectItem value="missing">Missing</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -264,13 +413,13 @@ const hasActiveFilters = () => {
                                     <SelectValue placeholder="All bloodlines" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All bloodlines</SelectItem>
+                                    <SelectItem value="all">All bloodlines</SelectItem>
                                     <SelectItem
                                         v-for="line in bloodlines"
-                                        :key="line"
-                                        :value="line"
+                                        :key="line.id"
+                                        :value="String(line.id)"
                                     >
-                                        {{ line }}
+                                        {{ line.name }}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -332,6 +481,7 @@ const hasActiveFilters = () => {
                     v-for="pigeon in pigeons.data"
                     :key="pigeon.id"
                     class="overflow-hidden transition-all hover:shadow-md"
+                    :style="pigeon.color_tag ? { borderLeftWidth: '4px', borderLeftColor: pigeon.color_tag.color } : {}"
                 >
                     <CardHeader class="pb-3">
                         <div class="flex items-start justify-between gap-2">
@@ -345,15 +495,19 @@ const hasActiveFilters = () => {
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-1 mt-2">
-                            <Badge :variant="statusBadgeVariant(pigeon.status)" class="text-xs">
-                                {{ pigeon.status }}
-                            </Badge>
-                            <Badge :variant="pigeonStatusBadgeVariant(pigeon.pigeon_status)" class="text-xs">
-                                {{ pigeon.pigeon_status }}
-                            </Badge>
-                            <Badge :variant="raceTypeBadge(pigeon.race_type).variant" class="text-xs">
-                                {{ raceTypeBadge(pigeon.race_type).label }}
-                            </Badge>
+                            <span 
+                                :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
+                            >
+                                {{ getStatusBadgeStyle(pigeon.status).label }}
+                            </span>
+                            <span 
+                                v-if="pigeon.color_tag"
+                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                :style="{ backgroundColor: pigeon.color_tag.color + '20', color: pigeon.color_tag.color, border: '1px solid ' + pigeon.color_tag.color }"
+                            >
+                                <span class="size-2 rounded-full" :style="{ backgroundColor: pigeon.color_tag.color }"></span>
+                                {{ pigeon.color_tag.name }}
+                            </span>
                         </div>
                     </CardHeader>
                     <CardContent class="space-y-2 text-sm">
@@ -403,7 +557,7 @@ const hasActiveFilters = () => {
                         <Button asChild variant="outline" size="sm" class="flex-1">
                             <Link :href="`/pigeons/${pigeon.id}/edit`">Edit</Link>
                         </Button>
-                        <Button variant="destructive" size="sm" @click="handleDelete(pigeon)">
+                        <Button variant="destructive" size="sm" @click="openDeleteModal(pigeon)">
                             Delete
                         </Button>
                     </CardFooter>
@@ -425,5 +579,164 @@ const hasActiveFilters = () => {
                 </template>
             </div>
         </div>
+
+        <!-- Delete Confirmation Modal -->
+        <Dialog :open="showDeleteModal" @update:open="closeDeleteModal">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center gap-2 text-destructive">
+                        <AlertTriangle class="h-5 w-5" />
+                        Delete Pigeon
+                    </DialogTitle>
+                    <DialogDescription class="text-left">
+                        You are about to delete pigeon with ring number: <strong>{{ deleteConfirmationRing }}</strong>.<br />
+                        This action cannot be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-4 py-4">
+                    <div class="space-y-2">
+                        <Label for="confirm-delete">To confirm, type the ring number below:</Label>
+                        <Input
+                            id="confirm-delete"
+                            v-model="deleteConfirmInput"
+                            :placeholder="`Type ${deleteConfirmationRing} to confirm`"
+                            class="font-mono uppercase"
+                            autocomplete="off"
+                        />
+                    </div>
+                </div>
+                <DialogFooter class="flex-col gap-2 sm:flex-row">
+                    <Button variant="outline" @click="closeDeleteModal" class="w-full sm:w-auto">
+                        Cancel
+                    </Button>
+                    <Button 
+                        variant="destructive" 
+                        :disabled="!canConfirmDelete || isDeleting"
+                        @click="confirmDelete"
+                        class="w-full sm:w-auto"
+                    >
+                        {{ isDeleting ? 'Deleting...' : 'Delete' }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Quick Add Modal -->
+        <Dialog :open="showQuickAddModal" @update:open="closeQuickAddModal">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center gap-2">
+                        <Plus class="h-5 w-5" />
+                        Quick Add Pigeon
+                    </DialogTitle>
+                    <DialogDescription>
+                        Add a pigeon with minimal information. You can edit full details later.
+                    </DialogDescription>
+                </DialogHeader>
+                <form @submit.prevent="submitQuickAdd" class="space-y-4 py-4">
+                    <div class="space-y-2">
+                        <Label for="quick-ring-number">Ring Number *</Label>
+                        <div class="relative">
+                            <Input
+                                id="quick-ring-number"
+                                v-model="quickAddForm.ring_number"
+                                placeholder="Ring number or type 'PERSO' for personal pigeons"
+                                class="font-mono uppercase"
+                                :class="{ 'border-destructive': quickAddExactMatch }"
+                                autocomplete="off"
+                                @blur="checkQuickAddRingNumber"
+                            />
+                            <span v-if="quickAddCheckingRing" class="absolute right-3 top-1/2 -translate-y-1/2">
+                                <svg class="animate-spin h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <p v-if="quickAddErrors.ring_number" class="text-sm text-destructive">{{ quickAddErrors.ring_number }}</p>
+                        
+                        <!-- Exact duplicate error -->
+                        <div v-if="quickAddExactMatch" class="rounded-md border border-destructive bg-destructive/10 p-3 text-sm">
+                            <p class="font-medium text-destructive">A pigeon with ring number {{ quickAddExactMatch.ring_number }} already exists.</p>
+                            <div class="mt-2 flex items-center gap-2 text-muted-foreground">
+                                <span v-if="quickAddExactMatch.name">{{ quickAddExactMatch.name }}</span>
+                                <span v-if="quickAddExactMatch.gender">• {{ quickAddExactMatch.gender === 'male' ? 'Cock' : 'Hen' }}</span>
+                                <span v-if="quickAddExactMatch.status">• {{ quickAddExactMatch.status }}</span>
+                            </div>
+                            <Link :href="`/pigeons/${quickAddExactMatch.id}`" class="mt-2 inline-flex items-center text-sm font-medium text-primary hover:underline">
+                                View / Edit this pigeon →
+                            </Link>
+                        </div>
+                        
+                        <!-- Similar matches warning -->
+                        <div v-if="!quickAddExactMatch && quickAddSimilarMatches.length > 0 && !quickAddDuplicateDismissed" class="rounded-md border border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+                            <p class="font-medium text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                                <AlertTriangle class="h-4 w-4" />
+                                Possible duplicate(s) found
+                            </p>
+                            <div class="mt-2 space-y-2">
+                                <div v-for="match in quickAddSimilarMatches" :key="match.pigeon.id" class="flex items-center justify-between text-muted-foreground">
+                                    <span>{{ match.pigeon.ring_number }} ({{ match.similarity }}% similar)</span>
+                                    <Link :href="`/pigeons/${match.pigeon.id}`" class="text-xs font-medium text-primary hover:underline">
+                                        View
+                                    </Link>
+                                </div>
+                            </div>
+                            <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="sm" 
+                                @click="quickAddDuplicateDismissed = true" 
+                                class="mt-2 h-7 text-xs"
+                            >
+                                Continue anyway
+                            </Button>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="quick-gender">Gender</Label>
+                        <select 
+                            id="quick-gender" 
+                            v-model="quickAddForm.gender" 
+                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="">Not specified</option>
+                            <option value="male">Male (Cock)</option>
+                            <option value="female">Female (Hen)</option>
+                        </select>
+                        <p v-if="quickAddErrors.gender" class="text-sm text-destructive">{{ quickAddErrors.gender }}</p>
+                    </div>
+                    <div class="space-y-2">
+                        <Label for="quick-status">Status *</Label>
+                        <select 
+                            id="quick-status" 
+                            v-model="quickAddForm.status" 
+                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                            <option value="stock">In Stock</option>
+                            <option value="racing">Racing</option>
+                            <option value="breeding">Breeding</option>
+                            <option value="injured">Injured</option>
+                            <option value="deceased">Deceased</option>
+                            <option value="flyaway">Flyaway</option>
+                            <option value="missing">Missing</option>
+                        </select>
+                        <p v-if="quickAddErrors.status" class="text-sm text-destructive">{{ quickAddErrors.status }}</p>
+                    </div>
+                    <DialogFooter class="flex-col gap-2 sm:flex-row pt-4">
+                        <Button type="button" variant="outline" @click="closeQuickAddModal" class="w-full sm:w-auto">
+                            Cancel
+                        </Button>
+                        <Button 
+                            type="submit"
+                            :disabled="isQuickAdding || !!quickAddExactMatch || (quickAddSimilarMatches.length > 0 && !quickAddDuplicateDismissed)"
+                            class="w-full sm:w-auto"
+                        >
+                            {{ isQuickAdding ? 'Adding...' : 'Add Pigeon' }}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     </AppLayout>
 </template>

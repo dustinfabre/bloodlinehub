@@ -71,13 +71,10 @@ class PairingController extends Controller
     {
         $user = $request->user();
 
-        // Get available sires (male pigeons not currently in active pairing)
+        // Get available sires
         $sires = Pigeon::where('user_id', $user->id)
             ->where('gender', 'male')
-            ->whereIn('status', ['alive'])
-            ->whereDoesntHave('pairing', function ($query) {
-                $query->where('status', 'active');
-            })
+            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
             ->with([
                 'sire:id,ring_number,name',
                 'dam:id,ring_number,name'
@@ -86,13 +83,10 @@ class PairingController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get available dams (female pigeons not currently in active pairing)
+        // Get available dams
         $dams = Pigeon::where('user_id', $user->id)
             ->where('gender', 'female')
-            ->whereIn('status', ['alive'])
-            ->whereDoesntHave('pairing', function ($query) {
-                $query->where('status', 'active');
-            })
+            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
             ->with([
                 'sire:id,ring_number,name',
                 'dam:id,ring_number,name'
@@ -113,27 +107,6 @@ class PairingController extends Controller
     public function store(StorePairingRequest $request): RedirectResponse
     {
         $user = $request->user();
-
-        // Check if either pigeon is already in an active pairing
-        $sireInPairing = Pairing::where('status', 'active')
-            ->where(function ($q) use ($request) {
-                $q->where('sire_id', $request->sire_id)
-                    ->orWhere('dam_id', $request->sire_id);
-            })
-            ->exists();
-
-        $damInPairing = Pairing::where('status', 'active')
-            ->where(function ($q) use ($request) {
-                $q->where('sire_id', $request->dam_id)
-                    ->orWhere('dam_id', $request->dam_id);
-            })
-            ->exists();
-
-        if ($sireInPairing || $damInPairing) {
-            return back()->withErrors([
-                'sire_id' => 'One or both pigeons are already in an active pairing.',
-            ]);
-        }
 
         // Check for previous pairings of the same pigeons to determine clutch number
         $previousPairings = Pairing::where('user_id', $user->id)
@@ -225,13 +198,7 @@ class PairingController extends Controller
         // Get available sires (include current sire even if in this pairing)
         $sires = Pigeon::where('user_id', $user->id)
             ->where('gender', 'male')
-            ->whereIn('status', ['alive'])
-            ->where(function ($query) use ($pairing) {
-                $query->where('id', $pairing->sire_id)
-                    ->orWhereDoesntHave('pairing', function ($q) {
-                        $q->where('status', 'active');
-                    });
-            })
+            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
             ->select('id', 'name', 'ring_number', 'bloodline')
             ->orderBy('name')
             ->get();
@@ -239,13 +206,7 @@ class PairingController extends Controller
         // Get available dams (include current dam even if in this pairing)
         $dams = Pigeon::where('user_id', $user->id)
             ->where('gender', 'female')
-            ->whereIn('status', ['alive'])
-            ->where(function ($query) use ($pairing) {
-                $query->where('id', $pairing->dam_id)
-                    ->orWhereDoesntHave('pairing', function ($q) {
-                        $q->where('status', 'active');
-                    });
-            })
+            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
             ->select('id', 'name', 'ring_number', 'bloodline')
             ->orderBy('name')
             ->get();

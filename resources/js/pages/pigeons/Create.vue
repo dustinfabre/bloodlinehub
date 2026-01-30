@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
+import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
+import ColorTagSelect from '@/components/ColorTagSelect.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { index as indexRoute, store } from '@/routes/pigeons';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { index as indexRoute, store, show as showRoute } from '@/routes/pigeons';
 import { useToast } from '@/composables/useToast';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { type BreadcrumbItem } from '@/types';
+import axios from 'axios';
 
 interface ParentOption {
     id: number;
@@ -26,12 +31,44 @@ interface ParentOption {
     label: string;
 }
 
+interface DuplicateMatch {
+    pigeon: {
+        id: number;
+        ring_number: string;
+        personal_number: string | null;
+        name: string | null;
+        gender: string | null;
+        status: string | null;
+        bloodline: string | null;
+        photo: string | null;
+    };
+    similarity: number;
+}
+
+interface BloodlineOption {
+    id: number;
+    name: string;
+}
+
+interface SelectedBloodline {
+    id: number;
+    name: string;
+    is_primary: boolean;
+}
+
+interface ColorTag {
+    id: number;
+    name: string;
+    color: string;
+}
+
 const props = defineProps<{
     parentOptions: {
         sires: ParentOption[];
         dams: ParentOption[];
     };
-    bloodlines: string[];
+    bloodlines: BloodlineOption[];
+    colorTags: ColorTag[];
     colors: string[];
     prefill?: {
         sire_id?: string;
@@ -49,12 +86,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const form = useForm({
     ring_number: '',
-    bloodline: '',
+    bloodline: '', // Legacy field, will be set from primary bloodline
+    bloodlines: [] as { id: number; name: string; is_primary: boolean }[],
     name: '',
     personal_number: '',
-    pigeon_status: 'stock',
-    race_type: 'none',
-    status: 'alive',
+    status: 'stock',
+    color_tag_id: null as number | null,
     hatch_date: props.prefill?.hatch_date || '',
     gender: '',
     color: '',
@@ -80,6 +117,14 @@ const form = useForm({
     clutch_id: null as number | null,
 });
 
+// Track selected bloodlines separately (reactive binding for component)
+const selectedBloodlines = ref<SelectedBloodline[]>([]);
+
+// Sync selectedBloodlines to form.bloodlines
+watch(selectedBloodlines, (newValue) => {
+    form.bloodlines = newValue;
+}, { deep: true });
+
 const sireId = ref(props.prefill?.sire_id || '');
 const damId = ref(props.prefill?.dam_id || '');
 const sireSearch = ref('');
@@ -91,6 +136,13 @@ const pedigreePreviews = ref<string[]>([]);
 const sireFieldsReadonly = ref(false);
 const damFieldsReadonly = ref(false);
 
+// Ring number duplicate checking
+const checkingRingNumber = ref(false);
+const exactDuplicateMatch = ref<DuplicateMatch['pigeon'] | null>(null);
+const similarMatches = ref<DuplicateMatch[]>([]);
+const showDuplicateWarning = ref(false);
+const duplicateCheckDismissed = ref(false);
+
 // Set pairing_id if provided
 if (props.prefill?.pairing_id) {
     form.pairing_id = Number(props.prefill.pairing_id);
@@ -100,6 +152,46 @@ if (props.prefill?.pairing_id) {
 if (props.prefill?.clutch_id) {
     form.clutch_id = Number(props.prefill.clutch_id);
 }
+
+// Check ring number for duplicates
+const checkRingNumber = async () => {
+    if (!form.ring_number || form.ring_number.length < 3) {
+        exactDuplicateMatch.value = null;
+        similarMatches.value = [];
+        return;
+    }
+
+    checkingRingNumber.value = true;
+    try {
+        const response = await axios.get('/pigeons/check-ring-number', {
+            params: { ring_number: form.ring_number }
+        });
+        
+        exactDuplicateMatch.value = response.data.exact_match;
+        similarMatches.value = response.data.similar_matches || [];
+        
+        // Show warning dialog if we have similar matches (but not exact - exact blocks in template)
+        if (!response.data.exact_match && similarMatches.value.length > 0 && !duplicateCheckDismissed.value) {
+            showDuplicateWarning.value = true;
+        }
+    } catch (error) {
+        console.error('Error checking ring number:', error);
+    } finally {
+        checkingRingNumber.value = false;
+    }
+};
+
+const dismissDuplicateWarning = () => {
+    showDuplicateWarning.value = false;
+    duplicateCheckDismissed.value = true;
+};
+
+// Reset duplicate check when ring number changes
+watch(() => form.ring_number, () => {
+    exactDuplicateMatch.value = null;
+    similarMatches.value = [];
+    duplicateCheckDismissed.value = false;
+});
 
 const handlePhotoChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
@@ -135,17 +227,13 @@ const removePhoto = () => {
     photoPreview.value = null;
 };
 
-// Auto-uppercase ring_number, name, and bloodline
+// Auto-uppercase ring_number and name
 watch(() => form.ring_number, (value) => {
     if (value) form.ring_number = value.toUpperCase();
 });
 
 watch(() => form.name, (value) => {
     if (value) form.name = value.toUpperCase();
-});
-
-watch(() => form.bloodline, (value) => {
-    if (value) form.bloodline = value.toUpperCase();
 });
 
 // Searchable sire/dam filtering
@@ -277,16 +365,46 @@ const submit = () => {
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="grid gap-2">
                                     <Label for="ring_number">Ring Number *</Label>
-                                    <Input id="ring_number" v-model="form.ring_number" required autofocus autocomplete="off" placeholder="e.g. PH 2024-12345" />
+                                    <div class="relative">
+                                        <Input 
+                                            id="ring_number" 
+                                            v-model="form.ring_number" 
+                                            required 
+                                            autofocus 
+                                            autocomplete="off" 
+                                            placeholder="Ring number or type 'PERSO' for personal pigeons"
+                                            @blur="checkRingNumber"
+                                            :class="{ 'border-destructive': exactDuplicateMatch }"
+                                        />
+                                        <span v-if="checkingRingNumber" class="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <svg class="animate-spin h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
                                     <InputError :message="form.errors.ring_number" />
+                                    
+                                    <!-- Exact duplicate error -->
+                                    <div v-if="exactDuplicateMatch" class="rounded-md border border-destructive bg-destructive/10 p-3 text-sm">
+                                        <p class="font-medium text-destructive">A pigeon with ring number {{ exactDuplicateMatch.ring_number }} already exists.</p>
+                                        <div class="mt-2 flex items-center gap-2 text-muted-foreground">
+                                            <span v-if="exactDuplicateMatch.name">{{ exactDuplicateMatch.name }}</span>
+                                            <span v-if="exactDuplicateMatch.gender">• {{ exactDuplicateMatch.gender === 'male' ? 'Cock' : 'Hen' }}</span>
+                                            <span v-if="exactDuplicateMatch.status">• {{ exactDuplicateMatch.status }}</span>
+                                        </div>
+                                        <Link :href="showRoute({ pigeon: exactDuplicateMatch.id }).url" class="mt-2 inline-flex items-center text-sm font-medium text-primary hover:underline">
+                                            View / Edit this pigeon →
+                                        </Link>
+                                    </div>
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label for="bloodline">Bloodline</Label>
-                                    <Input id="bloodline" v-model="form.bloodline" autocomplete="off" placeholder="e.g. Janssen, Kipp" list="bloodline-list" />
-                                    <datalist id="bloodline-list">
-                                        <option v-for="line in bloodlines" :key="line" :value="line" />
-                                    </datalist>
-                                    <InputError :message="form.errors.bloodline" />
+                                    <Label>Bloodline</Label>
+                                    <BloodlineMultiSelect
+                                        v-model="selectedBloodlines"
+                                        :bloodlines="bloodlines"
+                                    />
+                                    <InputError :message="form.errors.bloodlines" />
                                 </div>
                                 <div class="grid gap-2">
                                     <Label for="name">Name</Label>
@@ -295,28 +413,29 @@ const submit = () => {
                                 </div>
                                 <div class="grid gap-2">
                                     <Label for="personal_number">Personal Ring Number</Label>
-                                    <Input id="personal_number" v-model="form.personal_number" autocomplete="off" placeholder="Loft reference" />
+                                    <Input id="personal_number" v-model="form.personal_number" autocomplete="off" placeholder="Optional, Perso number" />
                                     <InputError :message="form.errors.personal_number" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label for="pigeon_status">Pigeon Status *</Label>
-                                    <select id="pigeon_status" v-model="form.pigeon_status" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                    <Label for="status">Status *</Label>
+                                    <select id="status" v-model="form.status" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                         <option value="stock">In Stock</option>
                                         <option value="racing">Racing</option>
                                         <option value="breeding">Breeding</option>
+                                        <option value="injured">Injured</option>
+                                        <option value="deceased">Deceased</option>
+                                        <option value="flyaway">Flyaway</option>
+                                        <option value="missing">Missing</option>
                                     </select>
-                                    <InputError :message="form.errors.pigeon_status" />
+                                    <InputError :message="form.errors.status" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label for="race_type">Race Type *</Label>
-                                    <select id="race_type" v-model="form.race_type" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                        <option value="none">None / Stock / Breeding</option>
-                                        <option value="olr">OLR</option>
-                                        <option value="south">South</option>
-                                        <option value="north">North</option>
-                                        <option value="summer">Summer</option>
-                                    </select>
-                                    <InputError :message="form.errors.race_type" />
+                                    <Label>Highlight Color</Label>
+                                    <ColorTagSelect
+                                        v-model="form.color_tag_id"
+                                        :color-tags="colorTags"
+                                    />
+                                    <InputError :message="form.errors.color_tag_id" />
                                 </div>
                             </div>
                         </section>
@@ -330,16 +449,6 @@ const submit = () => {
                                 <p class="text-sm text-muted-foreground">Biological and physical characteristics.</p>
                             </div>
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <div class="grid gap-2">
-                                    <Label for="status">Status *</Label>
-                                    <select id="status" v-model="form.status" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                        <option value="alive">Alive</option>
-                                        <option value="deceased">Deceased</option>
-                                        <option value="missing">Missing in race</option>
-                                        <option value="flyaway">Fly away</option>
-                                    </select>
-                                    <InputError :message="form.errors.status" />
-                                </div>
                                 <div class="grid gap-2">
                                     <Label for="hatch_date">Hatch Date</Label>
                                     <Input id="hatch_date" v-model="form.hatch_date" type="date" />
@@ -365,12 +474,14 @@ const submit = () => {
                             </div>
                             <div class="grid gap-2">
                                 <Label for="remarks">Remarks</Label>
-                                <textarea id="remarks" v-model="form.remarks" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Quick notes like race results" />
+                                <textarea id="remarks" v-model="form.remarks" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Short notes, e.g. '1st club 300km 2024', 'Strong in headwinds'" />
+                                <p class="text-xs text-muted-foreground">Use for quick at-a-glance info like race highlights or key tags.</p>
                                 <InputError :message="form.errors.remarks" />
                             </div>
                             <div class="grid gap-2">
                                 <Label for="notes">Notes</Label>
-                                <textarea id="notes" v-model="form.notes" rows="4" class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Detailed notes about breeding performance, health history, etc." />
+                                <textarea id="notes" v-model="form.notes" rows="4" class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Detailed notes, e.g. breeding performance, health history, pairing observations..." />
+                                <p class="text-xs text-muted-foreground">Use for longer, detailed history about this pigeon.</p>
                                 <InputError :message="form.errors.notes" />
                             </div>
                         </section>
@@ -626,7 +737,7 @@ const submit = () => {
                             <Button variant="outline" type="button" as-child class="w-full sm:w-auto">
                                 <a :href="indexRoute().url">Cancel</a>
                             </Button>
-                            <Button type="submit" :disabled="form.processing" class="w-full sm:w-auto">
+                            <Button type="submit" :disabled="form.processing || !!exactDuplicateMatch" class="w-full sm:w-auto">
                                 Save pigeon
                             </Button>
                         </div>
@@ -634,5 +745,57 @@ const submit = () => {
                 </CardContent>
             </Card>
         </div>
+
+        <!-- Similar matches warning dialog -->
+        <Dialog v-model:open="showDuplicateWarning">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle class="flex items-center gap-2 text-amber-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        Possible duplicate found
+                    </DialogTitle>
+                    <DialogDescription>
+                        You already have pigeon(s) with similar ring numbers. Are you sure you want to add a new pigeon?
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="space-y-3 py-4">
+                    <div v-for="match in similarMatches" :key="match.pigeon.id" class="flex items-center gap-3 rounded-lg border p-3">
+                        <div v-if="match.pigeon.photo" class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full">
+                            <img :src="`/storage/${match.pigeon.photo}`" :alt="match.pigeon.ring_number" class="h-full w-full object-cover" />
+                        </div>
+                        <div v-else class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-muted">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium truncate">{{ match.pigeon.ring_number }}</p>
+                            <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span v-if="match.pigeon.name">{{ match.pigeon.name }}</span>
+                                <span v-if="match.pigeon.gender">• {{ match.pigeon.gender === 'male' ? 'Cock' : 'Hen' }}</span>
+                                <Badge v-if="match.pigeon.status" variant="secondary" class="text-xs">{{ match.pigeon.status }}</Badge>
+                            </div>
+                            <p class="text-xs text-muted-foreground">{{ match.similarity }}% similar</p>
+                        </div>
+                        <Link :href="showRoute({ pigeon: match.pigeon.id }).url" class="text-sm font-medium text-primary hover:underline">
+                            View
+                        </Link>
+                    </div>
+                </div>
+
+                <DialogFooter class="gap-2 sm:gap-0">
+                    <Button variant="outline" @click="showDuplicateWarning = false">
+                        Cancel
+                    </Button>
+                    <Button @click="dismissDuplicateWarning">
+                        Continue anyway
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppLayout>
 </template>

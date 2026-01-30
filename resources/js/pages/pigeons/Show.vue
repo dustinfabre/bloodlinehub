@@ -41,8 +41,6 @@ interface Pigeon {
     gender: string | null;
     hatch_date: string | null;
     status: string;
-    pigeon_status: string;
-    race_type: string;
     ring_number: string | null;
     personal_number: string | null;
     color: string | null;
@@ -74,28 +72,24 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: pigeonLabel.value, href: showRoute({ pigeon: props.pigeon.id }).url },
 ];
 
-const statusBadgeVariant = (status: string) => {
-    if (status === 'alive') return 'default';
-    if (status === 'deceased') return 'destructive';
-    return 'secondary';
+// Status badge styles with new color scheme
+const getStatusBadgeStyle = (status: string) => {
+    const styles: Record<string, { bg: string; text: string; label: string }> = {
+        stock: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Stock' },
+        racing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Racing' },
+        breeding: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Breeding' },
+        injured: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Injured' },
+        deceased: { bg: 'bg-red-100', text: 'text-red-700', label: 'Deceased' },
+        flyaway: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Flyaway' },
+        missing: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Missing' },
+    };
+    return styles[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status };
 };
 
 const genderLabel = computed(() => {
     if (props.pigeon.gender === 'male') return 'Cock';
     if (props.pigeon.gender === 'female') return 'Hen';
     return 'Not specified';
-});
-
-const pigeonStatusLabel = computed(() => {
-    const status = props.pigeon.pigeon_status;
-    return status.charAt(0).toUpperCase() + status.slice(1);
-});
-
-const raceTypeLabel = computed(() => {
-    const type = props.pigeon.race_type;
-    if (type === 'none') return 'None';
-    if (type === 'olr') return 'OLR';
-    return type.charAt(0).toUpperCase() + type.slice(1);
 });
 
 const hatchDateFormatted = computed(() => {
@@ -155,11 +149,11 @@ const getLabel = (node: PedigreeNode | null): string => {
                         </div>
                         <div>
                             <p class="text-sm text-muted-foreground">Status</p>
-                            <Badge :variant="statusBadgeVariant(pigeon.status)">{{ pigeon.status }}</Badge>
-                        </div>
-                        <div>
-                            <p class="text-sm text-muted-foreground">Type</p>
-                            <p class="font-medium">{{ pigeonStatusLabel }} <span v-if="pigeon.race_type !== 'none'" class="text-muted-foreground">({{ raceTypeLabel }})</span></p>
+                            <span 
+                                :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
+                            >
+                                {{ getStatusBadgeStyle(pigeon.status).label }}
+                            </span>
                         </div>
                         <div v-if="pigeon.ring_number">
                             <p class="text-sm text-muted-foreground">Ring Number</p>

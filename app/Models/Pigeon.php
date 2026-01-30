@@ -18,9 +18,8 @@ class Pigeon extends Model
         'gender',
         'hatch_date',
         'status',
-        'pigeon_status',
-        'race_type',
         'color',
+        'color_tag_id',
         'ring_number',
         'personal_number',
         'remarks',
@@ -55,6 +54,11 @@ class Pigeon extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function colorTag(): BelongsTo
+    {
+        return $this->belongsTo(ColorTag::class);
     }
 
     public function sire(): BelongsTo
@@ -107,5 +111,25 @@ class Pigeon extends Model
         return $this->belongsToMany(ClubSeasonRace::class, 'club_race_results')
             ->withPivot('id', 'position', 'arrival_time', 'speed', 'notes', 'did_not_arrive')
             ->withTimestamps();
+    }
+
+    // Bloodlines (many-to-many with primary flag)
+    public function bloodlines(): BelongsToMany
+    {
+        return $this->belongsToMany(Bloodline::class, 'pigeon_bloodline')
+            ->withPivot('is_primary')
+            ->withTimestamps();
+    }
+
+    // Get the primary bloodline (convenience accessor)
+    public function getPrimaryBloodlineAttribute(): ?Bloodline
+    {
+        return $this->bloodlines->firstWhere('pivot.is_primary', true);
+    }
+
+    // Get primary bloodline name for display
+    public function getPrimaryBloodlineNameAttribute(): ?string
+    {
+        return $this->primaryBloodline?->name ?? $this->bloodline;
     }
 }

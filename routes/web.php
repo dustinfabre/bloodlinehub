@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Controllers\BloodlineController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ClubSeasonController;
 use App\Http\Controllers\ClubSeasonRaceController;
 use App\Http\Controllers\ClutchController;
+use App\Http\Controllers\ColorTagController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\OlrRaceController;
@@ -25,11 +27,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
+    // Custom pigeon routes must be defined BEFORE the resource route
+    Route::get('pigeons/check-ring-number', [PigeonController::class, 'checkRingNumber'])
+        ->name('pigeons.check-ring-number');
+    
     Route::resource('pigeons', PigeonController::class);
     Route::get('pigeons/{pigeon}/pedigree', [PigeonController::class, 'pedigree'])
         ->name('pigeons.pedigree');
     Route::get('pigeons/{pigeon}/print-pedigree', [PigeonController::class, 'printPedigree'])
         ->name('pigeons.printPedigree');
+
+    // Bloodlines management API
+    Route::get('bloodlines', [BloodlineController::class, 'index'])
+        ->name('bloodlines.index');
+    Route::get('bloodlines/search', [BloodlineController::class, 'search'])
+        ->name('bloodlines.search');
+    Route::post('bloodlines', [BloodlineController::class, 'store'])
+        ->name('bloodlines.store');
+    Route::post('bloodlines/get-or-create', [BloodlineController::class, 'getOrCreate'])
+        ->name('bloodlines.get-or-create');
+    Route::patch('bloodlines/{bloodline}', [BloodlineController::class, 'update'])
+        ->name('bloodlines.update');
+    Route::delete('bloodlines/{bloodline}', [BloodlineController::class, 'destroy'])
+        ->name('bloodlines.destroy');
+
+    // Color tags management API
+    Route::get('color-tags', [ColorTagController::class, 'index'])
+        ->name('color-tags.index');
+    Route::post('color-tags', [ColorTagController::class, 'store'])
+        ->name('color-tags.store');
+    Route::patch('color-tags/{colorTag}', [ColorTagController::class, 'update'])
+        ->name('color-tags.update');
+    Route::delete('color-tags/{colorTag}', [ColorTagController::class, 'destroy'])
+        ->name('color-tags.destroy');
 
     // Pairings management
     Route::resource('pairings', PairingController::class);
