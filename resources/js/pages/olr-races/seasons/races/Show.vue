@@ -21,7 +21,6 @@ interface Pigeon {
     personal_number: string | null;
     color: string | null;
     status?: string;
-    pigeon_status?: string;
     pivot?: {
         entry_number: string | null;
         position: number | null;

@@ -129,7 +129,7 @@ class PairingController extends Controller
 
         // Update pigeon statuses to 'breeding'
         Pigeon::whereIn('id', [$request->sire_id, $request->dam_id])
-            ->update(['pigeon_status' => 'breeding']);
+            ->update(['status' => 'breeding']);
 
         return redirect()->route('pairings.show', $pairing)
             ->with('success', 'Pairing created successfully.');
@@ -247,7 +247,7 @@ class PairingController extends Controller
         // If active, update pigeon statuses back to 'stock'
         if ($pairing->isActive()) {
             Pigeon::whereIn('id', [$pairing->sire_id, $pairing->dam_id])
-                ->update(['pigeon_status' => 'stock']);
+                ->update(['status' => 'stock']);
         }
 
         $pairing->delete();
@@ -275,7 +275,7 @@ class PairingController extends Controller
 
         // Update pigeon statuses back to 'stock'
         Pigeon::whereIn('id', [$pairing->sire_id, $pairing->dam_id])
-            ->update(['pigeon_status' => 'stock']);
+            ->update(['status' => 'stock']);
 
         return redirect()->route('pairings.show', $pairing)
             ->with('success', 'Pairing session ended successfully.');

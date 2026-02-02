@@ -20,7 +20,6 @@ interface Pigeon {
     name: string | null;
     sex: string;
     status?: string;
-    pigeon_status?: string;
 }
 
 interface ClubRaceResult {

@@ -44,7 +44,7 @@ class OlrSeasonController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         $season->load(['entries' => function ($query) {
-            $query->select('pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status', 'pigeons.pigeon_status');
+            $query->select('pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status');
         }, 'races' => function ($query) {
             $query->orderBy('race_date', 'desc');
         }]);
@@ -55,10 +55,9 @@ class OlrSeasonController extends Controller
             $race->total_entries = $race->total_entries;
         });
 
-        // Get available pigeons (OLR type, alive status, not already entered in this season)
+        // Get available pigeons (not already entered in this season)
         $availablePigeons = Pigeon::where('user_id', auth()->id())
-            ->where('race_type', 'olr')
-            ->where('status', 'alive')
+            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
             ->whereNotIn('id', $season->entries->pluck('id'))
             ->get();
 

@@ -49,11 +49,11 @@ class ClubSeasonRaceController extends Controller
     {
         abort_if($club->user_id !== auth()->id(), 403);
 
-        $race->load(['results.pigeon' => function ($query) {
-            $query->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
+        $race->load(['results' => function ($query) {
+            $query->select('pigeons.id', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.name', 'pigeons.gender', 'pigeons.status');
         }]);
         $season->load(['entries' => function ($query) {
-            $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status', 'pigeon_status');
+            $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status');
         }]);
 
         return Inertia::render('clubs/seasons/races/Show', [

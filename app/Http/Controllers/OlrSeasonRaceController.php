@@ -50,16 +50,16 @@ class OlrSeasonRaceController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         $race->load(['results' => function ($query) {
-            $query->select('pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status', 'pigeons.pigeon_status');
+            $query->select('pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status');
         }]);
         $season->load(['entries' => function ($query) {
-            $query->select('pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status', 'pigeons.pigeon_status');
+            $query->select('pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status');
         }]);
 
         // Get season entries that are not yet in this race
         $availablePigeons = $season->entries()
             ->whereNotIn('pigeons.id', $race->results->pluck('id'))
-            ->get(['pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status', 'pigeons.pigeon_status']);
+            ->get(['pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status']);
 
         return Inertia::render('olr-races/seasons/races/Show', [
             'olrRace' => $olrRace,

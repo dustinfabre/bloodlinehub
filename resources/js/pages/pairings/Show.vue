@@ -126,9 +126,7 @@ const offspringForm = useForm({
     hatch_date: '',
     name: '',
     bloodline: '',
-    pigeon_status: 'stock',
-    race_type: 'none',
-    status: 'alive',
+    status: 'stock',
     remarks: '',
     notes: '',
 });

@@ -20,7 +20,6 @@ interface Pigeon {
     name: string | null;
     gender: string;
     status?: string;
-    pigeon_status?: string;
     color?: string;
     bloodline?: string;
     pivot?: {

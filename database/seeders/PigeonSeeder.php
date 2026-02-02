@@ -22,9 +22,7 @@ class PigeonSeeder extends Seeder
             return;
         }
 
-        $statuses = ['alive', 'deceased', 'missing'];
-        $pigeonStatuses = ['racing', 'breeding', 'stock'];
-        $raceTypes = ['south', 'north', 'summer', 'olr', 'none'];
+        $statuses = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'missing', 'flyaway'];
         $genders = ['male', 'female'];
         $colors = [
             'Blue Bar', 'Blue Check', 'Red Check', 'Red Bar', 'Black', 
@@ -42,8 +40,6 @@ class PigeonSeeder extends Seeder
         for ($i = 1; $i <= 100; $i++) {
             $gender = $faker->randomElement($genders);
             $status = $faker->randomElement($statuses);
-            $pigeonStatus = $faker->randomElement($pigeonStatuses);
-            $raceType = $faker->randomElement($raceTypes);
             $color = $faker->randomElement($colors);
             $bloodline = $faker->randomElement($bloodlines);
             
@@ -65,8 +61,6 @@ class PigeonSeeder extends Seeder
                 'gender' => $gender,
                 'hatch_date' => $hatchDate,
                 'status' => $status,
-                'pigeon_status' => $pigeonStatus,
-                'race_type' => $raceType,
                 'color' => $color,
                 'ring_number' => $ringNumber,
                 'personal_number' => $faker->optional(0.6)->numerify('####'),

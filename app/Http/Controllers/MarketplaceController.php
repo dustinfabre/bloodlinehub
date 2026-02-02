@@ -12,7 +12,7 @@ class MarketplaceController extends Controller
     {
         $sales = Sale::query()
             ->where('status', 'active')
-            ->with(['pigeon:id,name,gender,hatch_date,color,ring_number,personal_number,race_type,photos,pedigree_image', 'pigeon.sire:id,name,ring_number', 'pigeon.dam:id,name,ring_number', 'user:id,name,email'])
+            ->with(['pigeon:id,name,gender,hatch_date,color,ring_number,personal_number,photos,pedigree_image', 'pigeon.sire:id,name,ring_number', 'pigeon.dam:id,name,ring_number', 'user:id,name,email'])
             ->latest()
             ->get()
             ->map(fn (Sale $sale) => [
@@ -30,7 +30,6 @@ class MarketplaceController extends Controller
                     'color' => $sale->pigeon->color,
                     'ring_number' => $sale->pigeon->ring_number,
                     'personal_number' => $sale->pigeon->personal_number,
-                    'race_type' => $sale->pigeon->race_type,
                     'photos' => $sale->pigeon->photos,
                     'pedigree_image' => $sale->pigeon->pedigree_image,
                     'sire' => $sale->pigeon->sire ? [
