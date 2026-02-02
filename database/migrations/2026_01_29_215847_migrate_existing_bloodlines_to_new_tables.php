@@ -5,6 +5,12 @@ use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
+
+    /**
+     * Disable transaction for Neon.tech pooling compatibility.
+     */
+    public $withinTransaction = false;
+    
     /**
      * Run the migrations.
      * 
