@@ -218,6 +218,7 @@ const addOffspringToClutch = (clutch: Clutch) => {
     offspringForm.clutch_id = clutch.id;
     offspringForm.hatch_date = clutch.hatched_date || '';
     offspringForm.bloodline = biologicalParents.sire.bloodline || '';
+    offspringForm.status = 'stock'; // Ensure status is set to stock for new offspring
     showAddOffspring.value = true;
 };
 
