@@ -121,7 +121,6 @@ const offspringForm = useForm({
     gender: '',
     sire_id: null as number | null,
     dam_id: null as number | null,
-    pairing_id: null as number | null,
     clutch_id: null as number | null,
     hatch_date: '',
     name: '',
@@ -214,7 +213,6 @@ const addOffspringToClutch = (clutch: Clutch) => {
     // Then set the values
     offspringForm.sire_id = biologicalParents.sire.id;
     offspringForm.dam_id = biologicalParents.dam.id;
-    offspringForm.pairing_id = clutch.is_fostered ? clutch.biological_pairing_id! : props.pairing.id;
     offspringForm.clutch_id = clutch.id;
     offspringForm.hatch_date = clutch.hatched_date || '';
     offspringForm.bloodline = biologicalParents.sire.bloodline || '';

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Pairing extends Model
 {
@@ -52,11 +53,11 @@ class Pairing extends Model
     }
 
     /**
-     * Get all offspring (pigeons) from this pairing.
+     * Get all offspring (pigeons) from this pairing through clutches.
      */
-    public function offspring(): HasMany
+    public function offspring(): HasManyThrough
     {
-        return $this->hasMany(Pigeon::class, 'clutch_id');
+        return $this->hasManyThrough(Pigeon::class, Clutch::class, 'pairing_id', 'clutch_id');
     }
 
     /**

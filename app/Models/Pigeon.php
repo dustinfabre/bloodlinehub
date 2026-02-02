@@ -40,7 +40,6 @@ class Pigeon extends Model
         'dam_ring_number',
         'dam_color',
         'dam_notes',
-        'pairing_id',
         'clutch_id',
     ];
 
