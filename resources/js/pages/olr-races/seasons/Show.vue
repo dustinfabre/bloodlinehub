@@ -332,7 +332,15 @@ const handleDeleteRace = (race: OlrSeasonRace) => {
                                     <Link
                                         :href="`/pigeons/${pigeon.id}`"
                                         class="font-medium hover:text-primary hover:underline"
-                                    >Select :model-value="pigeon.status" @update:model-value="(value) => updateEntryStatus(pigeon, value)">
+                                    >
+                                        {{ pigeonLabel(pigeon) }}
+                                    </Link>
+                                    <p v-if="pigeon.color" class="text-sm text-muted-foreground">
+                                        {{ pigeon.color }}
+                                    </p>
+                                </TableCell>
+                                <TableCell>
+                                    <Select :model-value="pigeon.status" @update:model-value="(value) => updateEntryStatus(pigeon, value)">
                                         <SelectTrigger class="w-[140px]">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -345,15 +353,7 @@ const handleDeleteRace = (race: OlrSeasonRace) => {
                                             <SelectItem value="flyaway">Flyaway</SelectItem>
                                             <SelectItem value="missing">Missing</SelectItem>
                                         </SelectContent>
-                                    </Select
-                                    </p>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge v-if="getPigeonStatusBadge(pigeon)" :variant="getPigeonStatusBadge(pigeon)!.variant">
-                                        <AlertTriangle class="mr-1 h-3 w-3" />
-                                        {{ getPigeonStatusBadge(pigeon)!.label }}
-                                    </Badge>
-                                    <Badge v-else variant="secondary">Active</Badge>
+                                    </Select>
                                 </TableCell>
                                 <TableCell class="text-sm text-muted-foreground">
                                     {{ pigeon.pivot?.notes || '-' }}
