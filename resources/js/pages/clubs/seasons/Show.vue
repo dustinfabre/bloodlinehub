@@ -172,6 +172,14 @@ const removeEntry = (entry: Pigeon) => {
     });
 };
 
+const updateEntryStatus = (pigeon: Pigeon, newStatus: string) => {
+    router.patch(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/${pigeon.id}`, {
+        status: newStatus,
+    }, {
+        preserveScroll: true,
+    });
+};
+
 const submitRaceForm = () => {
     raceForm.post(`/clubs/${props.club.id}/seasons/${props.season.id}/races`, {
         onSuccess: () => {
@@ -386,11 +394,20 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                     <Badge variant="outline" class="capitalize">{{ entry.gender }}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="getPigeonStatusBadge(entry)" :variant="getPigeonStatusBadge(entry)!.variant">
-                                        <AlertCircle v-if="entry.status !== 'alive'" class="h-3 w-3 mr-1" />
-                                        {{ getPigeonStatusBadge(entry)!.label }}
-                                    </Badge>
-                                    <Badge v-else variant="secondary">Active</Badge>
+                                    <Select :model-value="entry.status" @update:model-value="(value) => updateEntryStatus(entry, value)">
+                                        <SelectTrigger class="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="stock">Stock</SelectItem>
+                                            <SelectItem value="racing">Racing</SelectItem>
+                                            <SelectItem value="breeding">Breeding</SelectItem>
+                                            <SelectItem value="injured">Injured</SelectItem>
+                                            <SelectItem value="deceased">Deceased</SelectItem>
+                                            <SelectItem value="flyaway">Flyaway</SelectItem>
+                                            <SelectItem value="missing">Missing</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </TableCell>
                                 <TableCell>
                                     <Button variant="ghost" size="sm" @click="removeEntry(entry)">

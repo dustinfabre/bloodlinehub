@@ -180,12 +180,20 @@ class ClubSeasonController extends Controller
         $validated = $request->validate([
             'entry_number' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
+            'status' => ['nullable', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
         ]);
 
-        $season->entries()->updateExistingPivot($pigeon->id, [
+        $updateData = [
             'entry_number' => $validated['entry_number'] ?? null,
             'notes' => $validated['notes'] ?? null,
-        ]);
+        ];
+
+        // If status is provided, update the pigeon's status directly
+        if (isset($validated['status'])) {
+            $pigeon->update(['status' => $validated['status']]);
+        }
+
+        $season->entries()->updateExistingPivot($pigeon->id, $updateData);
 
         return back()->with('success', 'Entry updated successfully.');
     }

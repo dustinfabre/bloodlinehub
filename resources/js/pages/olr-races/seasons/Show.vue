@@ -130,6 +130,14 @@ const removeEntry = (pigeon: Pigeon) => {
     });
 };
 
+const updateEntryStatus = (pigeon: Pigeon, newStatus: string) => {
+    router.patch(`/olr-races/${props.olrRace.id}/seasons/${props.season.id}/entries/${pigeon.id}`, {
+        status: newStatus,
+    }, {
+        preserveScroll: true,
+    });
+};
+
 const submitRaceForm = () => {
     raceForm.post(`/olr-races/${props.olrRace.id}/seasons/${props.season.id}/races`, {
         onSuccess: () => {
@@ -324,11 +332,20 @@ const handleDeleteRace = (race: OlrSeasonRace) => {
                                     <Link
                                         :href="`/pigeons/${pigeon.id}`"
                                         class="font-medium hover:text-primary hover:underline"
-                                    >
-                                        {{ pigeonLabel(pigeon) }}
-                                    </Link>
-                                    <p v-if="pigeon.color" class="text-sm text-muted-foreground">
-                                        {{ pigeon.color }}
+                                    >Select :model-value="pigeon.status" @update:model-value="(value) => updateEntryStatus(pigeon, value)">
+                                        <SelectTrigger class="w-[140px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="stock">Stock</SelectItem>
+                                            <SelectItem value="racing">Racing</SelectItem>
+                                            <SelectItem value="breeding">Breeding</SelectItem>
+                                            <SelectItem value="injured">Injured</SelectItem>
+                                            <SelectItem value="deceased">Deceased</SelectItem>
+                                            <SelectItem value="flyaway">Flyaway</SelectItem>
+                                            <SelectItem value="missing">Missing</SelectItem>
+                                        </SelectContent>
+                                    </Select
                                     </p>
                                 </TableCell>
                                 <TableCell>
