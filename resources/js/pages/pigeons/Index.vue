@@ -50,6 +50,9 @@ interface Pigeon {
     status: string;
     color: string | null;
     hatch_date: string | null;
+    remarks: string | null;
+    notes: string | null;
+    photo_url: string | null;
     color_tag?: {
         id: number;
         name: string;
@@ -483,6 +486,21 @@ const submitQuickAdd = () => {
                     class="overflow-hidden transition-all hover:shadow-md"
                     :style="pigeon.color_tag ? { borderLeftWidth: '4px', borderLeftColor: pigeon.color_tag.color } : {}"
                 >
+                    <!-- Photo at top of card -->
+                    <div v-if="pigeon.photo_url" class="relative aspect-square bg-muted">
+                        <img 
+                            :src="pigeon.photo_url" 
+                            :alt="pigeonLabel(pigeon)" 
+                            class="h-full w-full object-cover"
+                        />
+                        <div class="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+                            <span 
+                                :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shadow-sm']"
+                            >
+                                {{ getStatusBadgeStyle(pigeon.status).label }}
+                            </span>
+                        </div>
+                    </div>
                     <CardHeader class="pb-3">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex-1 min-w-0">
@@ -494,7 +512,8 @@ const submitQuickAdd = () => {
                                 </CardDescription>
                             </div>
                         </div>
-                        <div class="flex flex-wrap gap-1 mt-2">
+                        <!-- Show status badges if no photo -->
+                        <div v-if="!pigeon.photo_url" class="flex flex-wrap gap-1 mt-2">
                             <span 
                                 :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
                             >
@@ -502,6 +521,16 @@ const submitQuickAdd = () => {
                             </span>
                             <span 
                                 v-if="pigeon.color_tag"
+                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                :style="{ backgroundColor: pigeon.color_tag.color + '20', color: pigeon.color_tag.color, border: '1px solid ' + pigeon.color_tag.color }"
+                            >
+                                <span class="size-2 rounded-full" :style="{ backgroundColor: pigeon.color_tag.color }"></span>
+                                {{ pigeon.color_tag.name }}
+                            </span>
+                        </div>
+                        <!-- Color tag shown separately when photo exists -->
+                        <div v-else-if="pigeon.color_tag" class="flex flex-wrap gap-1 mt-2">
+                            <span 
                                 class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
                                 :style="{ backgroundColor: pigeon.color_tag.color + '20', color: pigeon.color_tag.color, border: '1px solid ' + pigeon.color_tag.color }"
                             >
@@ -548,6 +577,10 @@ const submitQuickAdd = () => {
                             >
                                 {{ pigeon.dam.ring_number || pigeon.dam.personal_number }}
                             </Link>
+                        </div>
+                        <!-- Remarks -->
+                        <div v-if="pigeon.remarks" class="border-t pt-2 mt-2">
+                            <p class="text-xs text-muted-foreground italic line-clamp-2">{{ pigeon.remarks }}</p>
                         </div>
                     </CardContent>
                     <CardFooter class="flex gap-2">

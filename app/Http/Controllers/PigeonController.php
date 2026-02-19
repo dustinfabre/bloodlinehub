@@ -177,14 +177,11 @@ class PigeonController extends Controller
                 85
             );
         }
-        \Log::info('Creating pigeon with data: ', $data);
 
         $pigeon = Pigeon::create($data);
 
         // Sync bloodlines with pivot data
         $this->syncBloodlines($pigeon, $bloodlinesData, $request->user()->id);
-
-        \Log::info('Created pigeon: ', $pigeon->toArray());
 
         // If creating offspring from a pairing, redirect back to the pairing page
         if ($request->input('pairing_id')) {
@@ -382,8 +379,8 @@ class PigeonController extends Controller
             'personal_number' => $pigeon->personal_number,
             'remarks' => $pigeon->remarks,
             'notes' => $pigeon->notes,
-            'photos' => $pigeon->photos,
-            'pedigree_image' => $pigeon->pedigree_image,
+            'photo_url' => $pigeon->photo_url,
+            'pedigree_images' => $pigeon->pedigree_images,
             'for_sale' => $pigeon->for_sale,
             'sale_price' => $pigeon->sale_price,
             'hide_price' => $pigeon->hide_price,

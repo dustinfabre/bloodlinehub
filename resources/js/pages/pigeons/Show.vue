@@ -46,8 +46,8 @@ interface Pigeon {
     color: string | null;
     remarks: string | null;
     notes: string | null;
-    photos: string[];
-    pedigree_image: string | null;
+    photo_url: string | null;
+    pedigree_images: string[] | null;
     sire: ParentSummary | null;
     dam: ParentSummary | null;
     sire_name: string | null;
@@ -135,6 +135,16 @@ const getLabel = (node: PedigreeNode | null): string => {
                         <CardTitle>General Information</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-4">
+                        <!-- Photo -->
+                        <div v-if="pigeon.photo_url" class="mb-4">
+                            <a :href="pigeon.photo_url" target="_blank" class="block overflow-hidden rounded-lg border">
+                                <img 
+                                    :src="pigeon.photo_url" 
+                                    :alt="pigeonLabel" 
+                                    class="h-48 w-full object-cover transition-transform hover:scale-105" 
+                                />
+                            </a>
+                        </div>
                         <div v-if="pigeon.name">
                             <p class="text-sm text-muted-foreground">Name</p>
                             <p class="font-medium">{{ pigeon.name }}</p>
@@ -225,32 +235,20 @@ const getLabel = (node: PedigreeNode | null): string => {
                     </CardContent>
                 </Card>
 
-                <!-- Photos -->
-                <Card v-if="pigeon.photos && pigeon.photos.length > 0" class="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Photos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                            <a v-for="(photo, index) in pigeon.photos" :key="index" :href="photo" target="_blank" class="overflow-hidden rounded-lg border">
-                                <img :src="photo" :alt="`${pigeonLabel} photo ${index + 1}`" class="h-48 w-full object-cover transition-transform hover:scale-105" />
-                            </a>
-                        </div>
-                    </CardContent>
-                </Card>
-
                 <!-- Pedigree -->
                 <Card class="lg:col-span-2">
                     <CardHeader>
                         <CardTitle>Pedigree Chart</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <!-- Uploaded Pedigree Image -->
-                        <div v-if="pigeon.pedigree_image" class="mb-6">
-                            <a :href="pigeon.pedigree_image" target="_blank" class="block overflow-hidden rounded-lg border">
-                                <img :src="pigeon.pedigree_image" :alt="`${pigeonLabel} pedigree`" class="w-full object-contain transition-transform hover:scale-105" />
-                            </a>
-                            <p class="mt-2 text-center text-sm text-muted-foreground">Click to view full size</p>
+                        <!-- Uploaded Pedigree Images -->
+                        <div v-if="pigeon.pedigree_images && pigeon.pedigree_images.length > 0" class="mb-6">
+                            <p class="text-sm font-medium text-muted-foreground mb-2">Uploaded Pedigree Images</p>
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <a v-for="(image, index) in pigeon.pedigree_images" :key="index" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
+                                    <img :src="image" :alt="`${pigeonLabel} pedigree ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
+                                </a>
+                            </div>
                         </div>
 
                         <!-- Generated Pedigree Tree -->

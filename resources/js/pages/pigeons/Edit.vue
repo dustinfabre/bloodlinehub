@@ -262,6 +262,10 @@ const handleCroppedImage = (file: File) => {
         URL.revokeObjectURL(cropperImageSrc.value);
         cropperImageSrc.value = null;
     }
+    // Reset file input so the same file can be selected again if needed
+    if (photoInputRef.value) {
+        photoInputRef.value.value = '';
+    }
 };
 
 const handleCropCancel = () => {
