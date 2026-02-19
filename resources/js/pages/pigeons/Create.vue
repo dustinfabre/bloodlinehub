@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import ColorTagSelect from '@/components/ColorTagSelect.vue';
+import ImageCropper from '@/components/ImageCropper.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -193,12 +194,44 @@ watch(() => form.ring_number, () => {
     duplicateCheckDismissed.value = false;
 });
 
+// Image cropper state
+const showCropper = ref(false);
+const cropperImageSrc = ref<string | null>(null);
+const photoInputRef = ref<HTMLInputElement | null>(null);
+
 const handlePhotoChange = (event: Event) => {
     const target = event.target as HTMLInputElement;
     const file = target.files?.[0];
     if (file) {
-        form.photo = file;
-        photoPreview.value = URL.createObjectURL(file);
+        // Open cropper with the selected image
+        cropperImageSrc.value = URL.createObjectURL(file);
+        showCropper.value = true;
+    }
+};
+
+const handleCroppedImage = (file: File) => {
+    // Clean up previous preview URL
+    if (photoPreview.value) {
+        URL.revokeObjectURL(photoPreview.value);
+    }
+    form.photo = file;
+    photoPreview.value = URL.createObjectURL(file);
+    // Clean up cropper image source
+    if (cropperImageSrc.value) {
+        URL.revokeObjectURL(cropperImageSrc.value);
+        cropperImageSrc.value = null;
+    }
+};
+
+const handleCropCancel = () => {
+    // Clean up cropper image source
+    if (cropperImageSrc.value) {
+        URL.revokeObjectURL(cropperImageSrc.value);
+        cropperImageSrc.value = null;
+    }
+    // Reset file input
+    if (photoInputRef.value) {
+        photoInputRef.value.value = '';
     }
 };
 
@@ -651,10 +684,13 @@ const submit = () => {
                             <div class="grid gap-4">
                                 <div class="grid gap-2">
                                     <Label for="photo">Pigeon Photo (Max 1)</Label>
-                                    <Input 
+                                    <input 
+                                        ref="photoInputRef"
                                         id="photo" 
                                         type="file" 
-                                        accept="image/*" 
+                                        accept="image/*"
+                                        capture="environment"
+                                        class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                         @change="handlePhotoChange"
                                     />
                                     <div v-if="photoPreview" class="relative mt-2">
@@ -669,7 +705,7 @@ const submit = () => {
                                             Remove
                                         </Button>
                                     </div>
-                                    <p class="text-xs text-muted-foreground">Images will be optimized and converted to WebP format</p>
+                                    <p class="text-xs text-muted-foreground">Tap to take a photo or choose from gallery. Image will be cropped to fit.</p>
                                     <InputError :message="form.errors.photo" />
                                 </div>
                                 <div class="grid gap-2">
@@ -797,5 +833,14 @@ const submit = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <!-- Image Cropper Dialog -->
+        <ImageCropper
+            v-model:open="showCropper"
+            :image-src="cropperImageSrc"
+            :aspect-ratio="1"
+            @crop="handleCroppedImage"
+            @cancel="handleCropCancel"
+        />
     </AppLayout>
 </template>
