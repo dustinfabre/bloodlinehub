@@ -110,7 +110,7 @@ const getPigeonStatusBadge = (pigeon: Pigeon) => {
 };
 
 const activeEntriesCount = computed(() => {
-    return props.season.entries.filter(e => e.pigeon.status === 'alive').length;
+    return props.season.entries.filter(e => e.status !== 'deceased' && e.status !== 'missing' && e.status !== 'flyaway').length;
 });
 
 const filteredPigeons = computed(() => {

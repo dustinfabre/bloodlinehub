@@ -93,11 +93,26 @@ interface ColorTag {
     color: string;
 }
 
+interface ParentPigeon {
+    id: number;
+    name: string | null;
+    ring_number: string | null;
+    personal_number: string | null;
+    color: string | null;
+    bloodline: string | null;
+    sire: { ring_number?: string; name?: string } | null;
+    dam: { ring_number?: string; name?: string } | null;
+    notes: string | null;
+    remarks: string | null;
+    label: string;
+}
+
 const props = defineProps<{
     pigeons: PaginatedPigeons;
     bloodlines: BloodlineOption[];
     colorTags: ColorTag[];
     colors: string[];
+    parentOptions: { sires: ParentPigeon[]; dams: ParentPigeon[] };
     filters: {
         search?: string;
         status?: string;
@@ -223,8 +238,81 @@ const quickAddForm = ref({
     ring_number: '',
     gender: '' as string,
     status: 'stock',
+    sire_id: '' as string,
+    dam_id: '' as string,
 });
 const quickAddErrors = ref<Record<string, string>>({});
+
+// Quick Add sire/dam search
+const quickSireSearch = ref('');
+const quickDamSearch = ref('');
+const showQuickSireDropdown = ref(false);
+const showQuickDamDropdown = ref(false);
+
+const filteredQuickSires = computed(() => {
+    if (!quickSireSearch.value) return props.parentOptions.sires;
+    const search = quickSireSearch.value.toLowerCase();
+    return props.parentOptions.sires.filter(s =>
+        s.name?.toLowerCase().includes(search) ||
+        s.ring_number?.toLowerCase().includes(search) ||
+        s.personal_number?.toLowerCase().includes(search) ||
+        s.bloodline?.toLowerCase().includes(search) ||
+        s.color?.toLowerCase().includes(search)
+    );
+});
+
+const filteredQuickDams = computed(() => {
+    if (!quickDamSearch.value) return props.parentOptions.dams;
+    const search = quickDamSearch.value.toLowerCase();
+    return props.parentOptions.dams.filter(d =>
+        d.name?.toLowerCase().includes(search) ||
+        d.ring_number?.toLowerCase().includes(search) ||
+        d.personal_number?.toLowerCase().includes(search) ||
+        d.bloodline?.toLowerCase().includes(search) ||
+        d.color?.toLowerCase().includes(search)
+    );
+});
+
+const selectedQuickSire = computed(() => props.parentOptions.sires.find(s => s.id.toString() === quickAddForm.value.sire_id));
+const selectedQuickDam = computed(() => props.parentOptions.dams.find(d => d.id.toString() === quickAddForm.value.dam_id));
+
+const formatParentPigeon = (pigeon: ParentPigeon) => {
+    const parts: string[] = [];
+    if (pigeon.name) parts.push(pigeon.name);
+    if (pigeon.ring_number) parts.push(pigeon.ring_number);
+    if (pigeon.bloodline) parts.push(`- ${pigeon.bloodline}`);
+    return parts.join(' ') || `Pigeon #${pigeon.id}`;
+};
+
+const selectQuickSire = (sire: ParentPigeon) => {
+    quickAddForm.value.sire_id = sire.id.toString();
+    quickSireSearch.value = formatParentPigeon(sire);
+    showQuickSireDropdown.value = false;
+};
+
+const selectQuickDam = (dam: ParentPigeon) => {
+    quickAddForm.value.dam_id = dam.id.toString();
+    quickDamSearch.value = formatParentPigeon(dam);
+    showQuickDamDropdown.value = false;
+};
+
+const clearQuickSire = () => {
+    quickAddForm.value.sire_id = '';
+    quickSireSearch.value = '';
+};
+
+const clearQuickDam = () => {
+    quickAddForm.value.dam_id = '';
+    quickDamSearch.value = '';
+};
+
+const handleQuickSireBlur = () => {
+    window.setTimeout(() => showQuickSireDropdown.value = false, 200);
+};
+
+const handleQuickDamBlur = () => {
+    window.setTimeout(() => showQuickDamDropdown.value = false, 200);
+};
 
 // Quick Add duplicate checking
 const quickAddCheckingRing = ref(false);
@@ -266,7 +354,11 @@ const openQuickAddModal = () => {
         ring_number: '',
         gender: '',
         status: 'stock',
+        sire_id: '',
+        dam_id: '',
     };
+    quickSireSearch.value = '';
+    quickDamSearch.value = '';
     quickAddErrors.value = {};
     showQuickAddModal.value = true;
 };
@@ -277,7 +369,11 @@ const closeQuickAddModal = () => {
         ring_number: '',
         gender: '',
         status: 'stock',
+        sire_id: '',
+        dam_id: '',
     };
+    quickSireSearch.value = '';
+    quickDamSearch.value = '';
     quickAddErrors.value = {};
     isQuickAdding.value = false;
 };
@@ -296,6 +392,8 @@ const submitQuickAdd = () => {
         ring_number: quickAddForm.value.ring_number.toUpperCase(),
         gender: quickAddForm.value.gender || null,
         status: quickAddForm.value.status,
+        sire_id: quickAddForm.value.sire_id || null,
+        dam_id: quickAddForm.value.dam_id || null,
     }, {
         preserveScroll: true,
         onSuccess: () => {
@@ -656,7 +754,7 @@ const submitQuickAdd = () => {
 
         <!-- Quick Add Modal -->
         <Dialog :open="showQuickAddModal" @update:open="closeQuickAddModal">
-            <DialogContent class="sm:max-w-md">
+            <DialogContent class="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle class="flex items-center gap-2">
                         <Plus class="h-5 w-5" />
@@ -738,6 +836,114 @@ const submitQuickAdd = () => {
                             <option value="female">Female (Hen)</option>
                         </select>
                         <p v-if="quickAddErrors.gender" class="text-sm text-destructive">{{ quickAddErrors.gender }}</p>
+                    </div>
+
+                    <!-- Sire Selection -->
+                    <div class="space-y-2 relative">
+                        <Label for="quick-sire-search">Sire (Father)</Label>
+                        <div class="relative">
+                            <Input
+                                id="quick-sire-search"
+                                v-model="quickSireSearch"
+                                @focus="showQuickSireDropdown = true"
+                                @blur="handleQuickSireBlur"
+                                placeholder="Search sires by name, ring, bloodline, or color..."
+                                autocomplete="off"
+                                class="w-full"
+                                :class="{ 'pr-8': selectedQuickSire }"
+                            />
+                            <button
+                                v-if="selectedQuickSire"
+                                type="button"
+                                @click="clearQuickSire"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                                <X class="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div
+                            v-if="showQuickSireDropdown && filteredQuickSires.length > 0"
+                            class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-48 overflow-auto"
+                        >
+                            <button
+                                v-for="sire in filteredQuickSires"
+                                :key="sire.id"
+                                type="button"
+                                @click="selectQuickSire(sire)"
+                                class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
+                            >
+                                <div class="font-medium text-sm">{{ sire.name || sire.ring_number || sire.personal_number }}</div>
+                                <div class="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                    <div v-if="sire.ring_number && sire.name">{{ sire.ring_number }}</div>
+                                    <div v-if="sire.bloodline || sire.color">
+                                        {{ [sire.bloodline, sire.color].filter(Boolean).join(' \u2022 ') }}
+                                    </div>
+                                    <div v-if="sire.sire || sire.dam" class="text-muted-foreground/70">
+                                        <span v-if="sire.sire">S: {{ sire.sire.ring_number || sire.sire.name }}</span>
+                                        <span v-if="sire.sire && sire.dam"> | </span>
+                                        <span v-if="sire.dam">D: {{ sire.dam.ring_number || sire.dam.name }}</span>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        <div v-if="showQuickSireDropdown && filteredQuickSires.length === 0 && quickSireSearch" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground text-sm">
+                            No sires found
+                        </div>
+                        <p v-if="quickAddErrors.sire_id" class="text-sm text-destructive">{{ quickAddErrors.sire_id }}</p>
+                    </div>
+
+                    <!-- Dam Selection -->
+                    <div class="space-y-2 relative">
+                        <Label for="quick-dam-search">Dam (Mother)</Label>
+                        <div class="relative">
+                            <Input
+                                id="quick-dam-search"
+                                v-model="quickDamSearch"
+                                @focus="showQuickDamDropdown = true"
+                                @blur="handleQuickDamBlur"
+                                placeholder="Search dams by name, ring, bloodline, or color..."
+                                autocomplete="off"
+                                class="w-full"
+                                :class="{ 'pr-8': selectedQuickDam }"
+                            />
+                            <button
+                                v-if="selectedQuickDam"
+                                type="button"
+                                @click="clearQuickDam"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                                <X class="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div
+                            v-if="showQuickDamDropdown && filteredQuickDams.length > 0"
+                            class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-48 overflow-auto"
+                        >
+                            <button
+                                v-for="dam in filteredQuickDams"
+                                :key="dam.id"
+                                type="button"
+                                @click="selectQuickDam(dam)"
+                                class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
+                            >
+                                <div class="font-medium text-sm">{{ dam.name || dam.ring_number || dam.personal_number }}</div>
+                                <div class="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                    <div v-if="dam.ring_number && dam.name">{{ dam.ring_number }}</div>
+                                    <div v-if="dam.bloodline || dam.color">
+                                        {{ [dam.bloodline, dam.color].filter(Boolean).join(' \u2022 ') }}
+                                    </div>
+                                    <div v-if="dam.sire || dam.dam" class="text-muted-foreground/70">
+                                        <span v-if="dam.sire">S: {{ dam.sire.ring_number || dam.sire.name }}</span>
+                                        <span v-if="dam.sire && dam.dam"> | </span>
+                                        <span v-if="dam.dam">D: {{ dam.dam.ring_number || dam.dam.name }}</span>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        <div v-if="showQuickDamDropdown && filteredQuickDams.length === 0 && quickDamSearch" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground text-sm">
+                            No dams found
+                        </div>
+                        <p v-if="quickAddErrors.dam_id" class="text-sm text-destructive">{{ quickAddErrors.dam_id }}</p>
                     </div>
                     <div class="space-y-2">
                         <Label for="quick-status">Status *</Label>

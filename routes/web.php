@@ -102,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // OLR Season Entries
     Route::post('olr-races/{olr_race}/seasons/{season}/entries', [OlrSeasonController::class, 'addEntry'])
         ->name('olr-races.seasons.entries.store');
+    Route::post('olr-races/{olr_race}/seasons/{season}/entries/bulk', [OlrSeasonController::class, 'addBulkEntries'])
+        ->name('olr-races.seasons.entries.bulk');
     Route::delete('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'removeEntry'])
         ->name('olr-races.seasons.entries.destroy');
     Route::patch('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'updateEntry'])

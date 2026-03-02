@@ -16,8 +16,17 @@ class OlrSeasonController extends Controller
     {
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
+        // Get available pigeons (not deceased, missing, or flyaway)
+        $availablePigeons = Pigeon::where('user_id', auth()->id())
+            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->select('id', 'ring_number', 'personal_number', 'name', 'color')
+            ->orderBy('ring_number')
+            ->orderBy('personal_number')
+            ->get();
+
         return Inertia::render('olr-races/seasons/Create', [
             'olrRace' => $olrRace,
+            'availablePigeons' => $availablePigeons,
         ]);
     }
 
@@ -31,9 +40,25 @@ class OlrSeasonController extends Controller
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'status' => ['required', 'string', 'in:active,completed,cancelled'],
+            'pigeon_ids' => ['nullable', 'array'],
+            'pigeon_ids.*' => ['exists:pigeons,id'],
         ]);
 
-        $season = $olrRace->seasons()->create($validated);
+        $season = $olrRace->seasons()->create([
+            'name' => $validated['name'],
+            'year' => $validated['year'],
+            'start_date' => $validated['start_date'] ?? null,
+            'end_date' => $validated['end_date'] ?? null,
+            'status' => $validated['status'],
+        ]);
+
+        // Add pigeons if provided
+        if (!empty($validated['pigeon_ids'])) {
+            $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
+                ->where('user_id', auth()->id())
+                ->pluck('id');
+            $season->entries()->attach($pigeons);
+        }
 
         return redirect()->route('olr-races.seasons.show', [$olrRace, $season])
             ->with('success', 'Season created successfully.');
@@ -59,6 +84,8 @@ class OlrSeasonController extends Controller
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
             ->whereNotIn('id', $season->entries->pluck('id'))
+            ->orderBy('ring_number')
+            ->orderBy('personal_number')
             ->get();
 
         return Inertia::render('olr-races/seasons/Show', [
@@ -113,7 +140,6 @@ class OlrSeasonController extends Controller
 
         $validated = $request->validate([
             'pigeon_id' => ['required', 'exists:pigeons,id'],
-            'entry_number' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -123,11 +149,38 @@ class OlrSeasonController extends Controller
             ->firstOrFail();
 
         $season->entries()->attach($pigeon->id, [
-            'entry_number' => $validated['entry_number'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ]);
 
         return back()->with('success', 'Pigeon added to season.');
+    }
+
+    public function addBulkEntries(Request $request, OlrRace $olrRace, OlrSeason $season): RedirectResponse
+    {
+        abort_if($olrRace->user_id !== auth()->id(), 403);
+
+        $validated = $request->validate([
+            'pigeon_ids' => ['required', 'array'],
+            'pigeon_ids.*' => ['exists:pigeons,id'],
+        ]);
+
+        // Verify all pigeons belong to the user
+        $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
+            ->where('user_id', auth()->id())
+            ->pluck('id');
+
+        if ($pigeons->count() !== count($validated['pigeon_ids'])) {
+            return back()->withErrors(['pigeon_ids' => 'Some pigeons do not belong to you.']);
+        }
+
+        // Attach all pigeons
+        foreach ($pigeons as $pigeonId) {
+            if (!$season->entries()->where('pigeon_id', $pigeonId)->exists()) {
+                $season->entries()->attach($pigeonId);
+            }
+        }
+
+        return back()->with('success', count($pigeons) . ' pigeon(s) added to season.');
     }
 
     public function removeEntry(OlrRace $olrRace, OlrSeason $season, Pigeon $pigeon): RedirectResponse
@@ -149,13 +202,11 @@ class OlrSeasonController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'entry_number' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'status' => ['nullable', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
         ]);
 
         $updateData = [
-            'entry_number' => $validated['entry_number'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ];
 

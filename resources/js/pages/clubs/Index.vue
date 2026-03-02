@@ -105,7 +105,7 @@ const handleDelete = (club: Club) => {
                         <Button variant="outline" size="sm" as-child class="flex-1">
                             <Link :href="`/clubs/${club.id}/edit`">Edit</Link>
                         </Button>
-                        <Button variant="destructive" size="sm" @click="handleDelete(club)">
+                        <Button variant="destructive" size="sm" @click="handleDelete(club)" class="flex-1">
                             Delete
                         </Button>
                     </CardFooter>

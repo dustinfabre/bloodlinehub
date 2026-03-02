@@ -109,7 +109,7 @@ const handleDelete = (race: OlrRace) => {
                         <Button variant="outline" size="sm" as-child class="flex-1">
                             <Link :href="`/olr-races/${race.id}/edit`">Edit</Link>
                         </Button>
-                        <Button variant="destructive" size="sm" @click="handleDelete(race)">
+                        <Button variant="destructive" size="sm" @click="handleDelete(race)" class="flex-1">
                             Delete
                         </Button>
                     </CardFooter>

@@ -67,7 +67,7 @@ const handleDelete = () => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <!-- Header -->
-            <div class="flex items-start justify-between">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div class="flex items-center gap-3">
                         <h1 class="text-2xl font-semibold text-foreground">{{ olrRace.name }}</h1>
@@ -79,14 +79,14 @@ const handleDelete = () => {
                         {{ olrRace.organizer }}
                     </p>
                 </div>
-                <div class="flex gap-2">
-                    <Button variant="outline" as-child>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <Button variant="outline" as-child class="flex-1 sm:flex-initial">
                         <Link :href="`/olr-races/${olrRace.id}/edit`">
                             <Pencil class="mr-2 h-4 w-4" />
                             Edit
                         </Link>
                     </Button>
-                    <Button variant="destructive" @click="handleDelete">
+                    <Button variant="destructive" @click="handleDelete" class="flex-1 sm:flex-initial">
                         <Trash2 class="mr-2 h-4 w-4" />
                         Delete
                     </Button>

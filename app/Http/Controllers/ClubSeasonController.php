@@ -16,8 +16,17 @@ class ClubSeasonController extends Controller
     {
         abort_if($club->user_id !== auth()->id(), 403);
 
+        // Get available pigeons with racing status
+        $availablePigeons = Pigeon::where('user_id', auth()->id())
+            ->where('status', 'racing')
+            ->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'color', 'bloodline')
+            ->orderBy('ring_number')
+            ->orderBy('personal_number')
+            ->get();
+
         return Inertia::render('clubs/seasons/Create', [
             'club' => $club,
+            'availablePigeons' => $availablePigeons,
         ]);
     }
 
@@ -31,9 +40,25 @@ class ClubSeasonController extends Controller
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'status' => ['required', 'string', 'in:active,completed,cancelled'],
+            'pigeon_ids' => ['nullable', 'array'],
+            'pigeon_ids.*' => ['exists:pigeons,id'],
         ]);
 
-        $season = $club->seasons()->create($validated);
+        $season = $club->seasons()->create([
+            'name' => $validated['name'],
+            'year' => $validated['year'],
+            'start_date' => $validated['start_date'] ?? null,
+            'end_date' => $validated['end_date'] ?? null,
+            'status' => $validated['status'],
+        ]);
+
+        // Add pigeons if provided
+        if (!empty($validated['pigeon_ids'])) {
+            $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
+                ->where('user_id', auth()->id())
+                ->pluck('id');
+            $season->entries()->attach($pigeons);
+        }
 
         return redirect()->route('clubs.seasons.show', [$club, $season])
             ->with('success', 'Season created successfully.');
@@ -60,6 +85,8 @@ class ClubSeasonController extends Controller
             ->where('status', 'racing')
             ->whereNotIn('id', $season->entries->pluck('id'))
             ->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'color', 'bloodline')
+            ->orderBy('ring_number')
+            ->orderBy('personal_number')
             ->get();
 
         return Inertia::render('clubs/seasons/Show', [

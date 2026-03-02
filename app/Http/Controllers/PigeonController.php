@@ -107,6 +107,7 @@ class PigeonController extends Controller
             'bloodlines' => $bloodlines,
             'colors' => $colors,
             'colorTags' => $colorTags,
+            'parentOptions' => $this->parentOptions($user->id),
             'filters' => [
                 'search' => $request->input('search'),
                 'gender' => $request->input('gender'),
