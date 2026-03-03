@@ -8,16 +8,18 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         port: 5173,
-        origin: 'http://10.0.2.2:5173',
+        origin: 'http://192.168.31.66:5173',
         hmr: {
-            host: '10.0.2.2',
+            host: '192.168.31.66',
         },
+        cors: true,
     },
     plugins: [
         laravel({
             input: ['resources/js/app.ts'],
             ssr: 'resources/js/ssr.ts',
             refresh: true,
+            detectTls: false,
         }),
         tailwindcss(),
         wayfinder({

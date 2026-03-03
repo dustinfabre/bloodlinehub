@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
+import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import { Plus, Search, Filter, Eye, Pencil, Trash2, Bird, X, AlertTriangle } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
 import axios from 'axios';
@@ -237,10 +238,11 @@ const isQuickAdding = ref(false);
 const quickAddForm = ref({
     ring_number: '',
     gender: '' as string,
-    status: 'stock',
     sire_id: '' as string,
     dam_id: '' as string,
+    notes: '',
 });
+const quickAddBloodlines = ref<{ id: number; name: string; is_primary: boolean }[]>([]);
 const quickAddErrors = ref<Record<string, string>>({});
 
 // Quick Add sire/dam search
@@ -353,10 +355,11 @@ const openQuickAddModal = () => {
     quickAddForm.value = {
         ring_number: '',
         gender: '',
-        status: 'stock',
         sire_id: '',
         dam_id: '',
+        notes: '',
     };
+    quickAddBloodlines.value = [];
     quickSireSearch.value = '';
     quickDamSearch.value = '';
     quickAddErrors.value = {};
@@ -368,10 +371,11 @@ const closeQuickAddModal = () => {
     quickAddForm.value = {
         ring_number: '',
         gender: '',
-        status: 'stock',
         sire_id: '',
         dam_id: '',
+        notes: '',
     };
+    quickAddBloodlines.value = [];
     quickSireSearch.value = '';
     quickDamSearch.value = '';
     quickAddErrors.value = {};
@@ -391,9 +395,11 @@ const submitQuickAdd = () => {
     router.post('/pigeons', {
         ring_number: quickAddForm.value.ring_number.toUpperCase(),
         gender: quickAddForm.value.gender || null,
-        status: quickAddForm.value.status,
+        status: 'stock',
         sire_id: quickAddForm.value.sire_id || null,
         dam_id: quickAddForm.value.dam_id || null,
+        bloodlines: quickAddBloodlines.value,
+        notes: quickAddForm.value.notes || null,
     }, {
         preserveScroll: true,
         onSuccess: () => {
@@ -945,22 +951,28 @@ const submitQuickAdd = () => {
                         </div>
                         <p v-if="quickAddErrors.dam_id" class="text-sm text-destructive">{{ quickAddErrors.dam_id }}</p>
                     </div>
+
+                    <!-- Bloodline -->
                     <div class="space-y-2">
-                        <Label for="quick-status">Status *</Label>
-                        <select 
-                            id="quick-status" 
-                            v-model="quickAddForm.status" 
-                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        >
-                            <option value="stock">In Stock</option>
-                            <option value="racing">Racing</option>
-                            <option value="breeding">Breeding</option>
-                            <option value="injured">Injured</option>
-                            <option value="deceased">Deceased</option>
-                            <option value="flyaway">Flyaway</option>
-                            <option value="missing">Missing</option>
-                        </select>
-                        <p v-if="quickAddErrors.status" class="text-sm text-destructive">{{ quickAddErrors.status }}</p>
+                        <Label>Bloodline</Label>
+                        <BloodlineMultiSelect
+                            v-model="quickAddBloodlines"
+                            :bloodlines="bloodlines"
+                        />
+                        <p v-if="quickAddErrors.bloodlines" class="text-sm text-destructive">{{ quickAddErrors.bloodlines }}</p>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="space-y-2">
+                        <Label for="quick-notes">Notes</Label>
+                        <textarea
+                            id="quick-notes"
+                            v-model="quickAddForm.notes"
+                            placeholder="Any quick notes..."
+                            rows="2"
+                            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        ></textarea>
+                        <p v-if="quickAddErrors.notes" class="text-sm text-destructive">{{ quickAddErrors.notes }}</p>
                     </div>
                     <DialogFooter class="flex-col gap-2 sm:flex-row pt-4">
                         <Button type="button" variant="outline" @click="closeQuickAddModal" class="w-full sm:w-auto">
