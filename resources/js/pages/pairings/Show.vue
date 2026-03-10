@@ -553,6 +553,9 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                             <Badge :variant="getStatusVariant(clutch.status)">
                                                 {{ clutch.status }}
                                             </Badge>
+                                            <Badge v-if="clutch.is_fostered" variant="outline" class="border-amber-500 text-amber-600 dark:text-amber-400">
+                                                Fostered
+                                            </Badge>
                                             <Badge
                                                 v-if="getClutchAgeInfo(clutch)"
                                                 :class="{

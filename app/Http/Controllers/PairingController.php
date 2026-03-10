@@ -52,8 +52,8 @@ class PairingController extends Controller
             });
         }
 
-        // Sort by most recent first
-        $query->orderBy('created_at', 'desc');
+        // Sort by pair name
+        $query->orderBy('pair_name', 'asc');
 
         $perPage = $request->input('per_page', 20);
         $pairings = $query->paginate($perPage)->withQueryString();
