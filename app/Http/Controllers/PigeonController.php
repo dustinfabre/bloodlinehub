@@ -606,6 +606,53 @@ class PigeonController extends Controller
         ]);
     }
 
+    public function suggestRingNumber(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+        $prefix = strtoupper(trim($request->input('prefix', '')));
+
+        if (strlen($prefix) < 2) {
+            return response()->json(['suggestions' => []]);
+        }
+
+        // Find ring numbers starting with this prefix
+        $existing = Pigeon::where('user_id', $user->id)
+            ->whereRaw('UPPER(ring_number) LIKE ?', [$prefix . '%'])
+            ->orderByRaw('ring_number DESC')
+            ->limit(20)
+            ->pluck('ring_number')
+            ->map(fn ($r) => strtoupper(trim($r)))
+            ->toArray();
+
+        if (empty($existing)) {
+            return response()->json(['suggestions' => []]);
+        }
+
+        // Find max numeric suffix to compute next in sequence
+        $maxNumber = null;
+        $numericLength = null;
+
+        foreach ($existing as $ring) {
+            $suffix = substr($ring, strlen($prefix));
+            if (preg_match('/^ *(\d+) *$/', $suffix, $matches)) {
+                $num = (int) $matches[1];
+                if ($maxNumber === null || $num > $maxNumber) {
+                    $maxNumber = $num;
+                    $numericLength = strlen($matches[1]);
+                }
+            }
+        }
+
+        $suggestions = array_slice($existing, 0, 5);
+
+        if ($maxNumber !== null) {
+            $nextSuggestion = $prefix . str_pad($maxNumber + 1, $numericLength, '0', STR_PAD_LEFT);
+            $suggestions = array_slice(array_unique(array_merge([$nextSuggestion], $suggestions)), 0, 6);
+        }
+
+        return response()->json(['suggestions' => $suggestions]);
+    }
+
     private function buildPedigreeTree(?Pigeon $pigeon, int $generations): ?array
     {
         if (!$pigeon || $generations <= 0) {

@@ -30,6 +30,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Custom pigeon routes must be defined BEFORE the resource route
     Route::get('pigeons/check-ring-number', [PigeonController::class, 'checkRingNumber'])
         ->name('pigeons.check-ring-number');
+    Route::get('pigeons/suggest-ring-number', [PigeonController::class, 'suggestRingNumber'])
+        ->name('pigeons.suggest-ring-number');
     
     Route::resource('pigeons', PigeonController::class);
     Route::get('pigeons/{pigeon}/pedigree', [PigeonController::class, 'pedigree'])

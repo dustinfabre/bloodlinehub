@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
@@ -91,6 +91,27 @@ const showAddOffspring = ref(false);
 const showFosterTo = ref(false);
 const selectedClutch = ref<Clutch | null>(null);
 const fosterToTargetPairingId = ref('');
+
+const ringSuggestions = ref<string[]>([]);
+let ringDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => offspringForm.ring_number, (value) => {
+    if (ringDebounceTimer) clearTimeout(ringDebounceTimer);
+    const prefix = value.toUpperCase().trim();
+    if (prefix.length < 2) {
+        ringSuggestions.value = [];
+        return;
+    }
+    ringDebounceTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(`/pigeons/suggest-ring-number?prefix=${encodeURIComponent(prefix)}`);
+            const data = await res.json();
+            ringSuggestions.value = data.suggestions ?? [];
+        } catch {
+            ringSuggestions.value = [];
+        }
+    }, 300);
+});
 
 const { success } = useToast();
 
@@ -246,6 +267,7 @@ const addOffspringToClutch = (clutch: Clutch) => {
     // Reset form first
     offspringForm.clearErrors();
     offspringForm.reset();
+    ringSuggestions.value = [];
     
     // Use biological parents if this is a fostered clutch, otherwise use foster parents
     const biologicalParents = clutch.is_fostered && clutch.biological_parents 
@@ -267,6 +289,7 @@ const submitOffspring = () => {
         ...data,
         for_sale: false,
         hide_price: false,
+        pairing_id: props.pairing.id,
     })).post(store().url, {
         preserveScroll: true,
         forceFormData: true,
@@ -1017,8 +1040,12 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                     autofocus
                                     autocomplete="off"
                                     placeholder="e.g. PH 2024-12345"
+                                    list="ring-suggestions-list"
                                     @input="offspringForm.ring_number = ($event.target as HTMLInputElement).value.toUpperCase()"
                                 />
+                                <datalist id="ring-suggestions-list">
+                                    <option v-for="s in ringSuggestions" :key="s" :value="s" />
+                                </datalist>
                                 <p v-if="offspringForm.errors.ring_number" class="text-sm text-red-600">
                                     {{ offspringForm.errors.ring_number }}
                                 </p>
