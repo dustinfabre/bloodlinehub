@@ -21,6 +21,7 @@ interface ClubSeason {
 
 interface ClubSeasonRace {
     id: number;
+    name: string;
     release_point: string;
     distance: number;
     distance_unit: string;
@@ -40,11 +41,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Clubs', href: '/clubs' },
     { title: props.club.name, href: `/clubs/${props.club.id}` },
     { title: props.season.name, href: `/clubs/${props.club.id}/seasons/${props.season.id}` },
-    { title: `${props.race.release_point} ${props.race.distance}${props.race.distance_unit}`, href: `/clubs/${props.club.id}/seasons/${props.season.id}/races/${props.race.id}` },
+    { title: props.race.name, href: `/clubs/${props.club.id}/seasons/${props.season.id}/races/${props.race.id}` },
     { title: 'Edit', href: `/clubs/${props.club.id}/seasons/${props.season.id}/races/${props.race.id}/edit` },
 ];
 
 const form = useForm({
+    name: props.race.name,
     release_point: props.race.release_point,
     distance: props.race.distance,
     distance_unit: props.race.distance_unit,
@@ -77,26 +79,35 @@ const handleSubmit = () => {
                 <CardContent>
                     <form @submit.prevent="handleSubmit" class="space-y-6">
                         <div class="space-y-2">
-                            <Label for="release_point">Release Point *</Label>
+                            <Label for="name">Race Name *</Label>
+                            <Input
+                                id="name"
+                                v-model="form.name"
+                                placeholder="e.g., Race 1, Leg 2"
+                                required
+                            />
+                            <p v-if="form.errors.name" class="text-sm text-destructive">{{ form.errors.name }}</p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="release_point">Release Point</Label>
                             <Input
                                 id="release_point"
                                 v-model="form.release_point"
                                 placeholder="e.g., Lucena"
-                                required
                             />
                             <p v-if="form.errors.release_point" class="text-sm text-destructive">{{ form.errors.release_point }}</p>
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="space-y-2">
-                                <Label for="distance">Distance *</Label>
+                                <Label for="distance">Distance</Label>
                                 <Input
                                     id="distance"
                                     v-model="form.distance"
                                     type="number"
                                     step="0.01"
                                     placeholder="e.g., 100"
-                                    required
                                 />
                                 <p v-if="form.errors.distance" class="text-sm text-destructive">{{ form.errors.distance }}</p>
                             </div>

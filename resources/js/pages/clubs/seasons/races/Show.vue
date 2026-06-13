@@ -35,6 +35,7 @@ interface ClubRaceResult {
 
 interface ClubSeasonRace {
     id: number;
+    name: string;
     release_point: string;
     distance: number;
     distance_unit: string;
@@ -72,7 +73,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Clubs', href: '/clubs' },
     { title: props.club.name, href: `/clubs/${props.club.id}` },
     { title: props.season.name, href: `/clubs/${props.club.id}/seasons/${props.season.id}` },
-    { title: `${props.race.release_point} ${props.race.distance}${props.race.distance_unit}`, href: `/clubs/${props.club.id}/seasons/${props.season.id}/races/${props.race.id}` },
+    { title: props.race.name, href: `/clubs/${props.club.id}/seasons/${props.season.id}/races/${props.race.id}` },
 ];
 
 const selectedPigeonId = ref<string>('');
@@ -151,7 +152,7 @@ const availablePigeons = computed(() => {
     const resultPigeonIds = props.race.results.map(r => r.pigeon_id);
     return props.season.entries
         .filter(entry => !resultPigeonIds.includes(entry.pigeon_id))
-        .filter(entry => entry.pigeon.status === 'alive')
+        .filter(entry => entry.pigeon.status !== 'deceased' && entry.pigeon.status !== 'missing' && entry.pigeon.status !== 'flyaway')
         .map(entry => entry.pigeon);
 });
 
@@ -252,7 +253,7 @@ const toggleDNA = (result: ClubRaceResult) => {
 </script>
 
 <template>
-    <Head :title="`${race.release_point} ${race.distance}${race.distance_unit} - ${season.name}`" />
+    <Head :title="`${race.name} - ${season.name}`" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6">
@@ -261,13 +262,17 @@ const toggleDNA = (result: ClubRaceResult) => {
                 <div>
                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                         <h1 class="text-xl font-semibold text-foreground sm:text-2xl">
-                            {{ race.release_point }} {{ race.distance }}{{ race.distance_unit }}
+                            {{ race.name }}
                         </h1>
                         <Badge variant="secondary" class="font-mono">
                             {{ arrivedCount }}/{{ race.results.length }}
                         </Badge>
                     </div>
                     <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-4">
+                        <span v-if="race.release_point" class="flex items-center gap-1">
+                            {{ race.release_point }}
+                            <template v-if="race.distance"> • {{ race.distance }}{{ race.distance_unit }}</template>
+                        </span>
                         <span class="flex items-center gap-1">
                             <Calendar class="h-4 w-4" />
                             {{ formatDate(race.race_date) }}
@@ -298,7 +303,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                 </Badge>
             </div>
 
-            <!-- Results -->
+            <!-- Race Results -->
             <Card>
                 <CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -346,7 +351,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                     <div v-if="race.results.length === 0" class="flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
                         <Bird class="h-8 w-8 text-muted-foreground/60" />
                         <h3 class="mt-2 font-medium">No results yet</h3>
-                        <p class="text-sm text-muted-foreground">Add pigeons from this season's entries to record their results.</p>
+                        <p class="text-sm text-muted-foreground">Add pigeons from your team to record their race results.</p>
                     </div>
 
                     <!-- Mobile Card View -->
@@ -355,7 +360,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                             v-for="result in sortedResults"
                             :key="result.id"
                             class="rounded-lg border p-3"
-                            :class="{ 'opacity-50 bg-muted/50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status !== 'alive' }"
+                            :class="{ 'opacity-50 bg-muted/50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status === 'deceased' || result.pigeon.status === 'missing' || result.pigeon.status === 'flyaway' }"
                         >
                             <div class="flex items-start justify-between">
                                 <div class="flex-1 min-w-0">
@@ -415,7 +420,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                             <TableRow
                                 v-for="result in sortedResults"
                                 :key="result.id"
-                                :class="{ 'opacity-50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status !== 'alive' }"
+                                :class="{ 'opacity-50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status === 'deceased' || result.pigeon.status === 'missing' || result.pigeon.status === 'flyaway' }"
                             >
                                 <TableCell class="font-bold">
                                     {{ result.position || '-' }}

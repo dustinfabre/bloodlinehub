@@ -72,12 +72,19 @@ class ClubSeasonController extends Controller
             $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status');
         }, 'races' => function ($query) {
             $query->orderBy('race_date', 'desc');
+        }, 'events' => function ($query) {
+            $query->orderBy('event_date', 'desc');
         }]);
 
         // Add arrived_count and total_entries to each race
         $season->races->each(function ($race) {
             $race->arrived_count = $race->arrived_count;
             $race->total_entries = $race->total_entries;
+        });
+
+        // Add entries_count to each event
+        $season->events->each(function ($event) {
+            $event->entries_count = $event->entries_count;
         });
 
         // Get available pigeons (racing status, not already entered in this season)

@@ -3,6 +3,7 @@
 use App\Http\Controllers\BloodlineController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ClubSeasonController;
+use App\Http\Controllers\ClubSeasonEventController;
 use App\Http\Controllers\ClubSeasonRaceController;
 use App\Http\Controllers\ClutchController;
 use App\Http\Controllers\ColorTagController;
@@ -162,6 +163,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'updateEntry'])
         ->name('clubs.seasons.entries.update');
     
+    // Club Season Events
+    Route::post('clubs/{club}/seasons/{season}/events', [ClubSeasonEventController::class, 'store'])
+        ->name('clubs.seasons.events.store');
+    Route::get('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'show'])
+        ->name('clubs.seasons.events.show');
+    Route::patch('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'update'])
+        ->name('clubs.seasons.events.update');
+    Route::delete('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'destroy'])
+        ->name('clubs.seasons.events.destroy');
+    Route::post('clubs/{club}/seasons/{season}/events/{event}/entries', [ClubSeasonEventController::class, 'addEntry'])
+        ->name('clubs.seasons.events.entries.store');
+    Route::post('clubs/{club}/seasons/{season}/events/{event}/entries/bulk', [ClubSeasonEventController::class, 'addBulkEntries'])
+        ->name('clubs.seasons.events.entries.bulk');
+    Route::delete('clubs/{club}/seasons/{season}/events/{event}/entries/{pigeon}', [ClubSeasonEventController::class, 'removeEntry'])
+        ->name('clubs.seasons.events.entries.destroy');
+
     // Club Season Races
     Route::get('clubs/{club}/seasons/{season}/races/create', [ClubSeasonRaceController::class, 'create'])
         ->name('clubs.seasons.races.create');

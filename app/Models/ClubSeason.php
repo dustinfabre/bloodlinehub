@@ -41,6 +41,11 @@ class ClubSeason extends Model
         return $this->hasMany(ClubSeasonRace::class);
     }
 
+    public function events(): HasMany
+    {
+        return $this->hasMany(ClubSeasonEvent::class);
+    }
+
     public function getEntriesCountAttribute(): int
     {
         return $this->entries()->count();

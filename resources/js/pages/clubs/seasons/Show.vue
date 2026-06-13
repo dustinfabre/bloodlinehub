@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
-import { Plus, Calendar, Users, Flag, Pencil, Trash2, Bird, Eye, AlertTriangle } from 'lucide-vue-next';
+import { Plus, Calendar, Users, Flag, Pencil, Trash2, Bird, Eye, AlertTriangle, Trophy } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 interface Pigeon {
@@ -31,6 +31,7 @@ interface Pigeon {
 
 interface ClubSeasonRace {
     id: number;
+    name: string;
     release_point: string;
     distance: number;
     distance_unit: string;
@@ -42,6 +43,14 @@ interface ClubSeasonRace {
     total_entries: number;
 }
 
+interface ClubSeasonEvent {
+    id: number;
+    name: string;
+    event_date: string | null;
+    notes: string | null;
+    entries_count: number;
+}
+
 interface ClubSeason {
     id: number;
     name: string;
@@ -51,6 +60,7 @@ interface ClubSeason {
     status: string;
     entries: Pigeon[];
     races: ClubSeasonRace[];
+    events: ClubSeasonEvent[];
 }
 
 interface Club {
@@ -72,12 +82,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const showAddEntryModal = ref(false);
 const showAddRaceModal = ref(false);
+const showAddEventModal = ref(false);
 const selectedPigeonId = ref<string>('');
 const searchQuery = ref('');
 const selectedPigeonIds = ref<number[]>([]);
 const selectAll = ref(false);
 
 const raceForm = useForm({
+    name: '',
     release_point: '',
     distance: '',
     distance_unit: 'km',
@@ -85,6 +97,12 @@ const raceForm = useForm({
     release_time: '',
     weather_conditions: '',
     wind_direction: '',
+});
+
+const eventForm = useForm({
+    name: '',
+    event_date: new Date().toISOString().split('T')[0],
+    notes: '',
 });
 
 const formatDate = (date: string | null) => {
@@ -167,7 +185,7 @@ const addEntry = () => {
 
 const removeEntry = (entry: Pigeon) => {
     if (!confirm(`Remove ${entry.ring_number || entry.name || 'this pigeon'} from this season?`)) return;
-    router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/${entry.pivot!.id}`, {
+    router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/entries/${entry.id}`, {
         preserveScroll: true,
     });
 };
@@ -189,8 +207,24 @@ const submitRaceForm = () => {
     });
 };
 
+const submitEventForm = () => {
+    eventForm.post(`/clubs/${props.club.id}/seasons/${props.season.id}/events`, {
+        onSuccess: () => {
+            showAddEventModal.value = false;
+            eventForm.reset();
+        },
+    });
+};
+
+const handleDeleteEvent = (event: ClubSeasonEvent) => {
+    if (!confirm(`Delete event "${event.name}"? This will remove all entries.`)) return;
+    router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/events/${event.id}`, {
+        preserveScroll: true,
+    });
+};
+
 const handleDeleteRace = (race: ClubSeasonRace) => {
-    if (!confirm(`Delete race "${race.release_point}"? This will delete all results.`)) return;
+    if (!confirm(`Delete race "${race.name}"? This will delete all results.`)) return;
     router.delete(`/clubs/${props.club.id}/seasons/${props.season.id}/races/${race.id}`);
 };
 </script>
@@ -227,31 +261,31 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                 </Button>
             </div>
 
-            <!-- Season Entries -->
+            <!-- Team -->
             <Card>
                 <CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <CardTitle class="flex items-center gap-2">
                             <Users class="h-5 w-5" />
-                            Season Entries
+                            Team
                             <Badge variant="outline" class="ml-2">
                                 {{ activeEntriesCount }}/{{ season.entries.length }} active
                             </Badge>
                         </CardTitle>
-                        <CardDescription>Pigeons entered in this racing season</CardDescription>
+                        <CardDescription>Pigeons in your racing team this season</CardDescription>
                     </div>
                     <Dialog v-model:open="showAddEntryModal">
                         <DialogTrigger as-child>
                             <Button :disabled="availablePigeons.length === 0" class="w-full sm:w-auto">
                                 <Plus class="mr-2 h-4 w-4" />
-                                Add Entry
+                                Add to Team
                             </Button>
                         </DialogTrigger>
                         <DialogContent class="sm:max-w-2xl">
                             <DialogHeader>
-                                <DialogTitle>Add Pigeon Entries</DialogTitle>
+                                <DialogTitle>Add Pigeons to Team</DialogTitle>
                                 <DialogDescription>
-                                    Search and select pigeons to add to this season
+                                    Search and select pigeons to add to your team
                                 </DialogDescription>
                             </DialogHeader>
                             <div class="space-y-4 py-4">
@@ -334,7 +368,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                     Cancel
                                 </Button>
                                 <Button @click="addEntry" :disabled="selectedPigeonIds.length === 0" class="w-full sm:w-auto">
-                                    Add {{ selectedPigeonIds.length > 0 ? `${selectedPigeonIds.length} ` : '' }}Entr{{ selectedPigeonIds.length === 1 ? 'y' : 'ies' }}
+                                    Add {{ selectedPigeonIds.length > 0 ? `${selectedPigeonIds.length} ` : '' }}Pigeon{{ selectedPigeonIds.length === 1 ? '' : 's' }}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -343,8 +377,8 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                 <CardContent>
                     <div v-if="season.entries.length === 0" class="flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
                         <Bird class="h-8 w-8 text-muted-foreground/60" />
-                        <h3 class="mt-2 font-medium">No entries yet</h3>
-                        <p class="text-sm text-muted-foreground">Add pigeons to this season to start tracking races.</p>
+                        <h3 class="mt-2 font-medium">No team members yet</h3>
+                        <p class="text-sm text-muted-foreground">Add pigeons to your team to start entering events.</p>
                     </div>
 
                     <!-- Mobile Card View -->
@@ -353,7 +387,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             v-for="entry in season.entries"
                             :key="entry.id"
                             class="flex items-center justify-between rounded-lg border p-3"
-                            :class="{ 'bg-destructive/5': entry.status !== 'alive' }"
+                            :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' || entry.status === 'flyaway' }"
                         >
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
@@ -386,7 +420,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             <TableRow
                                 v-for="entry in season.entries"
                                 :key="entry.id"
-                                :class="{ 'bg-destructive/5': entry.status !== 'alive' }"
+                                :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' || entry.status === 'flyaway' }"
                             >
                                 <TableCell class="font-medium">{{ entry.ring_number || entry.personal_number }}</TableCell>
                                 <TableCell>{{ entry.name || '-' }}</TableCell>
@@ -420,15 +454,129 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                 </CardContent>
             </Card>
 
-            <!-- Season Races -->
+            <!-- Events -->
             <Card>
                 <CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <CardTitle class="flex items-center gap-2">
                             <Flag class="h-5 w-5" />
+                            Events
+                        </CardTitle>
+                        <CardDescription>Events where your birds are entered</CardDescription>
+                    </div>
+                    <Dialog v-model:open="showAddEventModal">
+                        <DialogTrigger as-child>
+                            <Button class="w-full sm:w-auto">
+                                <Plus class="mr-2 h-4 w-4" />
+                                Add Event
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent class="sm:max-w-lg">
+                            <DialogHeader>
+                                <DialogTitle>Add New Event</DialogTitle>
+                                <DialogDescription>
+                                    Create a new event for this season
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form @submit.prevent="submitEventForm" class="space-y-4 py-4">
+                                <div class="space-y-2">
+                                    <Label for="event_name">Event Name *</Label>
+                                    <Input
+                                        id="event_name"
+                                        v-model="eventForm.name"
+                                        placeholder="e.g., Fun Race 1, Patibayan 3, Old Bird Derby"
+                                        required
+                                    />
+                                </div>
+                                <div class="space-y-2">
+                                    <Label for="event_date">Event Date</Label>
+                                    <Input
+                                        id="event_date"
+                                        v-model="eventForm.event_date"
+                                        type="date"
+                                    />
+                                </div>
+                                <div class="space-y-2">
+                                    <Label for="event_notes">Notes</Label>
+                                    <Input
+                                        id="event_notes"
+                                        v-model="eventForm.notes"
+                                        placeholder="Optional notes"
+                                    />
+                                </div>
+                                <DialogFooter class="flex-col gap-2 sm:flex-row">
+                                    <Button type="button" variant="outline" @click="showAddEventModal = false" class="w-full sm:w-auto">
+                                        Cancel
+                                    </Button>
+                                    <Button type="submit" :disabled="eventForm.processing" class="w-full sm:w-auto">
+                                        Create Event
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </CardHeader>
+                <CardContent>
+                    <div v-if="season.events.length === 0" class="flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
+                        <Flag class="h-8 w-8 text-muted-foreground/60" />
+                        <h3 class="mt-2 font-medium">No events yet</h3>
+                        <p class="text-sm text-muted-foreground">Add events to track which birds you've entered.</p>
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            v-for="event in season.events"
+                            :key="event.id"
+                            class="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <Link
+                                        :href="`/clubs/${club.id}/seasons/${season.id}/events/${event.id}`"
+                                        class="font-medium hover:text-primary hover:underline"
+                                    >
+                                        {{ event.name }}
+                                    </Link>
+                                    <Badge variant="secondary">
+                                        {{ event.entries_count }} entries
+                                    </Badge>
+                                </div>
+                                <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-4">
+                                    <span v-if="event.event_date" class="flex items-center gap-1">
+                                        <Calendar class="h-3 w-3" />
+                                        {{ formatDate(event.event_date) }}
+                                    </span>
+                                    <span v-if="event.notes" class="text-xs">
+                                        {{ event.notes }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Button variant="default" size="sm" as-child class="flex-1 sm:flex-none">
+                                    <Link :href="`/clubs/${club.id}/seasons/${season.id}/events/${event.id}`">
+                                        <Eye class="mr-1 h-3 w-3" />
+                                        View
+                                    </Link>
+                                </Button>
+                                <Button variant="destructive" size="sm" @click="handleDeleteEvent(event)" class="flex-1 sm:flex-none">
+                                    <Trash2 class="mr-1 h-3 w-3" />
+                                    Delete
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- Races -->
+            <Card>
+                <CardHeader class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <CardTitle class="flex items-center gap-2">
+                            <Trophy class="h-5 w-5" />
                             Races
                         </CardTitle>
-                        <CardDescription>Racing events in this season</CardDescription>
+                        <CardDescription>Racing events with results tracking</CardDescription>
                     </div>
                     <Dialog v-model:open="showAddRaceModal">
                         <DialogTrigger as-child>
@@ -446,24 +594,31 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             </DialogHeader>
                             <form @submit.prevent="submitRaceForm" class="space-y-4 py-4">
                                 <div class="space-y-2">
-                                    <Label for="release_point">Release Point *</Label>
+                                    <Label for="race_name">Race Name *</Label>
+                                    <Input
+                                        id="race_name"
+                                        v-model="raceForm.name"
+                                        placeholder="e.g., Race 1, Leg 2"
+                                        required
+                                    />
+                                </div>
+                                <div class="space-y-2">
+                                    <Label for="release_point">Release Point</Label>
                                     <Input
                                         id="release_point"
                                         v-model="raceForm.release_point"
                                         placeholder="e.g., Lucena"
-                                        required
                                     />
                                 </div>
                                 <div class="grid gap-4 grid-cols-2">
                                     <div class="space-y-2">
-                                        <Label for="distance">Distance *</Label>
+                                        <Label for="distance">Distance</Label>
                                         <Input
                                             id="distance"
                                             v-model="raceForm.distance"
                                             type="number"
                                             step="0.01"
                                             placeholder="100"
-                                            required
                                         />
                                     </div>
                                     <div class="space-y-2">
@@ -529,9 +684,9 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                 </CardHeader>
                 <CardContent>
                     <div v-if="season.races.length === 0" class="flex flex-col items-center justify-center rounded-lg border border-dashed py-8 text-center">
-                        <Flag class="h-8 w-8 text-muted-foreground/60" />
+                        <Trophy class="h-8 w-8 text-muted-foreground/60" />
                         <h3 class="mt-2 font-medium">No races yet</h3>
-                        <p class="text-sm text-muted-foreground">Add races to track results for entered pigeons.</p>
+                        <p class="text-sm text-muted-foreground">Add races to track results for your pigeons.</p>
                     </div>
 
                     <div v-else class="space-y-3">
@@ -546,13 +701,17 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                         :href="`/clubs/${club.id}/seasons/${season.id}/races/${race.id}`"
                                         class="font-medium hover:text-primary hover:underline"
                                     >
-                                        {{ race.release_point }} {{ race.distance }}{{ race.distance_unit }}
+                                        {{ race.name }}
                                     </Link>
                                     <Badge variant="secondary">
                                         {{ race.arrived_count }}/{{ race.total_entries }}
                                     </Badge>
                                 </div>
                                 <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-4">
+                                    <span v-if="race.release_point" class="flex items-center gap-1">
+                                        {{ race.release_point }}
+                                        <template v-if="race.distance"> • {{ race.distance }}{{ race.distance_unit }}</template>
+                                    </span>
                                     <span class="flex items-center gap-1">
                                         <Calendar class="h-3 w-3" />
                                         {{ formatDate(race.race_date) }}
