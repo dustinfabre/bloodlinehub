@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Location;
 use App\Models\OlrRace;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,14 @@ class OlrRaceController extends Controller
         $olrRace = OlrRace::create([
             ...$validated,
             'user_id' => auth()->id(),
+        ]);
+
+        // Create a linked OLR location for pigeon auto-placement
+        Location::create([
+            'user_id' => auth()->id(),
+            'name' => $validated['name'],
+            'type' => 'olr',
+            'olr_race_id' => $olrRace->id,
         ]);
 
         return redirect()->route('olr-races.show', $olrRace)
@@ -85,6 +94,11 @@ class OlrRaceController extends Controller
         ]);
 
         $olrRace->update($validated);
+
+        // Keep OLR location name in sync with race name
+        Location::where('olr_race_id', $olrRace->id)
+            ->where('user_id', $olrRace->user_id)
+            ->update(['name' => $validated['name']]);
 
         return redirect()->route('olr-races.show', $olrRace)
             ->with('success', 'OLR Race updated successfully.');

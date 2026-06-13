@@ -74,6 +74,11 @@ interface Props {
         sire_name: string;
         dam_name: string;
     }>;
+    locations: Array<{
+        id: number;
+        name: string;
+        type: string;
+    }>;
 }
 
 const props = defineProps<Props>();
@@ -141,6 +146,7 @@ const editClutchForm = useForm({
     notes: '',
     is_fostered: false,
     biological_pairing_id: '' as string,
+    success_location_id: '' as string,
 });
 
 const fosterToForm = useForm({
@@ -185,6 +191,7 @@ const openEditClutch = (clutch: Clutch) => {
     editClutchForm.notes = clutch.notes || '';
     editClutchForm.is_fostered = clutch.is_fostered || false;
     editClutchForm.biological_pairing_id = clutch.biological_pairing_id ? clutch.biological_pairing_id.toString() : '';
+    editClutchForm.success_location_id = (clutch as any).success_location_id ? String((clutch as any).success_location_id) : '';
     showEditClutch.value = true;
 };
 
@@ -651,6 +658,10 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                                 </div>
                                             </div>
                                             <p v-if="clutch.notes" class="text-xs italic">{{ clutch.notes }}</p>
+                                            <p v-if="(clutch as any).success_location" class="text-xs flex items-center gap-1">
+                                                <span class="font-medium">Offspring Location:</span>
+                                                <span class="text-primary font-semibold">{{ (clutch as any).success_location.name }}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -918,6 +929,27 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                                 </div>
                             </div>
                             
+                            <!-- Success Location -->
+                            <div class="space-y-2">
+                                <Label for="edit_success_location">
+                                    Success Location
+                                    <span v-if="editClutchForm.status === 'successful'" class="text-muted-foreground text-xs ml-1">(existing offspring will be moved here)</span>
+                                </Label>
+                                <select
+                                    id="edit_success_location"
+                                    v-model="editClutchForm.success_location_id"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                >
+                                    <option value="">— No location —</option>
+                                    <option v-for="loc in locations" :key="loc.id" :value="String(loc.id)">
+                                        {{ loc.name }}{{ loc.type === 'olr' ? ' (OLR)' : '' }}
+                                    </option>
+                                </select>
+                                <p v-if="editClutchForm.errors.success_location_id" class="text-sm text-red-600">
+                                    {{ editClutchForm.errors.success_location_id }}
+                                </p>
+                            </div>
+
                             <DialogFooter>
                                 <Button type="button" variant="outline" @click="showEditClutch = false">
                                     Cancel

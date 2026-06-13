@@ -21,6 +21,7 @@ class Pairing extends Model
         'current_clutch_number',
         'started_at',
         'ended_at',
+        'breeding_location_id',
     ];
 
     protected $casts = [
@@ -74,6 +75,11 @@ class Pairing extends Model
     public function fosterClutches(): HasMany
     {
         return $this->hasMany(Clutch::class, 'biological_pairing_id');
+    }
+
+    public function breedingLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'breeding_location_id');
     }
 
     /**

@@ -26,6 +26,11 @@ class StorePairingRequest extends FormRequest
             'sire_id' => ['required', 'exists:pigeons,id'],
             'dam_id' => ['required', 'exists:pigeons,id', 'different:sire_id'],
             'pair_name' => ['nullable', 'string', 'max:255'],
+            'breeding_location_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('locations', 'id')->where(fn ($q) => $q->where('user_id', $this->user()?->id ?? 0)),
+            ],
         ];
     }
 

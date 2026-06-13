@@ -23,6 +23,11 @@ class UpdatePairingRequest extends FormRequest
     {
         return [
             'pair_name' => ['nullable', 'string', 'max:255'],
+            'breeding_location_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('locations', 'id')->where(fn ($q) => $q->where('user_id', $this->user()?->id ?? 0)),
+            ],
         ];
     }
 }

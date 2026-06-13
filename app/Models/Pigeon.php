@@ -41,6 +41,7 @@ class Pigeon extends Model
         'dam_color',
         'dam_notes',
         'clutch_id',
+        'location_id',
     ];
 
     protected $casts = [
@@ -58,6 +59,11 @@ class Pigeon extends Model
     public function colorTag(): BelongsTo
     {
         return $this->belongsTo(ColorTag::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
     }
 
     public function sire(): BelongsTo

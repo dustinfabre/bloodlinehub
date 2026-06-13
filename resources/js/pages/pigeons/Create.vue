@@ -63,6 +63,12 @@ interface ColorTag {
     color: string;
 }
 
+interface LocationOption {
+    id: number;
+    name: string;
+    type: string;
+}
+
 const props = defineProps<{
     parentOptions: {
         sires: ParentOption[];
@@ -71,6 +77,7 @@ const props = defineProps<{
     bloodlines: BloodlineOption[];
     colorTags: ColorTag[];
     colors: string[];
+    locations: LocationOption[];
     prefill?: {
         sire_id?: string;
         dam_id?: string;
@@ -116,6 +123,7 @@ const form = useForm({
     sale_description: '',
     pairing_id: null as number | null,
     clutch_id: null as number | null,
+    location_id: null as number | null,
 });
 
 // Track selected bloodlines separately (reactive binding for component)
@@ -473,6 +481,16 @@ const submit = () => {
                                         :color-tags="colorTags"
                                     />
                                     <InputError :message="form.errors.color_tag_id" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="location_id">Location</Label>
+                                    <select id="location_id" v-model="form.location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                        <option :value="null">— No location —</option>
+                                        <option v-for="loc in locations" :key="loc.id" :value="loc.id">
+                                            {{ loc.name }}{{ loc.type === 'olr' ? ' (OLR)' : '' }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="form.errors.location_id" />
                                 </div>
                             </div>
                         </section>

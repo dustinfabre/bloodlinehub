@@ -61,7 +61,11 @@ class StorePigeonRequest extends FormRequest
             'hide_price' => ['boolean'],
             'sale_description' => ['nullable', 'string'],
             'clutch_id' => ['nullable','integer'],
-                
+            'location_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('locations', 'id')->where(fn ($q) => $q->where('user_id', $this->user()?->id ?? 0)),
+            ],
 
             'sire_id' => [
                 'nullable',

@@ -17,7 +17,7 @@ import { index as pigeons } from '@/routes/pigeons';
 import { index as sales } from '@/routes/sales';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Bird, LayoutGrid, DollarSign, Trophy, Flag, Heart } from 'lucide-vue-next';
+import { Bird, LayoutGrid, DollarSign, Trophy, Flag, Heart, MapPin } from 'lucide-vue-next';
 
 const page = usePage();
 
@@ -51,6 +51,11 @@ const mainNavItems: NavItem[] = [
         title: 'Sales & Auctions',
         href: sales(),
         icon: DollarSign,
+    },
+    {
+        title: 'Locations',
+        href: '/locations',
+        icon: MapPin,
     },
 ];
 </script>

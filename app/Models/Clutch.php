@@ -17,6 +17,7 @@ class Clutch extends Model
         'notes',
         'is_fostered',
         'biological_pairing_id',
+        'success_location_id',
     ];
 
     protected $casts = [
@@ -41,6 +42,11 @@ class Clutch extends Model
     public function offspring(): HasMany
     {
         return $this->hasMany(Pigeon::class, 'clutch_id');
+    }
+
+    public function successLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'success_location_id');
     }
 
     public function isSuccessful(): bool

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pairing;
 use App\Models\Pigeon;
+use App\Models\Location;
 use App\Http\Requests\StorePairingRequest;
 use App\Http\Requests\UpdatePairingRequest;
 use Illuminate\Http\Request;
@@ -98,6 +99,7 @@ class PairingController extends Controller
         return Inertia::render('pairings/Create', [
             'sires' => $sires,
             'dams' => $dams,
+            'locations' => Location::where('user_id', $user->id)->orderBy('name')->get(['id', 'name', 'type']),
         ]);
     }
 
@@ -124,12 +126,17 @@ class PairingController extends Controller
             'pair_name' => $request->pair_name ?? "Pair #{$clutchNumber}",
             'status' => 'active',
             'current_clutch_number' => $clutchNumber,
+            'breeding_location_id' => $request->breeding_location_id ?: null,
             'started_at' => now(),
         ]);
 
-        // Update pigeon statuses to 'breeding'
+        // Update pigeon statuses to 'breeding' and move to breeding location
+        $pigeonUpdate = ['status' => 'breeding'];
+        if ($request->breeding_location_id) {
+            $pigeonUpdate['location_id'] = $request->breeding_location_id;
+        }
         Pigeon::whereIn('id', [$request->sire_id, $request->dam_id])
-            ->update(['status' => 'breeding']);
+            ->update($pigeonUpdate);
 
         return redirect()->route('pairings.show', $pairing)
             ->with('success', 'Pairing created successfully.');
@@ -148,12 +155,14 @@ class PairingController extends Controller
         $pairing->load([
             'sire', 
             'dam', 
+            'breedingLocation',
             'offspring' => function ($query) {
-                $query->orderBy('hatch_date', 'desc')
+                $query->with('location:id,name,type')
+                      ->orderBy('hatch_date', 'desc')
                       ->orderBy('created_at', 'desc');
             }, 
             'clutches' => function ($query) {
-                $query->with(['biologicalParents.sire', 'biologicalParents.dam'])
+                $query->with(['biologicalParents.sire', 'biologicalParents.dam', 'successLocation:id,name'])
                       ->orderBy('clutch_number');
             },
             'fosterClutches' => function ($query) {
@@ -180,6 +189,7 @@ class PairingController extends Controller
         return Inertia::render('pairings/Show', [
             'pairing' => $pairing,
             'activePairings' => $activePairings,
+            'locations' => Location::where('user_id', $request->user()->id)->orderBy('name')->get(['id', 'name', 'type']),
         ]);
     }
 
@@ -215,6 +225,7 @@ class PairingController extends Controller
             'pairing' => $pairing,
             'sires' => $sires,
             'dams' => $dams,
+            'locations' => Location::where('user_id', $user->id)->orderBy('name')->get(['id', 'name', 'type']),
         ]);
     }
 

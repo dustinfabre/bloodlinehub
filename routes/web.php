@@ -8,6 +8,7 @@ use App\Http\Controllers\ClubSeasonRaceController;
 use App\Http\Controllers\ClutchController;
 use App\Http\Controllers\ColorTagController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\OlrSeasonController;
@@ -63,6 +64,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('color-tags.update');
     Route::delete('color-tags/{colorTag}', [ColorTagController::class, 'destroy'])
         ->name('color-tags.destroy');
+
+    // Locations management
+    Route::get('locations', [LocationController::class, 'index'])
+        ->name('locations.index');
+    Route::post('locations', [LocationController::class, 'store'])
+        ->name('locations.store');
+    Route::patch('locations/{location}', [LocationController::class, 'update'])
+        ->name('locations.update');
+    Route::delete('locations/{location}', [LocationController::class, 'destroy'])
+        ->name('locations.destroy');
 
     // Pairings management
     Route::resource('pairings', PairingController::class);

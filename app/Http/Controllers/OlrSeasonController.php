@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Location;
 use App\Models\OlrRace;
 use App\Models\OlrSeason;
 use App\Models\Pigeon;
@@ -146,11 +147,24 @@ class OlrSeasonController extends Controller
         // Verify the pigeon belongs to the user
         $pigeon = Pigeon::where('id', $validated['pigeon_id'])
             ->where('user_id', auth()->id())
+            ->with('location')
             ->firstOrFail();
 
         $season->entries()->attach($pigeon->id, [
             'notes' => $validated['notes'] ?? null,
         ]);
+
+        // Auto-set pigeon location to linked OLR location only if not already in OLR location
+        $olrLocation = Location::where('olr_race_id', $olrRace->id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if ($olrLocation) {
+            $currentLocation = $pigeon->location;
+            if (!$currentLocation || $currentLocation->type !== 'olr') {
+                $pigeon->update(['location_id' => $olrLocation->id]);
+            }
+        }
 
         return back()->with('success', 'Pigeon added to season.');
     }
@@ -178,6 +192,20 @@ class OlrSeasonController extends Controller
             if (!$season->entries()->where('pigeon_id', $pigeonId)->exists()) {
                 $season->entries()->attach($pigeonId);
             }
+        }
+
+        // Auto-set pigeon location to linked OLR location only if not already in OLR location
+        $olrLocation = Location::where('olr_race_id', $olrRace->id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if ($olrLocation) {
+            Pigeon::whereIn('id', $pigeons->toArray())
+                ->where(function ($q) {
+                    $q->whereNull('location_id')
+                      ->orWhereHas('location', fn ($lq) => $lq->where('type', '!=', 'olr'));
+                })
+                ->update(['location_id' => $olrLocation->id]);
         }
 
         return back()->with('success', count($pigeons) . ' pigeon(s) added to season.');

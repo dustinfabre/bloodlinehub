@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Clutch;
 use App\Models\Pairing;
+use App\Models\Pigeon;
 use Illuminate\Http\Request;
 
 class ClutchController extends Controller
@@ -58,14 +59,33 @@ class ClutchController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
             'is_fostered' => ['boolean'],
             'biological_pairing_id' => ['nullable', 'exists:pairings,id'],
+            'success_location_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('locations', 'id')
+                    ->where(fn ($q) => $q->where('user_id', $request->user()->id)),
+            ],
         ]);
 
         // Convert empty string to null
         if (isset($validated['biological_pairing_id']) && empty($validated['biological_pairing_id'])) {
             $validated['biological_pairing_id'] = null;
         }
+        if (isset($validated['success_location_id']) && $validated['success_location_id'] === '') {
+            $validated['success_location_id'] = null;
+        }
 
+        $previousStatus = $clutch->status;
         $clutch->update($validated);
+
+        // When clutch becomes successful, update existing offspring location
+        if ($validated['status'] === 'successful' && $previousStatus !== 'successful') {
+            $successLocationId = $validated['success_location_id'] ?? null;
+            if ($successLocationId) {
+                Pigeon::where('clutch_id', $clutch->id)
+                    ->update(['location_id' => $successLocationId]);
+            }
+        }
 
         return redirect()->route('pairings.show', $pairing)
             ->with('success', 'Clutch updated successfully.');

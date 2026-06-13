@@ -71,6 +71,11 @@ class UpdatePigeonRequest extends FormRequest
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'hide_price' => ['boolean'],
             'sale_description' => ['nullable', 'string'],
+            'location_id' => [
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('locations', 'id')->where(fn ($q) => $q->where('user_id', $this->user()?->id ?? 0)),
+            ],
 
             'sire_id' => [
                 'nullable',

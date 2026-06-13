@@ -6,6 +6,7 @@ use App\Http\Requests\StorePigeonRequest;
 use App\Http\Requests\UpdatePigeonRequest;
 use App\Models\Bloodline;
 use App\Models\ColorTag;
+use App\Models\Location;
 use App\Models\Pigeon;
 use App\Services\ImageUploadService;
 use Illuminate\Http\RedirectResponse;
@@ -141,11 +142,16 @@ class PigeonController extends Controller
         // Get pre-filled data from query params (from pairing)
         $prefill = $request->only(['sire_id', 'dam_id', 'pairing_id', 'clutch_id', 'hatch_date']);
 
+        $locations = Location::where('user_id', $user->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
+
         return Inertia::render('pigeons/Create', [
             'parentOptions' => $this->parentOptions($user->id),
             'bloodlines' => $bloodlines,
             'colors' => $colors,
             'colorTags' => $colorTags,
+            'locations' => $locations,
             'prefill' => $prefill,
         ]);
     }
@@ -238,12 +244,17 @@ class PigeonController extends Controller
             ->orderBy('name')
             ->get();
 
+        $locations = Location::where('user_id', $user->id)
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
+
         return Inertia::render('pigeons/Edit', [
             'pigeon' => $this->transformPigeon($pigeon),
             'parentOptions' => $this->parentOptions($user->id, $pigeon->id),
             'bloodlines' => $bloodlines,
             'colors' => $colors,
             'colorTags' => $colorTags,
+            'locations' => $locations,
         ]);
     }
 
@@ -415,6 +426,12 @@ class PigeonController extends Controller
                 'id' => $pigeon->colorTag->id,
                 'name' => $pigeon->colorTag->name,
                 'color' => $pigeon->colorTag->color,
+            ] : null,
+            'location_id' => $pigeon->location_id,
+            'location' => $pigeon->relationLoaded('location') && $pigeon->location ? [
+                'id' => $pigeon->location->id,
+                'name' => $pigeon->location->name,
+                'type' => $pigeon->location->type,
             ] : null,
         ];
     }

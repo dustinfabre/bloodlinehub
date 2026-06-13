@@ -95,12 +95,19 @@ interface Pigeon {
     hide_price: boolean;
     sale_description: string | null;
     color_tag_id: number | null;
+    location_id: number | null;
 }
 
 interface ColorTag {
     id: number;
     name: string;
     color: string;
+}
+
+interface LocationOption {
+    id: number;
+    name: string;
+    type: string;
 }
 
 const props = defineProps<{
@@ -112,6 +119,7 @@ const props = defineProps<{
     bloodlines: BloodlineOption[];
     colorTags: ColorTag[];
     colors: string[];
+    locations: LocationOption[];
 }>();
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
@@ -155,6 +163,7 @@ const form = useForm({
     sale_price: props.pigeon.sale_price ?? '',
     hide_price: props.pigeon.hide_price ?? false,
     sale_description: props.pigeon.sale_description ?? '',
+    location_id: props.pigeon.location_id ?? null as number | null,
 });
 
 // Track selected bloodlines separately (reactive binding for component)
@@ -511,6 +520,16 @@ const submit = () => {
                                         :color-tags="colorTags"
                                     />
                                     <InputError :message="form.errors.color_tag_id" />
+                                </div>
+                                <div class="grid gap-2">
+                                    <Label for="location_id">Location</Label>
+                                    <select id="location_id" v-model="form.location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                        <option :value="null">— No location —</option>
+                                        <option v-for="loc in locations" :key="loc.id" :value="loc.id">
+                                            {{ loc.name }}{{ loc.type === 'olr' ? ' (OLR)' : '' }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="form.errors.location_id" />
                                 </div>
                             </div>
                         </section>

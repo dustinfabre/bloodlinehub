@@ -24,12 +24,20 @@ interface Pairing {
     pair_name: string;
     status: string;
     current_clutch_number: number;
+    breeding_location_id: number | null;
+}
+
+interface LocationOption {
+    id: number;
+    name: string;
+    type: string;
 }
 
 interface Props {
     pairing: Pairing;
     sires: Pigeon[];
     dams: Pigeon[];
+    locations: LocationOption[];
 }
 
 const props = defineProps<Props>();
@@ -42,6 +50,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const form = useForm({
     pair_name: props.pairing.pair_name,
+    breeding_location_id: props.pairing.breeding_location_id ? String(props.pairing.breeding_location_id) : '',
 });
 
 const { success } = useToast();
@@ -113,6 +122,18 @@ const submit = () => {
                             <p v-if="form.errors.pair_name" class="text-sm text-destructive">
                                 {{ form.errors.pair_name }}
                             </p>
+                        </div>
+
+                        <!-- Breeding Location (Editable) -->
+                        <div class="space-y-2">
+                            <Label for="breeding_location_id">Breeding Location</Label>
+                            <select id="breeding_location_id" v-model="form.breeding_location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <option value="">— No location —</option>
+                                <option v-for="loc in locations" :key="loc.id" :value="String(loc.id)">
+                                    {{ loc.name }}{{ loc.type === 'olr' ? ' (OLR)' : '' }}
+                                </option>
+                            </select>
+                            <p v-if="form.errors.breeding_location_id" class="text-sm text-destructive">{{ form.errors.breeding_location_id }}</p>
                         </div>
                     </CardContent>
                 </Card>

@@ -22,9 +22,16 @@ interface Pigeon {
     remarks?: string;
 }
 
+interface LocationOption {
+    id: number;
+    name: string;
+    type: string;
+}
+
 interface Props {
     sires: Pigeon[];
     dams: Pigeon[];
+    locations: LocationOption[];
 }
 
 const props = defineProps<Props>();
@@ -38,6 +45,7 @@ const form = useForm({
     sire_id: '',
     dam_id: '',
     pair_name: '',
+    breeding_location_id: '' as string,
 });
 
 const sireSearch = ref('');
@@ -238,6 +246,19 @@ const submit = () => {
                             <p v-if="form.errors.pair_name" class="text-sm text-destructive">
                                 {{ form.errors.pair_name }}
                             </p>
+                        </div>
+
+                        <!-- Breeding Location -->
+                        <div class="space-y-2">
+                            <Label for="breeding_location_id">Breeding Location</Label>
+                            <select id="breeding_location_id" v-model="form.breeding_location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <option value="">— No location —</option>
+                                <option v-for="loc in locations" :key="loc.id" :value="String(loc.id)">
+                                    {{ loc.name }}{{ loc.type === 'olr' ? ' (OLR)' : '' }}
+                                </option>
+                            </select>
+                            <p class="text-sm text-muted-foreground">Sire and dam will be moved to this location when pairing is created.</p>
+                            <p v-if="form.errors.breeding_location_id" class="text-sm text-destructive">{{ form.errors.breeding_location_id }}</p>
                         </div>
 
                         <!-- Info Box -->

@@ -33,4 +33,9 @@ class OlrRace extends Model
     {
         return $this->hasMany(OlrSeason::class)->where('status', 'active');
     }
+
+    public function olrLocation(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Location::class);
+    }
 }
