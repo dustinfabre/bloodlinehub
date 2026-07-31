@@ -3,6 +3,7 @@ import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
     server: {
@@ -31,6 +32,32 @@ export default defineConfig({
                     base: null,
                     includeAbsolute: false,
                 },
+            },
+        }),
+        VitePWA({
+            registerType: 'prompt',
+            injectRegister: null,
+            manifest: false,
+            workbox: {
+                cleanupOutdatedCaches: true,
+                globPatterns: ['**/*.{js,css,woff2,png,svg,ico}'],
+                additionalManifestEntries: [
+                    { url: '/offline.html', revision: null },
+                    { url: '/manifest.webmanifest', revision: null },
+                ],
+                runtimeCaching: [
+                    {
+                        urlPattern: ({ request }) =>
+                            request.mode === 'navigate',
+                        handler: 'NetworkOnly',
+                        options: {
+                            cacheName: 'navigation',
+                            precacheFallback: {
+                                fallbackURL: '/offline.html',
+                            },
+                        },
+                    },
+                ],
             },
         }),
     ],

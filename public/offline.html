@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#176b57">
+        <title>BloodlineHub is offline</title>
+        <style>
+            :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+            * { box-sizing: border-box; }
+            body { min-height: 100vh; min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 24px; background: #f5f8f7; color: #17201d; }
+            main { width: min(100%, 420px); text-align: center; }
+            .mark { width: 72px; height: 72px; margin: 0 auto 24px; display: grid; place-items: center; border-radius: 16px; background: #176b57; color: white; }
+            svg { width: 40px; height: 40px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+            h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: 0; }
+            p { margin: 0 0 24px; line-height: 1.6; color: #58645f; }
+            button { min-height: 44px; border: 0; border-radius: 8px; padding: 0 20px; background: #176b57; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+            @media (prefers-color-scheme: dark) { body { background: #101714; color: #eef4f1; } p { color: #abb8b2; } }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M16 7h.01"/><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20"/><path d="m20 7 2 .5-2 .5"/><path d="M10 18v3"/><path d="M14 17.75V21"/><path d="M7 18a6 6 0 0 0 3.84-10.61"/></svg>
+            </div>
+            <h1>You are offline</h1>
+            <p>BloodlineHub needs a connection to load records or save changes. Reconnect and try again.</p>
+            <button type="button" onclick="window.location.reload()">Try again</button>
+        </main>
+    </body>
+</html>

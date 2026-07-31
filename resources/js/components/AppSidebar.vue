@@ -8,56 +8,12 @@ import {
     SidebarMenu,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { mainNavItems } from '@/lib/navigation';
 import { urlIsActive } from '@/lib/utils';
-import { dashboard } from '@/routes';
-import { index as clubs } from '@/routes/clubs';
-import { index as olrRaces } from '@/routes/olr-races';
-import { index as pairings } from '@/routes/pairings';
-import { index as pigeons } from '@/routes/pigeons';
-import { index as sales } from '@/routes/sales';
-import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Bird, LayoutGrid, DollarSign, Trophy, Flag, Heart, MapPin } from 'lucide-vue-next';
+import { Bird } from 'lucide-vue-next';
 
 const page = usePage();
-
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Pigeons',
-        href: pigeons(),
-        icon: Bird,
-    },
-    {
-        title: 'Breeding',
-        href: pairings(),
-        icon: Heart,
-    },
-    {
-        title: 'OLR Races',
-        href: olrRaces(),
-        icon: Trophy,
-    },
-    {
-        title: 'Clubs',
-        href: clubs(),
-        icon: Flag,
-    },
-    {
-        title: 'Sales & Auctions',
-        href: sales(),
-        icon: DollarSign,
-    },
-    {
-        title: 'Locations',
-        href: '/locations',
-        icon: MapPin,
-    },
-];
 </script>
 
 <template>
@@ -81,6 +37,7 @@ const mainNavItems: NavItem[] = [
                     <SidebarMenuItem v-for="item in mainNavItems" :key="item.title">
                         <Link
                             :href="item.href"
+                            :aria-current="urlIsActive(item.href, page.url) ? 'page' : undefined"
                             :class="[
                                 'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                                 urlIsActive(item.href, page.url)

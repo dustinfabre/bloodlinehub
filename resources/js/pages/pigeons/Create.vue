@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import ColorTagSelect from '@/components/ColorTagSelect.vue';
+import FormActionBar from '@/components/FormActionBar.vue';
 import ImageCropper from '@/components/ImageCropper.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -400,7 +401,7 @@ const submit = () => {
                     <CardTitle>Add a new pigeon</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form class="space-y-8" @submit.prevent="submit">
+                    <form class="space-y-8 pb-20 md:pb-0" @submit.prevent="submit">
                         <!-- Identification -->
                         <section class="space-y-6">
                             <div class="space-y-2">
@@ -791,14 +792,12 @@ const submit = () => {
                             </div>
                         </section>
 
-                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                            <Button variant="outline" type="button" as-child class="w-full sm:w-auto">
-                                <a :href="indexRoute().url">Cancel</a>
-                            </Button>
-                            <Button type="submit" :disabled="form.processing || !!exactDuplicateMatch" class="w-full sm:w-auto">
-                                Save pigeon
-                            </Button>
-                        </div>
+                        <FormActionBar
+                            :cancel-href="indexRoute().url"
+                            submit-label="Save pigeon"
+                            :processing="form.processing"
+                            :disabled="!!exactDuplicateMatch"
+                        />
                     </form>
                 </CardContent>
             </Card>

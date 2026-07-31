@@ -3,6 +3,8 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import MobileBottomNav from '@/components/MobileBottomNav.vue';
+import PwaStatus from '@/components/PwaStatus.vue';
 import { Toaster } from '@/components/ui/sonner';
 import type { BreadcrumbItemType } from '@/types';
 
@@ -22,8 +24,10 @@ withDefaults(defineProps<Props>(), {
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <slot />
         </AppContent>
-        <Toaster 
-            position="top-right" 
+        <MobileBottomNav />
+        <PwaStatus />
+        <Toaster
+            position="top-right"
             :richColors="true"
             :closeButton="true"
             :duration="3000"

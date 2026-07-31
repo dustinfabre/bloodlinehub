@@ -12,7 +12,11 @@ const className = computed(() => props.class);
 </script>
 
 <template>
-    <SidebarInset v-if="props.variant === 'sidebar'" :class="className">
+    <SidebarInset
+        v-if="props.variant === 'sidebar'"
+        class="pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
+        :class="className"
+    >
         <slot />
     </SidebarInset>
     <main
