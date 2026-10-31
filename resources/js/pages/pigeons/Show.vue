@@ -3,28 +3,16 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { edit, index as indexRoute, show as showRoute, printPedigree } from '@/routes/pigeons';
+import { edit, index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
 import { Head, Link } from '@inertiajs/vue3';
+import { Network } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 
-interface PedigreeNode {
+interface ColorTag {
     id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-    gender: string | null;
-    hatch_date: string | null;
-    label: string;
-    sire: PedigreeNode | null;
-    dam: PedigreeNode | null;
-    sire_name: string | null;
-    sire_ring_number: string | null;
-    sire_color: string | null;
-    dam_name: string | null;
-    dam_ring_number: string | null;
-    dam_color: string | null;
+    name: string;
+    color: string;
 }
 
 interface ParentSummary {
@@ -33,6 +21,22 @@ interface ParentSummary {
     ring_number: string | null;
     personal_number: string | null;
     color: string | null;
+    remarks: string | null;
+    notes: string | null;
+    color_tag: ColorTag | null;
+}
+
+interface ParentDisplay {
+    key: 'sire' | 'dam';
+    title: string;
+    linked: ParentSummary | null;
+    label: string;
+    details: string;
+    remarks: string | null;
+    notes: string | null;
+    // Notes typed on this pigeon's own record about a linked parent
+    recordNotes: string | null;
+    highlight: ColorTag | null;
 }
 
 interface Pigeon {
@@ -54,15 +58,18 @@ interface Pigeon {
     sire_ring_number: string | null;
     sire_color: string | null;
     sire_notes: string | null;
+    sire_color_tag: ColorTag | null;
     dam_name: string | null;
     dam_ring_number: string | null;
     dam_color: string | null;
     dam_notes: string | null;
+    dam_color_tag: ColorTag | null;
+    color_tag: ColorTag | null;
+    pedigree: { serial: string; is_public: boolean } | null;
 }
 
 const props = defineProps<{
     pigeon: Pigeon;
-    pedigree: PedigreeNode;
 }>();
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
@@ -101,10 +108,51 @@ const hatchDateFormatted = computed(() => {
     });
 });
 
-const getLabel = (node: PedigreeNode | null): string => {
-    if (!node) return 'Unknown';
-    return node.label;
+const tagStyle = (tag: ColorTag) => ({
+    backgroundColor: tag.color + '20',
+    color: tag.color,
+    border: '1px solid ' + tag.color,
+});
+
+const buildParent = (key: 'sire' | 'dam', title: string): ParentDisplay | null => {
+    const linked = props.pigeon[key];
+    if (linked) {
+        return {
+            key,
+            title,
+            linked,
+            label: linked.name || linked.ring_number || linked.personal_number || `Pigeon #${linked.id}`,
+            details: [linked.name ? linked.ring_number : null, linked.color].filter(Boolean).join(' · '),
+            remarks: linked.remarks,
+            notes: linked.notes,
+            recordNotes: props.pigeon[`${key}_notes`],
+            highlight: linked.color_tag,
+        };
+    }
+
+    const name = props.pigeon[`${key}_name`];
+    const ringNumber = props.pigeon[`${key}_ring_number`];
+    const color = props.pigeon[`${key}_color`];
+    const remarks = props.pigeon[`${key}_notes`];
+    if (!name && !ringNumber && !color && !remarks) return null;
+
+    // External parents only have remarks, which are shown on the pedigree
+    return {
+        key,
+        title,
+        linked: null,
+        label: name || ringNumber || 'Unknown',
+        details: [name ? ringNumber : null, color].filter(Boolean).join(' · '),
+        remarks,
+        notes: null,
+        recordNotes: null,
+        highlight: props.pigeon[`${key}_color_tag`],
+    };
 };
+
+const parents = computed(() =>
+    [buildParent('sire', 'Sire (Father)'), buildParent('dam', 'Dam (Mother)')].filter((parent): parent is ParentDisplay => parent !== null),
+);
 </script>
 
 <template>
@@ -114,12 +162,10 @@ const getLabel = (node: PedigreeNode | null): string => {
             <div class="flex items-center justify-between">
                 <h1 class="text-3xl font-bold">{{ pigeonLabel }}</h1>
                 <div class="flex gap-2">
-                    <Link :href="printPedigree({ pigeon: pigeon.id }).url" target="_blank">
+                    <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url">
                         <Button variant="outline">
-                            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                            Print Pedigree
+                            <Network class="mr-2 h-4 w-4" />
+                            View Pedigree
                         </Button>
                     </Link>
                     <Link :href="edit({ pigeon: pigeon.id }).url">
@@ -177,6 +223,13 @@ const getLabel = (node: PedigreeNode | null): string => {
                             <p class="text-sm text-muted-foreground">Color</p>
                             <p class="font-medium">{{ pigeon.color }}</p>
                         </div>
+                        <div v-if="pigeon.color_tag">
+                            <p class="text-sm text-muted-foreground">Pedigree Highlight</p>
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium" :style="tagStyle(pigeon.color_tag)">
+                                <span class="size-2 rounded-full" :style="{ backgroundColor: pigeon.color_tag.color }"></span>
+                                {{ pigeon.color_tag.name }}
+                            </span>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -186,35 +239,35 @@ const getLabel = (node: PedigreeNode | null): string => {
                         <CardTitle>Parents</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-6">
-                        <div v-if="pigeon.sire">
-                            <p class="text-sm font-semibold text-muted-foreground">Sire (Father)</p>
-                            <Link :href="showRoute({ pigeon: pigeon.sire.id }).url" class="text-primary hover:underline">
-                                {{ pigeon.sire.name || pigeon.sire.ring_number || pigeon.sire.personal_number || `Pigeon #${pigeon.sire.id}` }}
+                        <div v-for="parent in parents" :key="parent.key" class="space-y-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <p class="text-sm font-semibold text-muted-foreground">{{ parent.title }}</p>
+                                <Badge v-if="!parent.linked" variant="outline" class="text-xs">External</Badge>
+                                <span v-if="parent.highlight" class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium" :style="tagStyle(parent.highlight)">
+                                    <span class="size-2 rounded-full" :style="{ backgroundColor: parent.highlight.color }"></span>
+                                    {{ parent.highlight.name }}
+                                </span>
+                            </div>
+                            <Link v-if="parent.linked" :href="showRoute({ pigeon: parent.linked.id }).url" class="font-medium text-primary hover:underline">
+                                {{ parent.label }}
                             </Link>
-                            <p v-if="pigeon.sire.color" class="text-sm text-muted-foreground">{{ pigeon.sire.color }}</p>
-                        </div>
-                        <div v-else-if="pigeon.sire_name || pigeon.sire_ring_number">
-                            <p class="text-sm font-semibold text-muted-foreground">Sire (Father) - Reference</p>
-                            <p class="font-medium">{{ pigeon.sire_name || 'Unknown' }}</p>
-                            <p v-if="pigeon.sire_ring_number" class="text-sm text-muted-foreground">{{ pigeon.sire_ring_number }}</p>
-                            <p v-if="pigeon.sire_color" class="text-sm text-muted-foreground">{{ pigeon.sire_color }}</p>
+                            <p v-else class="font-medium">{{ parent.label }}</p>
+                            <p v-if="parent.details" class="text-sm text-muted-foreground">{{ parent.details }}</p>
+                            <div v-if="parent.remarks" class="rounded-md bg-muted/50 p-3">
+                                <p class="text-xs font-medium text-muted-foreground">Remarks · shown on pedigree</p>
+                                <p class="mt-1 whitespace-pre-wrap text-sm">{{ parent.remarks }}</p>
+                            </div>
+                            <div v-if="parent.notes" class="rounded-md bg-muted/50 p-3">
+                                <p class="text-xs font-medium text-muted-foreground">Notes · private</p>
+                                <p class="mt-1 whitespace-pre-wrap text-sm">{{ parent.notes }}</p>
+                            </div>
+                            <div v-if="parent.recordNotes" class="rounded-md bg-muted/50 p-3">
+                                <p class="text-xs font-medium text-muted-foreground">Notes on this pigeon's record</p>
+                                <p class="mt-1 whitespace-pre-wrap text-sm">{{ parent.recordNotes }}</p>
+                            </div>
                         </div>
 
-                        <div v-if="pigeon.dam">
-                            <p class="text-sm font-semibold text-muted-foreground">Dam (Mother)</p>
-                            <Link :href="showRoute({ pigeon: pigeon.dam.id }).url" class="text-primary hover:underline">
-                                {{ pigeon.dam.name || pigeon.dam.ring_number || pigeon.dam.personal_number || `Pigeon #${pigeon.dam.id}` }}
-                            </Link>
-                            <p v-if="pigeon.dam.color" class="text-sm text-muted-foreground">{{ pigeon.dam.color }}</p>
-                        </div>
-                        <div v-else-if="pigeon.dam_name || pigeon.dam_ring_number">
-                            <p class="text-sm font-semibold text-muted-foreground">Dam (Mother) - Reference</p>
-                            <p class="font-medium">{{ pigeon.dam_name || 'Unknown' }}</p>
-                            <p v-if="pigeon.dam_ring_number" class="text-sm text-muted-foreground">{{ pigeon.dam_ring_number }}</p>
-                            <p v-if="pigeon.dam_color" class="text-sm text-muted-foreground">{{ pigeon.dam_color }}</p>
-                        </div>
-
-                        <p v-if="!pigeon.sire && !pigeon.sire_name && !pigeon.dam && !pigeon.dam_name" class="text-sm text-muted-foreground">No parent information available</p>
+                        <p v-if="parents.length === 0" class="text-sm text-muted-foreground">No parent information available</p>
                     </CardContent>
                 </Card>
 
@@ -225,11 +278,11 @@ const getLabel = (node: PedigreeNode | null): string => {
                     </CardHeader>
                     <CardContent class="space-y-4">
                         <div v-if="pigeon.remarks">
-                            <p class="text-sm text-muted-foreground">Remarks</p>
+                            <p class="text-sm text-muted-foreground">Remarks · shown on pedigree</p>
                             <p class="whitespace-pre-wrap">{{ pigeon.remarks }}</p>
                         </div>
                         <div v-if="pigeon.notes">
-                            <p class="text-sm text-muted-foreground">Notes</p>
+                            <p class="text-sm text-muted-foreground">Notes · private</p>
                             <p class="whitespace-pre-wrap">{{ pigeon.notes }}</p>
                         </div>
                     </CardContent>
@@ -238,97 +291,37 @@ const getLabel = (node: PedigreeNode | null): string => {
                 <!-- Pedigree -->
                 <Card class="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Pedigree Chart</CardTitle>
+                        <div class="flex items-center justify-between gap-2">
+                            <CardTitle>Pedigree</CardTitle>
+                            <Badge v-if="pigeon.pedigree" :variant="pigeon.pedigree.is_public ? 'default' : 'secondary'">
+                                {{ pigeon.pedigree.is_public ? 'Public' : 'Private' }}
+                            </Badge>
+                        </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent class="space-y-6">
+                        <div class="flex flex-col gap-3 rounded-lg border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p class="font-medium">5-generation pedigree chart</p>
+                                <p class="text-sm text-muted-foreground">
+                                    View it, download it as a PDF or image, and share it with a QR code.
+                                    <template v-if="pigeon.pedigree">No. <span class="font-mono">{{ pigeon.pedigree.serial }}</span></template>
+                                </p>
+                            </div>
+                            <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url" class="shrink-0">
+                                <Button>
+                                    <Network class="mr-2 h-4 w-4" />
+                                    View Pedigree
+                                </Button>
+                            </Link>
+                        </div>
+
                         <!-- Uploaded Pedigree Images -->
-                        <div v-if="pigeon.pedigree_images && pigeon.pedigree_images.length > 0" class="mb-6">
+                        <div v-if="pigeon.pedigree_images && pigeon.pedigree_images.length > 0">
                             <p class="text-sm font-medium text-muted-foreground mb-2">Uploaded Pedigree Images</p>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <a v-for="(image, index) in pigeon.pedigree_images" :key="index" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
                                     <img :src="image" :alt="`${pigeonLabel} pedigree ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
                                 </a>
-                            </div>
-                        </div>
-
-                        <!-- Generated Pedigree Tree -->
-                        <div class="overflow-x-auto">
-                            <div class="min-w-[900px] space-y-4">
-                                <!-- Generation 2 (Parents) -->
-                                <div class="grid grid-cols-2 gap-3">
-                                    <!-- Sire -->
-                                    <div v-if="pedigree.sire || pedigree.sire_name" class="rounded border border-blue-200 bg-blue-50/50 p-3">
-                                        <div class="flex items-center gap-2">
-                                            <Link v-if="pedigree.sire" :href="showRoute({ pigeon: pedigree.sire.id }).url" class="font-medium text-primary hover:underline">
-                                                {{ getLabel(pedigree.sire) }}
-                                            </Link>
-                                            <span v-else class="font-medium">{{ pedigree.sire_name || 'Unknown Sire' }}</span>
-                                            <Badge variant="outline" class="text-xs">Sire</Badge>
-                                        </div>
-                                        <p v-if="pedigree.sire?.color || pedigree.sire_color" class="text-sm text-muted-foreground">
-                                            {{ pedigree.sire?.color || pedigree.sire_color }}
-                                        </p>
-                                    </div>
-                                    <div v-else class="rounded border border-dashed p-3 text-center text-sm text-muted-foreground">
-                                        Sire unknown
-                                    </div>
-
-                                    <!-- Dam -->
-                                    <div v-if="pedigree.dam || pedigree.dam_name" class="rounded border border-pink-200 bg-pink-50/50 p-3">
-                                        <div class="flex items-center gap-2">
-                                            <Link v-if="pedigree.dam" :href="showRoute({ pigeon: pedigree.dam.id }).url" class="font-medium text-primary hover:underline">
-                                                {{ getLabel(pedigree.dam) }}
-                                            </Link>
-                                            <span v-else class="font-medium">{{ pedigree.dam_name || 'Unknown Dam' }}</span>
-                                            <Badge variant="outline" class="text-xs">Dam</Badge>
-                                        </div>
-                                        <p v-if="pedigree.dam?.color || pedigree.dam_color" class="text-sm text-muted-foreground">
-                                            {{ pedigree.dam?.color || pedigree.dam_color }}
-                                        </p>
-                                    </div>
-                                    <div v-else class="rounded border border-dashed p-3 text-center text-sm text-muted-foreground">
-                                        Dam unknown
-                                    </div>
-                                </div>
-
-                                <!-- Generation 3 (Grandparents) -->
-                                <div class="grid grid-cols-4 gap-2">
-                                    <!-- Sire's Sire -->
-                                    <div v-if="pedigree.sire?.sire || pedigree.sire?.sire_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                        <Link v-if="pedigree.sire?.sire" :href="showRoute({ pigeon: pedigree.sire.sire.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                            {{ getLabel(pedigree.sire.sire) }}
-                                        </Link>
-                                        <span v-else class="text-sm font-medium">{{ pedigree.sire?.sire_name || 'Unknown' }}</span>
-                                    </div>
-                                    <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-
-                                    <!-- Sire's Dam -->
-                                    <div v-if="pedigree.sire?.dam || pedigree.sire?.dam_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                        <Link v-if="pedigree.sire?.dam" :href="showRoute({ pigeon: pedigree.sire.dam.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                            {{ getLabel(pedigree.sire.dam) }}
-                                        </Link>
-                                        <span v-else class="text-sm font-medium">{{ pedigree.sire?.dam_name || 'Unknown' }}</span>
-                                    </div>
-                                    <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-
-                                    <!-- Dam's Sire -->
-                                    <div v-if="pedigree.dam?.sire || pedigree.dam?.sire_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                        <Link v-if="pedigree.dam?.sire" :href="showRoute({ pigeon: pedigree.dam.sire.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                            {{ getLabel(pedigree.dam.sire) }}
-                                        </Link>
-                                        <span v-else class="text-sm font-medium">{{ pedigree.dam?.sire_name || 'Unknown' }}</span>
-                                    </div>
-                                    <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-
-                                    <!-- Dam's Dam -->
-                                    <div v-if="pedigree.dam?.dam || pedigree.dam?.dam_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                        <Link v-if="pedigree.dam?.dam" :href="showRoute({ pigeon: pedigree.dam.dam.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                            {{ getLabel(pedigree.dam.dam) }}
-                                        </Link>
-                                        <span v-else class="text-sm font-medium">{{ pedigree.dam?.dam_name || 'Unknown' }}</span>
-                                    </div>
-                                    <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-                                </div>
                             </div>
                         </div>
                     </CardContent>

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Pigeon extends Model
 {
@@ -36,10 +37,12 @@ class Pigeon extends Model
         'sire_ring_number',
         'sire_color',
         'sire_notes',
+        'sire_color_tag_id',
         'dam_name',
         'dam_ring_number',
         'dam_color',
         'dam_notes',
+        'dam_color_tag_id',
         'clutch_id',
         'location_id',
     ];
@@ -59,6 +62,35 @@ class Pigeon extends Model
     public function colorTag(): BelongsTo
     {
         return $this->belongsTo(ColorTag::class);
+    }
+
+    // Pedigree highlight colors for external (unlinked) parents
+    public function sireColorTag(): BelongsTo
+    {
+        return $this->belongsTo(ColorTag::class, 'sire_color_tag_id');
+    }
+
+    public function damColorTag(): BelongsTo
+    {
+        return $this->belongsTo(ColorTag::class, 'dam_color_tag_id');
+    }
+
+    public function pedigree(): HasOne
+    {
+        return $this->hasOne(Pedigree::class);
+    }
+
+    // Get the pedigree record, creating it (with a new serial) on first use
+    public function pedigreeRecord(): Pedigree
+    {
+        if (! $this->pedigree) {
+            $this->setRelation('pedigree', $this->pedigree()->createOrFirst([], [
+                'serial' => Pedigree::generateSerial(),
+                'is_public' => false,
+            ]));
+        }
+
+        return $this->pedigree;
     }
 
     public function location(): BelongsTo

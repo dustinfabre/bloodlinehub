@@ -207,16 +207,16 @@ class PigeonController extends Controller
         $this->ensureOwner($request, $pigeon);
 
         $pigeon->load([
-            'sire:id,ring_number,personal_number,color,sire_name,sire_ring_number,sire_color',
-            'dam:id,ring_number,personal_number,color,dam_name,dam_ring_number,dam_color',
+            'sire.colorTag:id,name,color',
+            'dam.colorTag:id,name,color',
+            'colorTag:id,name,color',
+            'sireColorTag:id,name,color',
+            'damColorTag:id,name,color',
+            'pedigree',
         ]);
-
-        // Build pedigree tree for show page
-        $pedigreeData = $this->buildPedigreeTree($pigeon, 5);
 
         return Inertia::render('pigeons/Show', [
             'pigeon' => $this->transformPigeon($pigeon),
-            'pedigree' => $pedigreeData,
         ]);
     }
 
@@ -330,32 +330,6 @@ class PigeonController extends Controller
             ->with('success', 'Pigeon removed successfully.');
     }
 
-    public function pedigree(Request $request, Pigeon $pigeon): Response
-    {
-        $this->ensureOwner($request, $pigeon);
-
-        // Recursively load pedigree up to 5 generations
-        $pedigreeData = $this->buildPedigreeTree($pigeon, 5);
-
-        return Inertia::render('pigeons/Pedigree', [
-            'pigeon' => $this->transformPigeon($pigeon),
-            'pedigree' => $pedigreeData,
-        ]);
-    }
-
-    public function printPedigree(Request $request, Pigeon $pigeon): Response
-    {
-        $this->ensureOwner($request, $pigeon);
-
-        // Recursively load pedigree up to 5 generations
-        $pedigreeData = $this->buildPedigreeTree($pigeon, 5);
-
-        return Inertia::render('pigeons/PrintPedigree', [
-            'pigeon' => $this->transformPigeon($pigeon),
-            'pedigree' => $pedigreeData,
-        ]);
-    }
-
     private function ensureOwner(Request $request, Pigeon $pigeon): void
     {
         if ($pigeon->user_id !== $request->user()?->id) {
@@ -399,33 +373,25 @@ class PigeonController extends Controller
             'sale_description' => $pigeon->sale_description,
             'created_at' => $pigeon->created_at,
             'updated_at' => $pigeon->updated_at,
-            'sire' => $pigeon->sire ? [
-                'id' => $pigeon->sire->id,
-                'name' => $pigeon->sire->name,
-                'ring_number' => $pigeon->sire->ring_number,
-                'personal_number' => $pigeon->sire->personal_number,
-                'color' => $pigeon->sire->color,
-            ] : null,
-            'dam' => $pigeon->dam ? [
-                'id' => $pigeon->dam->id,
-                'name' => $pigeon->dam->name,
-                'ring_number' => $pigeon->dam->ring_number,
-                'personal_number' => $pigeon->dam->personal_number,
-                'color' => $pigeon->dam->color,
-            ] : null,
+            'sire' => $this->parentSummary($pigeon->sire),
+            'dam' => $this->parentSummary($pigeon->dam),
             'sire_name' => $pigeon->sire_name,
             'sire_ring_number' => $pigeon->sire_ring_number,
             'sire_color' => $pigeon->sire_color,
             'sire_notes' => $pigeon->sire_notes,
+            'sire_color_tag_id' => $pigeon->sire_color_tag_id,
+            'sire_color_tag' => $this->colorTagSummary($pigeon, 'sireColorTag'),
             'dam_name' => $pigeon->dam_name,
             'dam_ring_number' => $pigeon->dam_ring_number,
             'dam_color' => $pigeon->dam_color,
             'dam_notes' => $pigeon->dam_notes,
+            'dam_color_tag_id' => $pigeon->dam_color_tag_id,
+            'dam_color_tag' => $this->colorTagSummary($pigeon, 'damColorTag'),
             'color_tag_id' => $pigeon->color_tag_id,
-            'color_tag' => $pigeon->relationLoaded('colorTag') && $pigeon->colorTag ? [
-                'id' => $pigeon->colorTag->id,
-                'name' => $pigeon->colorTag->name,
-                'color' => $pigeon->colorTag->color,
+            'color_tag' => $this->colorTagSummary($pigeon, 'colorTag'),
+            'pedigree' => $pigeon->relationLoaded('pedigree') && $pigeon->pedigree ? [
+                'serial' => $pigeon->pedigree->serial,
+                'is_public' => $pigeon->pedigree->is_public,
             ] : null,
             'location_id' => $pigeon->location_id,
             'location' => $pigeon->relationLoaded('location') && $pigeon->location ? [
@@ -434,6 +400,35 @@ class PigeonController extends Controller
                 'type' => $pigeon->location->type,
             ] : null,
         ];
+    }
+
+    private function parentSummary(?Pigeon $parent): ?array
+    {
+        if (! $parent) {
+            return null;
+        }
+
+        return [
+            'id' => $parent->id,
+            'name' => $parent->name,
+            'ring_number' => $parent->ring_number,
+            'personal_number' => $parent->personal_number,
+            'color' => $parent->color,
+            'remarks' => $parent->remarks,
+            'notes' => $parent->notes,
+            'color_tag' => $this->colorTagSummary($parent, 'colorTag'),
+        ];
+    }
+
+    private function colorTagSummary(Pigeon $pigeon, string $relation): ?array
+    {
+        $tag = $pigeon->relationLoaded($relation) ? $pigeon->getRelation($relation) : null;
+
+        return $tag ? [
+            'id' => $tag->id,
+            'name' => $tag->name,
+            'color' => $tag->color,
+        ] : null;
     }
 
     private function parentOptions(int $userId, ?int $excludeId = null)
@@ -668,34 +663,6 @@ class PigeonController extends Controller
         }
 
         return response()->json(['suggestions' => $suggestions]);
-    }
-
-    private function buildPedigreeTree(?Pigeon $pigeon, int $generations): ?array
-    {
-        if (!$pigeon || $generations <= 0) {
-            return null;
-        }
-
-        $pigeon->load(['sire', 'dam']);
-
-        return [
-            'id' => $pigeon->id,
-            'name' => $pigeon->name,
-            'ring_number' => $pigeon->ring_number,
-            'personal_number' => $pigeon->personal_number,
-            'color' => $pigeon->color,
-            'gender' => $pigeon->gender,
-            'hatch_date' => $pigeon->hatch_date?->format('Y-m-d'),
-            'label' => $pigeon->name ?: $pigeon->ring_number ?: $pigeon->personal_number ?: "Pigeon #{$pigeon->id}",
-            'sire' => $this->buildPedigreeTree($pigeon->sire, $generations - 1),
-            'dam' => $this->buildPedigreeTree($pigeon->dam, $generations - 1),
-            'sire_name' => $pigeon->sire_name,
-            'sire_ring_number' => $pigeon->sire_ring_number,
-            'sire_color' => $pigeon->sire_color,
-            'dam_name' => $pigeon->dam_name,
-            'dam_ring_number' => $pigeon->dam_ring_number,
-            'dam_color' => $pigeon->dam_color,
-        ];
     }
 
     /**

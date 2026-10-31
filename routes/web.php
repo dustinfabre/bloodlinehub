@@ -14,6 +14,7 @@ use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\OlrSeasonController;
 use App\Http\Controllers\OlrSeasonRaceController;
 use App\Http\Controllers\PairingController;
+use App\Http\Controllers\PedigreeController;
 use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\SalesController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,10 @@ Route::get('/', fn () => Inertia::render('Welcome'))
 // Public marketplace (no auth required)
 Route::get('marketplace', [MarketplaceController::class, 'index'])
     ->name('marketplace.index');
+// Shared pedigree (QR code target); private pedigrees are only visible to their owner
+Route::get('p/{serial}', [PedigreeController::class, 'shared'])
+    ->middleware('throttle:60,1')
+    ->name('pedigrees.shared');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])
@@ -36,10 +41,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.suggest-ring-number');
     
     Route::resource('pigeons', PigeonController::class);
-    Route::get('pigeons/{pigeon}/pedigree', [PigeonController::class, 'pedigree'])
+    Route::get('pigeons/{pigeon}/pedigree', [PedigreeController::class, 'show'])
         ->name('pigeons.pedigree');
-    Route::get('pigeons/{pigeon}/print-pedigree', [PigeonController::class, 'printPedigree'])
+    Route::get('pigeons/{pigeon}/print-pedigree', [PedigreeController::class, 'print'])
         ->name('pigeons.printPedigree');
+    Route::patch('pigeons/{pigeon}/pedigree/visibility', [PedigreeController::class, 'updateVisibility'])
+        ->name('pigeons.pedigreeVisibility');
 
     // Bloodlines management API
     Route::get('bloodlines', [BloodlineController::class, 'index'])

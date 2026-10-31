@@ -964,7 +964,7 @@ const submitQuickAdd = () => {
 
                     <!-- Notes -->
                     <div class="space-y-2">
-                        <Label for="quick-notes">Notes</Label>
+                        <Label for="quick-notes">Notes <span class="font-normal text-muted-foreground">(private, not shown on pedigree)</span></Label>
                         <textarea
                             id="quick-notes"
                             v-model="quickAddForm.notes"

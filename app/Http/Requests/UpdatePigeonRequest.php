@@ -71,6 +71,9 @@ class UpdatePigeonRequest extends FormRequest
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'hide_price' => ['boolean'],
             'sale_description' => ['nullable', 'string'],
+            'color_tag_id' => $this->colorTagRule(),
+            'sire_color_tag_id' => $this->colorTagRule(),
+            'dam_color_tag_id' => $this->colorTagRule(),
             'location_id' => [
                 'nullable',
                 'integer',
@@ -105,6 +108,20 @@ class UpdatePigeonRequest extends FormRequest
             'dam_ring_number' => ['nullable', 'string', 'max:255'],
             'dam_color' => ['nullable', 'string', 'max:255'],
             'dam_notes' => ['nullable', 'string'],
+        ];
+    }
+
+    /**
+     * Highlight colors must be one of the user's own color tags.
+     *
+     * @return array<mixed>
+     */
+    private function colorTagRule(): array
+    {
+        return [
+            'nullable',
+            'integer',
+            Rule::exists('color_tags', 'id')->where(fn ($query) => $query->where('user_id', $this->user()?->id ?? 0)),
         ];
     }
 }

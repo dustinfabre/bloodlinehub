@@ -1,195 +1,236 @@
 <script setup lang="ts">
-import AppLayout from '@/layouts/AppLayout.vue';
+import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
+import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.vue';
+import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
-import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/composables/useToast';
+import AppLayout from '@/layouts/AppLayout.vue';
+import { pedigreeFilename } from '@/lib/pedigree';
+import {
+    index as indexRoute,
+    pedigree as pedigreeRoute,
+    pedigreeVisibility,
+    printPedigree,
+    show as showRoute,
+} from '@/routes/pigeons';
 import { type BreadcrumbItem } from '@/types';
-
-interface PedigreeNode {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-    gender: string | null;
-    hatch_date: string | null;
-    label: string;
-    sire: PedigreeNode | null;
-    dam: PedigreeNode | null;
-    sire_name: string | null;
-    sire_ring_number: string | null;
-    sire_color: string | null;
-    dam_name: string | null;
-    dam_ring_number: string | null;
-    dam_color: string | null;
-}
+import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
+import { Head, router } from '@inertiajs/vue3';
+import {
+    Check,
+    Copy,
+    ExternalLink,
+    Globe,
+    Lock,
+    Printer,
+} from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 interface Pigeon {
     id: number;
     name: string | null;
     ring_number: string | null;
     personal_number: string | null;
-    gender: string | null;
-    color: string | null;
 }
 
 const props = defineProps<{
     pigeon: Pigeon;
-    pedigree: PedigreeNode;
+    tree: PedigreeNode;
+    meta: PedigreeMeta;
 }>();
 
-const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
+const pigeonLabel = computed(
+    () =>
+        props.pigeon.name ||
+        props.pigeon.ring_number ||
+        props.pigeon.personal_number ||
+        `Pigeon #${props.pigeon.id}`,
+);
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pigeons', href: indexRoute().url },
-    { title: pigeonLabel.value, href: showRoute({ pigeon: props.pigeon.id }).url },
+    {
+        title: pigeonLabel.value,
+        href: showRoute({ pigeon: props.pigeon.id }).url,
+    },
     { title: 'Pedigree', href: pedigreeRoute({ pigeon: props.pigeon.id }).url },
 ];
 
-const getLabel = (node: PedigreeNode | null): string => {
-    if (!node) return 'Unknown';
-    return node.label;
+const chart = ref<InstanceType<typeof PedigreeChart> | null>(null);
+const filename = computed(() =>
+    pedigreeFilename(props.pigeon.ring_number, props.meta.serial),
+);
+
+const { success, error } = useToast();
+
+const updatingVisibility = ref(false);
+
+const toggleVisibility = () => {
+    router.patch(
+        pedigreeVisibility({ pigeon: props.pigeon.id }).url,
+        { is_public: !props.meta.is_public },
+        {
+            preserveScroll: true,
+            onStart: () => (updatingVisibility.value = true),
+            onFinish: () => (updatingVisibility.value = false),
+            onSuccess: () =>
+                success(
+                    props.meta.is_public
+                        ? 'Pedigree is now public'
+                        : 'Pedigree is now private',
+                ),
+            onError: () => error('Could not update pedigree visibility'),
+        },
+    );
 };
 
-const getGenderBadge = (gender: string | null) => {
-    if (gender === 'male') return 'Cock';
-    if (gender === 'female') return 'Hen';
-    return null;
+const copied = ref(false);
+
+const copyLink = async () => {
+    try {
+        await navigator.clipboard.writeText(props.meta.share_url);
+        copied.value = true;
+        window.setTimeout(() => (copied.value = false), 2000);
+    } catch {
+        error('Could not copy the link');
+    }
 };
+
+const selectAll = (event: FocusEvent) =>
+    (event.target as HTMLInputElement).select();
 </script>
 
 <template>
     <Head :title="`Pedigree - ${pigeonLabel}`" />
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <div class="flex items-center justify-between">
+        <div class="flex h-full flex-1 flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+            <div
+                class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+            >
                 <div>
-                    <h1 class="text-3xl font-bold">Pedigree Chart</h1>
-                    <p class="text-muted-foreground">{{ pigeonLabel }}</p>
+                    <h1 class="text-2xl font-bold sm:text-3xl">Pedigree</h1>
+                    <p class="text-muted-foreground">
+                        {{ pigeonLabel }} ·
+                        <span class="font-mono">{{ meta.serial }}</span>
+                    </p>
                 </div>
-                <Link :href="showRoute({ pigeon: pigeon.id }).url">
-                    <Button variant="outline">Back to details</Button>
-                </Link>
+                <div class="flex flex-wrap gap-2">
+                    <PedigreeExportActions
+                        :target="chart?.paper"
+                        :filename="filename"
+                    />
+                    <Button variant="outline" as-child>
+                        <a
+                            :href="printPedigree({ pigeon: pigeon.id }).url"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <Printer class="mr-2 h-4 w-4" />
+                            Print
+                        </a>
+                    </Button>
+                </div>
             </div>
 
-            <!-- Pedigree Tree Layout -->
+            <!-- Sharing -->
             <Card>
-                <CardHeader>
-                    <CardTitle>5 Generation Pedigree</CardTitle>
-                </CardHeader>
-                <CardContent class="overflow-x-auto">
-                    <div class="min-w-[1400px] space-y-6">
-                        <!-- Generation 1 (Subject) -->
-                        <div class="grid grid-cols-1">
-                            <div class="rounded-lg border-2 border-primary bg-primary/5 p-4">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-semibold">{{ getLabel(pedigree) }}</span>
-                                    <Badge v-if="getGenderBadge(pedigree.gender)" variant="outline" class="text-xs">{{ getGenderBadge(pedigree.gender) }}</Badge>
-                                </div>
-                                <p v-if="pedigree.color" class="text-sm text-muted-foreground">{{ pedigree.color }}</p>
-                                <p v-if="pedigree.hatch_date" class="text-xs text-muted-foreground">{{ pedigree.hatch_date }}</p>
-                            </div>
+                <CardContent
+                    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div class="flex items-start gap-3">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                            :class="
+                                meta.is_public
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                    : 'bg-muted text-muted-foreground'
+                            "
+                        >
+                            <Globe v-if="meta.is_public" class="h-5 w-5" />
+                            <Lock v-else class="h-5 w-5" />
                         </div>
-
-                        <!-- Generation 2 (Parents) -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <!-- Sire -->
-                            <div v-if="pedigree.sire || pedigree.sire_name" class="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
-                                <div class="flex items-center gap-2">
-                                    <Link v-if="pedigree.sire" :href="showRoute({ pigeon: pedigree.sire.id }).url" class="font-medium text-primary hover:underline">
-                                        {{ getLabel(pedigree.sire) }}
-                                    </Link>
-                                    <span v-else class="font-medium">{{ pedigree.sire_name || 'Unknown Sire' }}</span>
-                                    <Badge variant="outline" class="text-xs">Sire</Badge>
-                                </div>
-                                <p v-if="pedigree.sire?.color || pedigree.sire_color" class="text-sm text-muted-foreground">
-                                    {{ pedigree.sire?.color || pedigree.sire_color }}
-                                </p>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <p class="font-medium">Public view</p>
+                                <Badge
+                                    :variant="
+                                        meta.is_public ? 'default' : 'secondary'
+                                    "
+                                    >{{
+                                        meta.is_public ? 'Public' : 'Private'
+                                    }}</Badge
+                                >
                             </div>
-                            <div v-else class="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
-                                Sire unknown
-                            </div>
-
-                            <!-- Dam -->
-                            <div v-if="pedigree.dam || pedigree.dam_name" class="rounded-lg border border-pink-200 bg-pink-50/50 p-3">
-                                <div class="flex items-center gap-2">
-                                    <Link v-if="pedigree.dam" :href="showRoute({ pigeon: pedigree.dam.id }).url" class="font-medium text-primary hover:underline">
-                                        {{ getLabel(pedigree.dam) }}
-                                    </Link>
-                                    <span v-else class="font-medium">{{ pedigree.dam_name || 'Unknown Dam' }}</span>
-                                    <Badge variant="outline" class="text-xs">Dam</Badge>
-                                </div>
-                                <p v-if="pedigree.dam?.color || pedigree.dam_color" class="text-sm text-muted-foreground">
-                                    {{ pedigree.dam?.color || pedigree.dam_color }}
-                                </p>
-                            </div>
-                            <div v-else class="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
-                                Dam unknown
-                            </div>
-                        </div>
-
-                        <!-- Generation 3 (Grandparents) -->
-                        <div class="grid grid-cols-4 gap-3">
-                            <!-- Sire's Sire -->
-                            <div v-if="pedigree.sire?.sire || pedigree.sire?.sire_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                <Link v-if="pedigree.sire?.sire" :href="showRoute({ pigeon: pedigree.sire.sire.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                    {{ getLabel(pedigree.sire.sire) }}
-                                </Link>
-                                <span v-else class="text-sm font-medium">{{ pedigree.sire?.sire_name || 'Unknown' }}</span>
-                                <p v-if="pedigree.sire?.sire?.color || pedigree.sire?.sire_color" class="text-xs text-muted-foreground">
-                                    {{ pedigree.sire?.sire?.color || pedigree.sire?.sire_color }}
-                                </p>
-                            </div>
-                            <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-
-                            <!-- Sire's Dam -->
-                            <div v-if="pedigree.sire?.dam || pedigree.sire?.dam_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                <Link v-if="pedigree.sire?.dam" :href="showRoute({ pigeon: pedigree.sire.dam.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                    {{ getLabel(pedigree.sire.dam) }}
-                                </Link>
-                                <span v-else class="text-sm font-medium">{{ pedigree.sire?.dam_name || 'Unknown' }}</span>
-                                <p v-if="pedigree.sire?.dam?.color || pedigree.sire?.dam_color" class="text-xs text-muted-foreground">
-                                    {{ pedigree.sire?.dam?.color || pedigree.sire?.dam_color }}
-                                </p>
-                            </div>
-                            <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-
-                            <!-- Dam's Sire -->
-                            <div v-if="pedigree.dam?.sire || pedigree.dam?.sire_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                <Link v-if="pedigree.dam?.sire" :href="showRoute({ pigeon: pedigree.dam.sire.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                    {{ getLabel(pedigree.dam.sire) }}
-                                </Link>
-                                <span v-else class="text-sm font-medium">{{ pedigree.dam?.sire_name || 'Unknown' }}</span>
-                                <p v-if="pedigree.dam?.sire?.color || pedigree.dam?.sire_color" class="text-xs text-muted-foreground">
-                                    {{ pedigree.dam?.sire?.color || pedigree.dam?.sire_color }}
-                                </p>
-                            </div>
-                            <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-
-                            <!-- Dam's Dam -->
-                            <div v-if="pedigree.dam?.dam || pedigree.dam?.dam_name" class="rounded border border-slate-200 bg-slate-50/50 p-2">
-                                <Link v-if="pedigree.dam?.dam" :href="showRoute({ pigeon: pedigree.dam.dam.id }).url" class="text-sm font-medium text-primary hover:underline">
-                                    {{ getLabel(pedigree.dam.dam) }}
-                                </Link>
-                                <span v-else class="text-sm font-medium">{{ pedigree.dam?.dam_name || 'Unknown' }}</span>
-                                <p v-if="pedigree.dam?.dam?.color || pedigree.dam?.dam_color" class="text-xs text-muted-foreground">
-                                    {{ pedigree.dam?.dam?.color || pedigree.dam?.dam_color }}
-                                </p>
-                            </div>
-                            <div v-else class="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">—</div>
-                        </div>
-
-                        <!-- Generation 4 & 5 indicator -->
-                        <div class="rounded-lg border border-dashed bg-muted/30 p-4 text-center">
-                            <p class="text-sm text-muted-foreground">Additional generations (4-5) can be viewed by clicking on linked pigeons above.</p>
-                            <p class="text-xs text-muted-foreground mt-1">Navigate through the pedigree tree by selecting any linked ancestor.</p>
+                            <p class="text-sm text-muted-foreground">
+                                <template v-if="meta.is_public"
+                                    >Anyone with the link or QR code can view
+                                    this pedigree. Private notes are never
+                                    shown.</template
+                                >
+                                <template v-else
+                                    >Only you can view this pedigree. Anyone who
+                                    scans the QR code will see that it is
+                                    private.</template
+                                >
+                            </p>
                         </div>
                     </div>
+                    <Button
+                        :variant="meta.is_public ? 'outline' : 'default'"
+                        class="shrink-0"
+                        :disabled="updatingVisibility"
+                        @click="toggleVisibility"
+                    >
+                        {{ meta.is_public ? 'Make private' : 'Make public' }}
+                    </Button>
+                </CardContent>
+                <CardContent v-if="meta.is_public" class="flex gap-2">
+                    <Input
+                        :model-value="meta.share_url"
+                        readonly
+                        class="font-mono text-sm"
+                        aria-label="Public pedigree link"
+                        @focus="selectAll"
+                    />
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        class="shrink-0"
+                        title="Copy link"
+                        @click="copyLink"
+                    >
+                        <Check v-if="copied" class="h-4 w-4" />
+                        <Copy v-else class="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        class="shrink-0"
+                        as-child
+                    >
+                        <a
+                            :href="meta.share_url"
+                            target="_blank"
+                            rel="noopener"
+                            title="Open public page"
+                        >
+                            <ExternalLink class="h-4 w-4" />
+                        </a>
+                    </Button>
                 </CardContent>
             </Card>
+
+            <PedigreeViewer>
+                <PedigreeChart ref="chart" :tree="tree" :meta="meta" linkable />
+            </PedigreeViewer>
+            <p class="text-xs text-muted-foreground">
+                Click a ring number to open that pigeon. Remarks appear on the
+                pedigree; notes stay private. External parents and highlight
+                colors are set on each pigeon's edit page.
+            </p>
         </div>
     </AppLayout>
 </template>

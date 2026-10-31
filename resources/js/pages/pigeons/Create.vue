@@ -114,10 +114,12 @@ const form = useForm({
     sire_ring_number: '',
     sire_color: '',
     sire_notes: '',
+    sire_color_tag_id: null as number | null,
     dam_name: '',
     dam_ring_number: '',
     dam_color: '',
     dam_notes: '',
+    dam_color_tag_id: null as number | null,
     for_sale: false,
     sale_price: '',
     hide_price: false,
@@ -476,11 +478,12 @@ const submit = () => {
                                     <InputError :message="form.errors.status" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label>Highlight Color</Label>
+                                    <Label>Pedigree Highlight Color</Label>
                                     <ColorTagSelect
                                         v-model="form.color_tag_id"
                                         :color-tags="colorTags"
                                     />
+                                    <p class="text-xs text-muted-foreground">Highlights this pigeon on cards and pedigree charts.</p>
                                     <InputError :message="form.errors.color_tag_id" />
                                 </div>
                                 <div class="grid gap-2">
@@ -529,15 +532,15 @@ const submit = () => {
                                 </div>
                             </div>
                             <div class="grid gap-2">
-                                <Label for="remarks">Remarks</Label>
+                                <Label for="remarks">Remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                 <textarea id="remarks" v-model="form.remarks" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Short notes, e.g. '1st club 300km 2024', 'Strong in headwinds'" />
-                                <p class="text-xs text-muted-foreground">Use for quick at-a-glance info like race highlights or key tags.</p>
+                                <p class="text-xs text-muted-foreground">Use for quick at-a-glance info like race highlights or key tags. Remarks are printed on the pedigree.</p>
                                 <InputError :message="form.errors.remarks" />
                             </div>
                             <div class="grid gap-2">
-                                <Label for="notes">Notes</Label>
+                                <Label for="notes">Notes <span class="font-normal text-muted-foreground">(private, not shown on pedigree)</span></Label>
                                 <textarea id="notes" v-model="form.notes" rows="4" class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" placeholder="Detailed notes, e.g. breeding performance, health history, pairing observations..." />
-                                <p class="text-xs text-muted-foreground">Use for longer, detailed history about this pigeon.</p>
+                                <p class="text-xs text-muted-foreground">Use for longer, detailed history about this pigeon. Notes are never shown on the pedigree.</p>
                                 <InputError :message="form.errors.notes" />
                             </div>
                         </section>
@@ -617,8 +620,16 @@ const submit = () => {
                                         <InputError :message="form.errors.sire_color" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label for="sire_notes">Sire notes</Label>
+                                        <Label>Sire pedigree highlight color</Label>
+                                        <ColorTagSelect v-if="!sireFieldsReadonly" v-model="form.sire_color_tag_id" :color-tags="colorTags" />
+                                        <p v-else class="text-xs text-muted-foreground">Linked sires use their own pedigree highlight color.</p>
+                                        <InputError :message="form.errors.sire_color_tag_id" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label v-if="sireFieldsReadonly" for="sire_notes">Sire notes</Label>
+                                        <Label v-else for="sire_notes">Sire remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="sire_notes" v-model="form.sire_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
+                                        <p class="text-xs text-muted-foreground">{{ sireFieldsReadonly ? "The pedigree shows the linked sire's own remarks." : 'Race results or key traits of this external sire.' }}</p>
                                         <InputError :message="form.errors.sire_notes" />
                                     </div>
                                 </div>
@@ -688,8 +699,16 @@ const submit = () => {
                                         <InputError :message="form.errors.dam_color" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label for="dam_notes">Dam notes</Label>
+                                        <Label>Dam pedigree highlight color</Label>
+                                        <ColorTagSelect v-if="!damFieldsReadonly" v-model="form.dam_color_tag_id" :color-tags="colorTags" />
+                                        <p v-else class="text-xs text-muted-foreground">Linked dams use their own pedigree highlight color.</p>
+                                        <InputError :message="form.errors.dam_color_tag_id" />
+                                    </div>
+                                    <div class="grid gap-2">
+                                        <Label v-if="damFieldsReadonly" for="dam_notes">Dam notes</Label>
+                                        <Label v-else for="dam_notes">Dam remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="dam_notes" v-model="form.dam_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
+                                        <p class="text-xs text-muted-foreground">{{ damFieldsReadonly ? "The pedigree shows the linked dam's own remarks." : 'Race results or key traits of this external dam.' }}</p>
                                         <InputError :message="form.errors.dam_notes" />
                                     </div>
                                 </div>
