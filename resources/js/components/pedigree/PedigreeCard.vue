@@ -60,7 +60,7 @@ const details = computed(() => {
 const isLastColumn = computed(() => props.depth === MAX_DEPTH);
 
 // Where the highlight name pill goes: its own row on the subject, beside the ring number for parents and
-// grandparents, and nowhere in the narrow outer columns (the colored bar and chart legend cover those)
+// grandparents, and nowhere in the narrow outer columns (the colored accent and chart legend cover those)
 const tagPlacement = computed(() => {
     if (!props.node?.highlight) return null;
     if (props.depth === 0) return 'row';
@@ -81,7 +81,7 @@ const highlightStyle = computed(() => {
     if (!highlight) return undefined;
     return {
         '--pc-highlight': highlight.color,
-        '--pc-highlight-tint': `${highlight.color}1A`,
+        '--pc-highlight-tint': `${highlight.color}1F`,
     };
 });
 

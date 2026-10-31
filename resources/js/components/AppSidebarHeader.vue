@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItemType } from '@/types';
@@ -39,12 +40,7 @@ const parentPage = computed(() => props.breadcrumbs.at(-2));
             >
                 <ArrowLeft class="size-5" aria-hidden="true" />
             </Link>
-            <div
-                v-else
-                class="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
-            >
-                <span class="text-sm font-bold" aria-hidden="true">BH</span>
-            </div>
+            <AppLogoIcon v-else class="size-11 shrink-0" alt="" />
             <h1 class="truncate text-base font-semibold">
                 {{ currentPage?.title ?? 'BloodlineHub' }}
             </h1>

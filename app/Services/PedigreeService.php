@@ -21,6 +21,7 @@ class PedigreeService
         'sireColorTag:id,name,color',
         'damColorTag:id,name,color',
         'bloodlines',
+        'pedigreeAncestors.colorTag:id,name,color',
     ];
 
     /**
@@ -39,6 +40,7 @@ class PedigreeService
             'meta' => [
                 'serial' => $pedigree->serial,
                 'is_public' => $pedigree->is_public,
+                'visibility' => $pedigree->visibility(),
                 'share_url' => $shareUrl,
                 'qr_svg' => $this->qrSvg($shareUrl),
                 'breeder' => $pigeon->user->name,
@@ -95,6 +97,8 @@ class PedigreeService
         return [
             'id' => $public ? null : $pigeon->id,
             'external' => false,
+            'anchor_id' => null,
+            'path' => null,
             'name' => $pigeon->name,
             'ring_number' => $pigeon->ring_number,
             'color' => $pigeon->color,
@@ -102,7 +106,7 @@ class PedigreeService
             'hatch_date' => $pigeon->hatch_date?->format('Y-m-d'),
             'bloodline' => $pigeon->bloodlines->firstWhere('pivot.is_primary', true)?->name ?? $pigeon->bloodline,
             'remarks' => $pigeon->remarks,
-            'highlight' => $this->highlight($pigeon->colorTag),
+            'highlight' => $this->highlight($pigeon->colorTag, $public),
             'sire' => $remaining > 0 ? $this->parent($pigeon, 'sire', $loaded, $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->parent($pigeon, 'dam', $loaded, $remaining - 1, $public) : null,
         ];
@@ -131,24 +135,56 @@ class PedigreeService
             return null;
         }
 
-        return [
-            'id' => null,
-            'external' => true,
+        return $this->externalNode($child, $side === 'sire' ? 'S' : 'D', [
             'name' => $name,
             'ring_number' => $ringNumber,
             'color' => $color,
-            'gender' => $side === 'sire' ? 'male' : 'female',
+            'remarks' => $remarks,
+            'highlight' => $this->highlight($child->{"{$side}ColorTag"}, $public),
+        ], $remaining, $public);
+    }
+
+    /**
+     * An ancestor recorded on $anchor (the nearest loft bird) at $path, e.g. "SD" for the anchor's sire's dam.
+     */
+    private function ancestor(Pigeon $anchor, string $path, int $remaining, bool $public): ?array
+    {
+        $ancestor = $anchor->pedigreeAncestors->firstWhere('path', $path);
+
+        if (! $ancestor) {
+            return null;
+        }
+
+        return $this->externalNode($anchor, $path, [
+            'name' => $ancestor->name,
+            'ring_number' => $ancestor->ring_number,
+            'color' => $ancestor->color,
+            'remarks' => $ancestor->remarks,
+            'highlight' => $this->highlight($ancestor->colorTag, $public),
+        ], $remaining, $public);
+    }
+
+    /**
+     * Owner charts include where an external bird is stored (anchor_id + path) so the pedigree editor can update it.
+     */
+    private function externalNode(Pigeon $anchor, string $path, array $details, int $remaining, bool $public): array
+    {
+        return [
+            'id' => null,
+            'external' => true,
+            'anchor_id' => $public ? null : $anchor->id,
+            'path' => $public ? null : $path,
+            ...$details,
+            'gender' => str_ends_with($path, 'S') ? 'male' : 'female',
             'hatch_date' => null,
             'bloodline' => null,
-            'remarks' => $remarks,
-            'highlight' => $this->highlight($child->{"{$side}ColorTag"}),
-            'sire' => null,
-            'dam' => null,
+            'sire' => $remaining > 0 ? $this->ancestor($anchor, $path.'S', $remaining - 1, $public) : null,
+            'dam' => $remaining > 0 ? $this->ancestor($anchor, $path.'D', $remaining - 1, $public) : null,
         ];
     }
 
-    private function highlight(?ColorTag $tag): ?array
+    private function highlight(?ColorTag $tag, bool $public): ?array
     {
-        return $tag ? ['name' => $tag->name, 'color' => $tag->color] : null;
+        return $tag ? ['id' => $public ? null : $tag->id, 'name' => $tag->name, 'color' => $tag->color] : null;
     }
 }

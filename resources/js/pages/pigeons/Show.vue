@@ -3,9 +3,9 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { edit, index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
+import { edit, editPedigree, index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
 import { Head, Link } from '@inertiajs/vue3';
-import { Network } from 'lucide-vue-next';
+import { Network, Pencil } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 
@@ -65,7 +65,7 @@ interface Pigeon {
     dam_notes: string | null;
     dam_color_tag: ColorTag | null;
     color_tag: ColorTag | null;
-    pedigree: { serial: string; is_public: boolean } | null;
+    pedigree: { serial: string; is_public: boolean; visibility: 'private' | 'password' | 'public' } | null;
 }
 
 const props = defineProps<{
@@ -293,8 +293,8 @@ const parents = computed(() =>
                     <CardHeader>
                         <div class="flex items-center justify-between gap-2">
                             <CardTitle>Pedigree</CardTitle>
-                            <Badge v-if="pigeon.pedigree" :variant="pigeon.pedigree.is_public ? 'default' : 'secondary'">
-                                {{ pigeon.pedigree.is_public ? 'Public' : 'Private' }}
+                            <Badge v-if="pigeon.pedigree" :variant="pigeon.pedigree.visibility === 'private' ? 'secondary' : 'default'">
+                                {{ { public: 'Public', password: 'Password', private: 'Private' }[pigeon.pedigree.visibility] }}
                             </Badge>
                         </div>
                     </CardHeader>
@@ -307,12 +307,20 @@ const parents = computed(() =>
                                     <template v-if="pigeon.pedigree">No. <span class="font-mono">{{ pigeon.pedigree.serial }}</span></template>
                                 </p>
                             </div>
-                            <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url" class="shrink-0">
-                                <Button>
-                                    <Network class="mr-2 h-4 w-4" />
-                                    View Pedigree
-                                </Button>
-                            </Link>
+                            <div class="flex shrink-0 flex-wrap gap-2">
+                                <Link :href="editPedigree({ pigeon: pigeon.id }).url">
+                                    <Button variant="outline">
+                                        <Pencil class="mr-2 h-4 w-4" />
+                                        Edit Pedigree
+                                    </Button>
+                                </Link>
+                                <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url">
+                                    <Button>
+                                        <Network class="mr-2 h-4 w-4" />
+                                        View Pedigree
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
 
                         <!-- Uploaded Pedigree Images -->

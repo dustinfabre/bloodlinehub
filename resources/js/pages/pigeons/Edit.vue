@@ -12,10 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { edit as editRoute, index as indexRoute, show, show as showRoute, update } from '@/routes/pigeons';
+import { edit as editRoute, editPedigree, index as indexRoute, show, show as showRoute, update } from '@/routes/pigeons';
 import { useToast } from '@/composables/useToast';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 import axios from 'axios';
 
@@ -418,11 +419,14 @@ watch(damId, (value) => {
 
 const { success } = useToast();
 
-const submit = () => {
+const submit = (event?: SubmitEvent) => {
+    // The "Save & ... pedigree" button continues to the pedigree editor after saving
+    const continueToPedigree = (event?.submitter as HTMLElement | null)?.dataset.next === 'pedigree';
     form.transform((data) => ({
         ...data,
         for_sale: data.for_sale ? 1 : 0,
         hide_price: data.hide_price ? 1 : 0,
+        edit_pedigree: continueToPedigree ? 1 : 0,
     })).patch(update({ pigeon: props.pigeon.id }).url, {
         preserveScroll: true,
         forceFormData: true,
@@ -593,6 +597,19 @@ const submit = () => {
                             <div class="space-y-2">
                                 <h2 class="text-lg font-semibold text-foreground">Parents</h2>
                                 <p class="text-sm text-muted-foreground">Link existing breeding/racing birds or capture external details.</p>
+                            </div>
+                            <div class="flex flex-col gap-3 rounded-lg border border-gold/40 bg-secondary/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="flex gap-3">
+                                    <Network class="mt-0.5 size-5 shrink-0 text-gold" />
+                                    <div class="space-y-1 text-sm">
+                                        <p class="font-medium text-foreground">Grandparents and beyond</p>
+                                        <p class="text-muted-foreground">Add grandparents up to great-great-grandparents in the pedigree editor. Ancestors behind a loft bird are saved on that bird, so its other offspring inherit them too.</p>
+                                    </div>
+                                </div>
+                                <Button v-if="form.isDirty" type="submit" variant="outline" data-next="pedigree" class="shrink-0" :disabled="form.processing">Save &amp; edit pedigree</Button>
+                                <Button v-else variant="outline" class="shrink-0" as-child>
+                                    <Link :href="editPedigree({ pigeon: pigeon.id }).url">Edit pedigree</Link>
+                                </Button>
                             </div>
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <!-- Sire -->

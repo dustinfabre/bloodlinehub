@@ -1,4 +1,9 @@
-import type { PedigreeHighlight, PedigreeNode } from '@/types/pedigree';
+import type {
+    PedigreeHighlight,
+    PedigreeNode,
+    PedigreeSlot,
+    PedigreeVisibility,
+} from '@/types/pedigree';
 
 // A4 landscape at 96 CSS px per inch (a hair under 297 x 210 mm so print never spills onto a second page)
 export const PAPER_WIDTH = 1122;
@@ -14,6 +19,62 @@ export const GENERATION_LABELS = [
     'Great-grandparents',
     'Great-great-grandparents',
 ];
+
+// Singular name of a bird in each generation, by sex
+const RELATION_NAMES: Record<number, [string, string]> = {
+    1: ['Sire', 'Dam'],
+    2: ['Grandsire', 'Granddam'],
+    3: ['Great-grandsire', 'Great-granddam'],
+    4: ['Great-great-grandsire', 'Great-great-granddam'],
+};
+
+// e.g. "SD" -> "Granddam"
+export const relationName = (key: string): string => {
+    const [sire, dam] = RELATION_NAMES[key.length] ?? ['Bird', 'Bird'];
+    return key.endsWith('S') ? sire : dam;
+};
+
+// e.g. "SD" -> ["Sire", "Dam"], to show which line a bird sits on
+export const lineageSteps = (key: string): string[] =>
+    [...key].map((step) => (step === 'S' ? 'Sire' : 'Dam'));
+
+export const VISIBILITY_LABELS: Record<PedigreeVisibility, string> = {
+    public: 'Public pedigree',
+    password: 'Password protected',
+    private: 'Private pedigree',
+};
+
+// Every position on the chart, parents after their offspring. Known birds always get both parent slots
+// (shown as "Unknown" when missing); unknown birds end their branch.
+export const flattenPedigree = (root: PedigreeNode): PedigreeSlot[] => {
+    const slots: PedigreeSlot[] = [];
+    const visit = (
+        node: PedigreeNode | null,
+        depth: number,
+        index: number,
+        key: string,
+        child: PedigreeNode | null,
+    ) => {
+        const side = key ? (key.endsWith('S') ? 'sire' : 'dam') : null;
+        slots.push({ key, depth, index, side, node, child });
+        if (!node || depth >= MAX_DEPTH) return;
+        visit(node.sire, depth + 1, index * 2, `${key}S`, node);
+        visit(node.dam, depth + 1, index * 2 + 1, `${key}D`, node);
+    };
+    visit(root, 0, 0, '', null);
+    return slots;
+};
+
+// The chart is a grid of 16 rows (one per bird in the last generation); each bird spans the rows of its ancestors
+export const GRID_ROWS = 2 ** MAX_DEPTH;
+
+export const slotGridArea = (slot: PedigreeSlot) => {
+    const span = 2 ** (MAX_DEPTH - slot.depth);
+    return {
+        gridColumn: `${slot.depth + 1}`,
+        gridRow: `${slot.index * span + 1} / span ${span}`,
+    };
+};
 
 export const sexSymbol = (gender: string | null): string => {
     if (gender === 'male') return '♂';
@@ -38,7 +99,7 @@ export const contrastText = (hex: string): string => {
     const r = parseInt(value.slice(0, 2), 16);
     const g = parseInt(value.slice(2, 4), 16);
     const b = parseInt(value.slice(4, 6), 16);
-    return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? '#1d2a2c' : '#ffffff';
+    return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? '#14243a' : '#ffffff';
 };
 
 // Unique highlight colors used anywhere in the tree, for the chart legend

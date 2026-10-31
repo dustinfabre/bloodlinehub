@@ -79,14 +79,14 @@ const formatDate = (date: string) => {
                     </CardContent>
                 </Card>
 
-                <Card class="relative overflow-hidden border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 via-background to-background">
+                <Card class="relative overflow-hidden border-l-4 border-l-gold bg-gradient-to-br from-gold/10 via-background to-background">
                     <CardHeader class="pb-3">
                         <div class="flex items-center justify-between">
                             <CardTitle class="text-sm font-medium text-muted-foreground">
                                 This Month
                             </CardTitle>
-                            <div class="rounded-lg bg-blue-500/10 p-2">
-                                <TrendingUp class="h-5 w-5 text-blue-600" />
+                            <div class="rounded-lg bg-gold/20 p-2">
+                                <TrendingUp class="h-5 w-5 text-navy" />
                             </div>
                         </div>
                     </CardHeader>
@@ -100,14 +100,14 @@ const formatDate = (date: string) => {
                     </CardContent>
                 </Card>
 
-                <Card class="relative overflow-hidden border-l-4 border-l-violet-500 bg-gradient-to-br from-violet-500/5 via-background to-background">
+                <Card class="relative overflow-hidden border-l-4 border-l-slate-500 bg-gradient-to-br from-slate-500/5 via-background to-background">
                     <CardHeader class="pb-3">
                         <div class="flex items-center justify-between">
                             <CardTitle class="text-sm font-medium text-muted-foreground">
                                 Breeders
                             </CardTitle>
-                            <div class="rounded-lg bg-violet-500/10 p-2">
-                                <Users class="h-5 w-5 text-violet-600" />
+                            <div class="rounded-lg bg-slate-500/10 p-2">
+                                <Users class="h-5 w-5 text-slate-500" />
                             </div>
                         </div>
                     </CardHeader>
@@ -152,8 +152,8 @@ const formatDate = (date: string) => {
                         <Button as-child variant="outline" class="h-auto flex-col items-start gap-2 p-4">
                             <Link :href="pigeons().url">
                                 <div class="flex w-full items-center justify-between">
-                                    <div class="rounded-lg bg-blue-500/10 p-2">
-                                        <Bird class="h-4 w-4 text-blue-600" />
+                                    <div class="rounded-lg bg-gold/20 p-2">
+                                        <Bird class="h-4 w-4 text-navy" />
                                     </div>
                                     <ArrowRight class="h-4 w-4 text-muted-foreground" />
                                 </div>

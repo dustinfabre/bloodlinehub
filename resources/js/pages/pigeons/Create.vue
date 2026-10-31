@@ -16,6 +16,7 @@ import { index as indexRoute, store, show as showRoute } from '@/routes/pigeons'
 import { useToast } from '@/composables/useToast';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 import axios from 'axios';
 
@@ -368,11 +369,14 @@ watch(damId, (value) => {
 
 const { success } = useToast();
 
-const submit = () => {
+const submit = (event?: SubmitEvent) => {
+    // The "Save & ... pedigree" button continues to the pedigree editor after saving
+    const continueToPedigree = (event?.submitter as HTMLElement | null)?.dataset.next === 'pedigree';
     form.transform((data) => ({
         ...data,
         for_sale: data.for_sale ? 1 : 0,
         hide_price: data.hide_price ? 1 : 0,
+        edit_pedigree: continueToPedigree ? 1 : 0,
     })).post(store().url, {
         preserveScroll: true,
         forceFormData: true,
@@ -552,6 +556,16 @@ const submit = () => {
                             <div class="space-y-2">
                                 <h2 class="text-lg font-semibold text-foreground">Parents</h2>
                                 <p class="text-sm text-muted-foreground">Link existing breeding/racing birds or capture external details.</p>
+                            </div>
+                            <div class="flex flex-col gap-3 rounded-lg border border-gold/40 bg-secondary/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="flex gap-3">
+                                    <Network class="mt-0.5 size-5 shrink-0 text-gold" />
+                                    <div class="space-y-1 text-sm">
+                                        <p class="font-medium text-foreground">Grandparents and beyond</p>
+                                        <p class="text-muted-foreground">Birds you link from your loft bring their own pedigree. For external parents, you can add grandparents up to great-great-grandparents in the pedigree editor once this pigeon is saved.</p>
+                                    </div>
+                                </div>
+                                <Button type="submit" variant="outline" data-next="pedigree" class="shrink-0" :disabled="form.processing || !!exactDuplicateMatch">Save &amp; add ancestors</Button>
                             </div>
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <!-- Sire -->

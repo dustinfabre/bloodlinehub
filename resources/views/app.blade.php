@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#176b57">
+        <meta name="theme-color" content="#14243a">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -27,18 +27,18 @@
         {{-- Inline style to set the HTML background color based on our theme in app.css --}}
         <style>
             html {
-                background-color: oklch(1 0 0);
+                background-color: #f8f6f0;
             }
 
             html.dark {
-                background-color: oklch(0.145 0 0);
+                background-color: #0e1928;
             }
         </style>
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="icon" href="/favicon.ico" sizes="32x32">
+        <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
         <link rel="manifest" href="/manifest.webmanifest">
 

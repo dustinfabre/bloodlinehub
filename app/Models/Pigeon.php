@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Pigeon extends Model
@@ -78,6 +79,22 @@ class Pigeon extends Model
     public function pedigree(): HasOne
     {
         return $this->hasOne(Pedigree::class);
+    }
+
+    // Ancestors beyond the parents that are not in the loft, keyed by path relative to this bird
+    public function pedigreeAncestors(): HasMany
+    {
+        return $this->hasMany(PedigreeAncestor::class);
+    }
+
+    // Whether the sire or dam is an external bird recorded on this pigeon (rather than linked or unknown)
+    public function hasExternalParent(string $side): bool
+    {
+        if ($this->{"{$side}_id"}) {
+            return false;
+        }
+
+        return (bool) ($this->{"{$side}_name"} || $this->{"{$side}_ring_number"} || $this->{"{$side}_color"} || $this->{"{$side}_notes"});
     }
 
     // Get the pedigree record, creating it (with a new serial) on first use

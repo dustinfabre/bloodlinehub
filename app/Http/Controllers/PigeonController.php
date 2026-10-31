@@ -190,6 +190,13 @@ class PigeonController extends Controller
         // Sync bloodlines with pivot data
         $this->syncBloodlines($pigeon, $bloodlinesData, $request->user()->id);
 
+        // "Save & add ancestors" continues straight to the pedigree editor
+        if ($request->boolean('edit_pedigree')) {
+            return redirect()
+                ->route('pigeons.editPedigree', $pigeon)
+                ->with('success', 'Pigeon created. Now add its ancestors.');
+        }
+
         // If creating offspring from a pairing, redirect back to the pairing page
         if ($request->input('pairing_id')) {
             return redirect()
@@ -314,6 +321,12 @@ class PigeonController extends Controller
         // Sync bloodlines with pivot data
         $this->syncBloodlines($pigeon, $bloodlinesData, $request->user()->id);
 
+        if ($request->boolean('edit_pedigree')) {
+            return redirect()
+                ->route('pigeons.editPedigree', $pigeon)
+                ->with('success', 'Pigeon updated successfully.');
+        }
+
         return redirect()
             ->route('pigeons.edit', $pigeon)
             ->with('success', 'Pigeon updated successfully.');
@@ -392,6 +405,7 @@ class PigeonController extends Controller
             'pedigree' => $pigeon->relationLoaded('pedigree') && $pigeon->pedigree ? [
                 'serial' => $pigeon->pedigree->serial,
                 'is_public' => $pigeon->pedigree->is_public,
+                'visibility' => $pigeon->pedigree->visibility(),
             ] : null,
             'location_id' => $pigeon->location_id,
             'location' => $pigeon->relationLoaded('location') && $pigeon->location ? [

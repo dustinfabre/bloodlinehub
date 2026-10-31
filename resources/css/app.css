@@ -61,6 +61,11 @@
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Brand colors for surfaces that stay fixed regardless of theme. Brand slate is Tailwind's slate-500. */
+    --color-navy: var(--navy);
+    --color-gold: var(--gold);
+    --color-ivory: var(--ivory);
 }
 
 /*
@@ -92,76 +97,84 @@
 }
 
 :root {
-    --background: hsl(150 18% 97%);
-    --foreground: hsl(160 18% 12%);
-    --card: hsl(0 0% 100%);
-    --card-foreground: hsl(160 18% 12%);
-    --popover: hsl(0 0% 100%);
-    --popover-foreground: hsl(160 18% 12%);
-    --primary: hsl(165 65% 25%);
-    --primary-foreground: hsl(0 0% 98%);
-    --secondary: hsl(42 60% 90%);
-    --secondary-foreground: hsl(35 35% 20%);
-    --muted: hsl(150 12% 93%);
-    --muted-foreground: hsl(160 8% 42%);
-    --accent: hsl(164 30% 90%);
-    --accent-foreground: hsl(165 50% 18%);
+    /* Brand palette — every token below is derived from these */
+    --navy: #14243a;
+    --gold: #d4af62;
+    --ivory: #f8f6f0;
+    --slate: #64748b;
+    --white: #ffffff;
+
+    --background: var(--ivory);
+    --foreground: var(--navy);
+    --card: var(--white);
+    --card-foreground: var(--navy);
+    --popover: var(--white);
+    --popover-foreground: var(--navy);
+    --primary: var(--navy);
+    --primary-foreground: var(--white);
+    --secondary: color-mix(in oklab, var(--gold) 18%, var(--white));
+    --secondary-foreground: var(--navy);
+    --muted: color-mix(in oklab, var(--navy) 5%, var(--ivory));
+    --muted-foreground: var(--slate);
+    --accent: color-mix(in oklab, var(--gold) 16%, var(--ivory));
+    --accent-foreground: var(--navy);
     --destructive: hsl(0 84.2% 60.2%);
     --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(155 14% 85%);
-    --input: hsl(155 14% 85%);
-    --ring: hsl(165 65% 25%);
-    --chart-1: hsl(165 65% 25%);
-    --chart-2: hsl(42 75% 48%);
-    --chart-3: hsl(202 65% 44%);
-    --chart-4: hsl(8 68% 54%);
-    --chart-5: hsl(275 42% 52%);
+    --border: color-mix(in oklab, var(--slate) 22%, var(--ivory));
+    --input: color-mix(in oklab, var(--slate) 22%, var(--ivory));
+    --ring: var(--gold);
+    --chart-1: var(--navy);
+    --chart-2: var(--gold);
+    --chart-3: var(--slate);
+    --chart-4: color-mix(in oklab, var(--navy) 60%, var(--white));
+    --chart-5: color-mix(in oklab, var(--gold) 70%, var(--navy));
     --radius: 0.5rem;
-    --sidebar-background: hsl(155 22% 95%);
-    --sidebar-foreground: hsl(160 18% 25%);
-    --sidebar-primary: hsl(165 65% 25%);
-    --sidebar-primary-foreground: hsl(0 0% 98%);
-    --sidebar-accent: hsl(164 30% 88%);
-    --sidebar-accent-foreground: hsl(165 50% 18%);
-    --sidebar-border: hsl(155 14% 85%);
-    --sidebar-ring: hsl(165 65% 25%);
-    --sidebar: hsl(155 22% 95%);
+    /* The sidebar stays navy so the wordmark logo sits on its native background */
+    --sidebar-background: var(--navy);
+    --sidebar-foreground: var(--ivory);
+    --sidebar-primary: var(--gold);
+    --sidebar-primary-foreground: var(--navy);
+    --sidebar-accent: color-mix(in oklab, var(--white) 9%, var(--navy));
+    --sidebar-accent-foreground: var(--ivory);
+    --sidebar-border: color-mix(in oklab, var(--white) 12%, var(--navy));
+    --sidebar-ring: var(--gold);
+    --sidebar: var(--navy);
 }
 
 .dark {
-    --background: hsl(210 30% 8%);
-    --foreground: hsl(210 20% 95%);
-    --card: hsl(210 25% 10%);
-    --card-foreground: hsl(210 20% 95%);
-    --popover: hsl(210 25% 10%);
-    --popover-foreground: hsl(210 20% 95%);
-    --primary: hsl(160 52% 52%);
-    --primary-foreground: hsl(160 30% 8%);
-    --secondary: hsl(210 30% 18%);
-    --secondary-foreground: hsl(210 20% 95%);
-    --muted: hsl(210 25% 16%);
-    --muted-foreground: hsl(210 15% 60%);
-    --accent: hsl(210 30% 18%);
-    --accent-foreground: hsl(210 20% 95%);
+    --background: color-mix(in oklab, var(--navy) 70%, black);
+    --foreground: var(--ivory);
+    --card: var(--navy);
+    --card-foreground: var(--ivory);
+    --popover: var(--navy);
+    --popover-foreground: var(--ivory);
+    --primary: var(--gold);
+    --primary-foreground: var(--navy);
+    --secondary: color-mix(in oklab, var(--white) 8%, var(--navy));
+    --secondary-foreground: var(--ivory);
+    --muted: color-mix(in oklab, var(--white) 6%, var(--navy));
+    --muted-foreground: color-mix(in oklab, var(--slate) 55%, var(--white));
+    --accent: color-mix(in oklab, var(--gold) 14%, var(--navy));
+    --accent-foreground: var(--ivory);
     --destructive: hsl(0 84% 60%);
     --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(210 25% 20%);
-    --input: hsl(210 25% 20%);
-    --ring: hsl(160 52% 52%);
-    --chart-1: hsl(160 52% 52%);
-    --chart-2: hsl(42 78% 58%);
-    --chart-3: hsl(202 72% 62%);
-    --chart-4: hsl(8 72% 62%);
-    --chart-5: hsl(275 52% 68%);
-    --sidebar-background: hsl(160 24% 9%);
-    --sidebar-foreground: hsl(150 14% 90%);
-    --sidebar-primary: hsl(160 52% 52%);
-    --sidebar-primary-foreground: hsl(160 30% 8%);
-    --sidebar-accent: hsl(160 20% 16%);
-    --sidebar-accent-foreground: hsl(150 14% 90%);
-    --sidebar-border: hsl(160 18% 19%);
-    --sidebar-ring: hsl(160 52% 52%);
-    --sidebar: hsl(160 24% 9%);
+    --border: color-mix(in oklab, var(--white) 12%, var(--navy));
+    --input: color-mix(in oklab, var(--white) 12%, var(--navy));
+    --ring: var(--gold);
+    --chart-1: var(--gold);
+    --chart-2: var(--ivory);
+    --chart-3: color-mix(in oklab, var(--slate) 55%, var(--white));
+    --chart-4: color-mix(in oklab, var(--gold) 55%, var(--navy));
+    --chart-5: color-mix(in oklab, var(--navy) 50%, var(--white));
+    --sidebar-background: color-mix(in oklab, var(--navy) 85%, black);
+    --sidebar-foreground: var(--ivory);
+    --sidebar-primary: var(--gold);
+    --sidebar-primary-foreground: var(--navy);
+    --sidebar-accent: color-mix(in oklab, var(--white) 8%, var(--navy));
+    --sidebar-accent-foreground: var(--ivory);
+    --sidebar-border: color-mix(in oklab, var(--white) 10%, var(--navy));
+    --sidebar-ring: var(--gold);
+    --sidebar: color-mix(in oklab, var(--navy) 85%, black);
 }
 
 @layer base {

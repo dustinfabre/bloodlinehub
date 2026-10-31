@@ -43,6 +43,7 @@ export default defineConfig({
                 globPatterns: ['**/*.{js,css,woff2,png,svg,ico}'],
                 additionalManifestEntries: [
                     { url: '/offline.html', revision: null },
+                    { url: '/icons/logo.webp', revision: null },
                     { url: '/manifest.webmanifest', revision: null },
                 ],
                 runtimeCaching: [

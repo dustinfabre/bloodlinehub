@@ -77,6 +77,8 @@ class PedigreeTest extends TestCase
                 ->where('tree.dam.remarks', 'Bought from a top loft')
                 ->where('tree.dam.highlight.color', '#EF4444')
                 ->where('meta.is_public', false)
+                ->where('meta.visibility', 'private')
+                ->where('sharing.has_password', false)
                 ->where('meta.serial', fn (string $serial) => (bool) preg_match('/^BLH-[2-9A-Z]{4}-[2-9A-Z]{4}$/', $serial))
                 ->where('meta.qr_svg', fn (string $svg) => str_starts_with($svg, '<svg'))
             );
@@ -131,7 +133,7 @@ class PedigreeTest extends TestCase
         $this->actingAs($other)->get(route('pigeons.pedigree', $subject))->assertNotFound();
         $this->actingAs($other)->get(route('pigeons.printPedigree', $subject))->assertNotFound();
         $this->actingAs($other)
-            ->patch(route('pigeons.pedigreeVisibility', $subject), ['is_public' => true])
+            ->patch(route('pigeons.pedigreeVisibility', $subject), ['visibility' => 'public'])
             ->assertNotFound();
     }
 
@@ -144,6 +146,7 @@ class PedigreeTest extends TestCase
             ->assertForbidden()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('pedigrees/Shared')
+                ->where('locked', 'private')
                 ->where('tree', null)
                 ->where('meta', null)
             );
@@ -173,7 +176,7 @@ class PedigreeTest extends TestCase
         $subject = $this->pigeon(['ring_number' => 'BE-2024-888888', 'sire_id' => $sire->id]);
 
         $this->actingAs($this->user)
-            ->patch(route('pigeons.pedigreeVisibility', $subject), ['is_public' => true])
+            ->patch(route('pigeons.pedigreeVisibility', $subject), ['visibility' => 'public'])
             ->assertRedirect();
 
         $serial = $subject->fresh()->pedigree->serial;
@@ -192,6 +195,7 @@ class PedigreeTest extends TestCase
                 ->where('tree.sire.remarks', 'Ace pigeon')
                 ->missing('tree.sire.notes')
                 ->where('meta.is_public', true)
+                ->where('meta.visibility', 'public')
             );
     }
 

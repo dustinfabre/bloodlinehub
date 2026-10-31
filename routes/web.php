@@ -14,6 +14,7 @@ use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\OlrSeasonController;
 use App\Http\Controllers\OlrSeasonRaceController;
 use App\Http\Controllers\PairingController;
+use App\Http\Controllers\PedigreeAncestorController;
 use App\Http\Controllers\PedigreeController;
 use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\SalesController;
@@ -25,10 +26,13 @@ Route::get('/', fn () => Inertia::render('Welcome'))
 // Public marketplace (no auth required)
 Route::get('marketplace', [MarketplaceController::class, 'index'])
     ->name('marketplace.index');
-// Shared pedigree (QR code target); private pedigrees are only visible to their owner
+// Shared pedigree (QR code target); private pedigrees are only visible to their owner or with the share password
 Route::get('p/{serial}', [PedigreeController::class, 'shared'])
     ->middleware('throttle:60,1')
     ->name('pedigrees.shared');
+Route::post('p/{serial}/unlock', [PedigreeController::class, 'unlock'])
+    ->middleware('throttle:10,1,pedigree-unlock')
+    ->name('pedigrees.unlock');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])
@@ -47,6 +51,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.printPedigree');
     Route::patch('pigeons/{pigeon}/pedigree/visibility', [PedigreeController::class, 'updateVisibility'])
         ->name('pigeons.pedigreeVisibility');
+    Route::get('pigeons/{pigeon}/pedigree/edit', [PedigreeAncestorController::class, 'edit'])
+        ->name('pigeons.editPedigree');
+    Route::put('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'update'])
+        ->name('pigeons.saveAncestor');
+    Route::delete('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'destroy'])
+        ->name('pigeons.removeAncestor');
 
     // Bloodlines management API
     Route::get('bloodlines', [BloodlineController::class, 'index'])
