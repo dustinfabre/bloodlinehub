@@ -222,8 +222,20 @@ class PigeonController extends Controller
             'pedigree',
         ]);
 
+        // Offspring are birds in the loft that have this pigeon linked as their sire or dam
+        $children = Pigeon::query()
+            ->where('user_id', $pigeon->user_id)
+            ->where(fn ($query) => $query->where('sire_id', $pigeon->id)->orWhere('dam_id', $pigeon->id))
+            ->with(['sire:id,name,ring_number,personal_number', 'dam:id,name,ring_number,personal_number'])
+            ->orderByRaw('hatch_date IS NULL')
+            ->orderByDesc('hatch_date')
+            ->orderBy('ring_number')
+            ->get()
+            ->map(fn (Pigeon $child) => $this->childSummary($child, $pigeon));
+
         return Inertia::render('pigeons/Show', [
             'pigeon' => $this->transformPigeon($pigeon),
+            'children' => $children,
         ]);
     }
 
@@ -431,6 +443,45 @@ class PigeonController extends Controller
             'remarks' => $parent->remarks,
             'notes' => $parent->notes,
             'color_tag' => $this->colorTagSummary($parent, 'colorTag'),
+        ];
+    }
+
+    private function childSummary(Pigeon $child, Pigeon $parent): array
+    {
+        // The mate is whichever parent of the child is not the pigeon being viewed
+        $mateSide = $child->sire_id === $parent->id ? 'dam' : 'sire';
+        $mate = $child->{$mateSide};
+
+        if ($mate) {
+            $mateSummary = [
+                'side' => $mateSide,
+                'id' => $mate->id,
+                'name' => $mate->name,
+                'ring_number' => $mate->ring_number,
+                'personal_number' => $mate->personal_number,
+            ];
+        } elseif ($child->{"{$mateSide}_name"} || $child->{"{$mateSide}_ring_number"}) {
+            $mateSummary = [
+                'side' => $mateSide,
+                'id' => null,
+                'name' => $child->{"{$mateSide}_name"},
+                'ring_number' => $child->{"{$mateSide}_ring_number"},
+                'personal_number' => null,
+            ];
+        } else {
+            $mateSummary = null;
+        }
+
+        return [
+            'id' => $child->id,
+            'name' => $child->name,
+            'ring_number' => $child->ring_number,
+            'personal_number' => $child->personal_number,
+            'gender' => $child->gender,
+            'hatch_date' => $child->hatch_date?->format('Y-m-d'),
+            'status' => $child->status,
+            'color' => $child->color,
+            'mate' => $mateSummary,
         ];
     }
 

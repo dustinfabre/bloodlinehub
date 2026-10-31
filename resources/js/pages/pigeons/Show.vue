@@ -68,8 +68,22 @@ interface Pigeon {
     pedigree: { serial: string; is_public: boolean; visibility: 'private' | 'password' | 'public' } | null;
 }
 
+interface Child {
+    id: number;
+    name: string | null;
+    ring_number: string | null;
+    personal_number: string | null;
+    gender: string | null;
+    hatch_date: string | null;
+    status: string;
+    color: string | null;
+    // The child's other parent; id is null when it is an external bird
+    mate: { side: 'sire' | 'dam'; id: number | null; name: string | null; ring_number: string | null; personal_number: string | null } | null;
+}
+
 const props = defineProps<{
     pigeon: Pigeon;
+    children: Child[];
 }>();
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
@@ -93,11 +107,13 @@ const getStatusBadgeStyle = (status: string) => {
     return styles[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status };
 };
 
-const genderLabel = computed(() => {
-    if (props.pigeon.gender === 'male') return 'Cock';
-    if (props.pigeon.gender === 'female') return 'Hen';
-    return 'Not specified';
-});
+const genderName = (gender: string | null) => {
+    if (gender === 'male') return 'Cock';
+    if (gender === 'female') return 'Hen';
+    return null;
+};
+
+const genderLabel = computed(() => genderName(props.pigeon.gender) ?? 'Not specified');
 
 const hatchDateFormatted = computed(() => {
     if (!props.pigeon.hatch_date) return 'Not recorded';
@@ -153,6 +169,18 @@ const buildParent = (key: 'sire' | 'dam', title: string): ParentDisplay | null =
 const parents = computed(() =>
     [buildParent('sire', 'Sire (Father)'), buildParent('dam', 'Dam (Mother)')].filter((parent): parent is ParentDisplay => parent !== null),
 );
+
+const childLabel = (child: Child) => child.name || child.ring_number || child.personal_number || `Pigeon #${child.id}`;
+
+const mateLabel = (mate: NonNullable<Child['mate']>) => mate.name || mate.ring_number || mate.personal_number || 'Unknown';
+
+const childDetails = (child: Child) => {
+    // Hatch dates are plain dates, so format them in UTC to avoid shifting a day
+    const hatched = child.hatch_date
+        ? `Hatched ${new Date(child.hatch_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}`
+        : null;
+    return [child.name ? child.ring_number : null, child.color, hatched].filter(Boolean).join(' · ');
+};
 </script>
 
 <template>
@@ -268,6 +296,48 @@ const parents = computed(() =>
                         </div>
 
                         <p v-if="parents.length === 0" class="text-sm text-muted-foreground">No parent information available</p>
+                    </CardContent>
+                </Card>
+
+                <!-- Offspring -->
+                <Card class="lg:col-span-2">
+                    <CardHeader>
+                        <div class="flex items-center justify-between gap-2">
+                            <CardTitle>Offspring</CardTitle>
+                            <Badge v-if="children.length > 0" variant="secondary">{{ children.length }}</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div v-if="children.length > 0" class="divide-y rounded-lg border">
+                            <div
+                                v-for="child in children"
+                                :key="child.id"
+                                class="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                                <div class="min-w-0 space-y-0.5">
+                                    <Link :href="showRoute({ pigeon: child.id }).url" class="font-medium text-primary hover:underline">
+                                        {{ childLabel(child) }}
+                                    </Link>
+                                    <p v-if="childDetails(child)" class="text-sm text-muted-foreground">{{ childDetails(child) }}</p>
+                                    <p v-if="child.mate" class="text-sm text-muted-foreground">
+                                        {{ child.mate.side === 'sire' ? 'Sire' : 'Dam' }}:
+                                        <Link v-if="child.mate.id" :href="showRoute({ pigeon: child.mate.id }).url" class="text-primary hover:underline">
+                                            {{ mateLabel(child.mate) }}
+                                        </Link>
+                                        <template v-else>{{ mateLabel(child.mate) }}</template>
+                                    </p>
+                                </div>
+                                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                                    <Badge v-if="genderName(child.gender)" variant="outline">{{ genderName(child.gender) }}</Badge>
+                                    <span
+                                        :class="[getStatusBadgeStyle(child.status).bg, getStatusBadgeStyle(child.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
+                                    >
+                                        {{ getStatusBadgeStyle(child.status).label }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <p v-else class="text-sm text-muted-foreground">No offspring recorded for this pigeon</p>
                     </CardContent>
                 </Card>
 

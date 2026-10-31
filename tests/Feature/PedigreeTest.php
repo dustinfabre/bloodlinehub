@@ -288,6 +288,38 @@ class PedigreeTest extends TestCase
             );
     }
 
+    public function test_show_page_lists_offspring_with_their_other_parent(): void
+    {
+        $sire = $this->pigeon(['gender' => 'male', 'name' => 'THUNDER']);
+        $dam = $this->pigeon(['gender' => 'female', 'name' => 'LIGHTNING']);
+        $this->pigeon(['name' => 'OLDER', 'sire_id' => $sire->id, 'dam_id' => $dam->id, 'hatch_date' => '2023-04-01']);
+        $this->pigeon(['name' => 'YOUNGER', 'sire_id' => $sire->id, 'dam_name' => 'EXTERNAL HEN', 'hatch_date' => '2024-04-01']);
+        $this->pigeon(['name' => 'UNRELATED']);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.show', $sire))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('pigeons/Show')
+                ->has('children', 2)
+                ->where('children.0.name', 'YOUNGER')
+                ->where('children.0.mate.side', 'dam')
+                ->where('children.0.mate.id', null)
+                ->where('children.0.mate.name', 'EXTERNAL HEN')
+                ->where('children.1.name', 'OLDER')
+                ->where('children.1.mate.id', $dam->id)
+            );
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.show', $dam))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('children', 1)
+                ->where('children.0.name', 'OLDER')
+                ->where('children.0.mate.side', 'sire')
+                ->where('children.0.mate.name', 'THUNDER')
+            );
+    }
+
     public function test_deleting_a_pigeon_removes_its_pedigree(): void
     {
         $subject = $this->pigeon();
