@@ -7,14 +7,18 @@ use App\Enums\MeritType;
 use App\Http\Requests\StorePigeonRequest;
 use App\Http\Requests\UpdatePigeonRequest;
 use App\Models\Bloodline;
-use App\Models\ColorTag;
+use App\Models\GoogleDriveConnection;
 use App\Models\Location;
 use App\Models\Pigeon;
+use App\Services\GoogleDrive\GoogleDriveException;
 use App\Services\ImageUploadService;
 use App\Services\Merits\GoldenPairs;
 use App\Services\Merits\MeritSuggester;
+use App\Services\Pedigree\OutsideBirdSync;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,9 +32,26 @@ class PigeonController extends Controller
         return config('database.default') === 'pgsql' ? 'ilike' : 'like';
     }
 
+    // Parent side => its pedigree path from the pigeon
+    private const PARENT_SIDES = ['sire' => 'S', 'dam' => 'D'];
+
+    /**
+     * Sort options for the pigeon list (value => label). The first is the default.
+     */
+    private const SORTS = [
+        'recent' => 'Recently added',
+        'ring' => 'Ring number (A–Z)',
+        'ring_desc' => 'Ring number (Z–A)',
+        'name' => 'Name (A–Z)',
+        'youngest' => 'Youngest first',
+        'oldest' => 'Oldest first',
+        'merits' => 'Best merits first',
+    ];
+
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $sort = array_key_exists((string) $request->input('sort'), self::SORTS) ? (string) $request->input('sort') : 'recent';
         
         // Multiples of 12 so the 2- and 3-column card grids always fill complete rows
         $perPage = (int) $request->input('per_page', 12);
@@ -41,7 +62,6 @@ class PigeonController extends Controller
                 'sire:id,ring_number,personal_number,color',
                 'dam:id,ring_number,personal_number,color',
                 'bloodlines',
-                'colorTag:id,name,color',
                 'location:id,name,type',
                 'merits',
             ])
@@ -54,7 +74,8 @@ class PigeonController extends Controller
             $this->arrayInput($request, 'merit'),
             array_column(MeritType::cases(), 'value'),
         ));
-        $gender = in_array($request->input('gender'), ['male', 'female'], true) ? $request->input('gender') : null;
+        // "none" matches birds without a gender (it's optional); a single ?gender=male still works
+        $genders = array_values(array_intersect($this->arrayInput($request, 'gender'), ['male', 'female', 'none']));
 
         // Search functionality
         if ($search = $request->input('search')) {
@@ -72,8 +93,16 @@ class PigeonController extends Controller
             });
         }
 
-        if ($gender) {
-            $query->where('gender', $gender);
+        if ($genders) {
+            $known = array_values(array_diff($genders, ['none']));
+            $query->where(function ($q) use ($known, $genders) {
+                if ($known) {
+                    $q->whereIn('gender', $known);
+                }
+                if (in_array('none', $genders, true)) {
+                    $q->orWhereNull('gender')->orWhere('gender', '');
+                }
+            });
         }
 
         if ($statuses) {
@@ -112,7 +141,7 @@ class PigeonController extends Controller
             $query->whereHas('merits', fn ($q) => $q->whereIn('type', $meritFilter));
         }
 
-        $pigeons = $query->latest()
+        $pigeons = $this->sort($query, $sort)
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (Pigeon $pigeon) => $this->transformPigeon($pigeon));
@@ -129,11 +158,6 @@ class PigeonController extends Controller
             ->orderBy('color')
             ->pluck('color');
 
-        // Get color tags for the user
-        $colorTags = ColorTag::where('user_id', $user->id)
-            ->orderBy('name')
-            ->get(['id', 'name', 'color']);
-
         return Inertia::render('pigeons/Index', [
             'pigeons' => $pigeons,
             'bloodlines' => $bloodlines,
@@ -141,17 +165,18 @@ class PigeonController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'type']),
             'meritTypes' => MeritType::options(),
+            'sorts' => collect(self::SORTS)->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])->values(),
             'colors' => $colors,
-            'colorTags' => $colorTags,
             'parentOptions' => $this->parentOptions($user->id),
             'filters' => [
                 'search' => $request->input('search'),
-                'gender' => $gender,
+                'gender' => $genders,
                 'status' => $statuses,
                 'bloodline' => array_values($bloodlineFilter),
                 'location' => array_values($locationFilter),
                 'merit' => $meritFilter,
                 'per_page' => $perPage,
+                'sort' => $sort,
             ],
         ]);
     }
@@ -171,11 +196,6 @@ class PigeonController extends Controller
             ->orderBy('color')
             ->pluck('color');
 
-        // Get color tags for the user
-        $colorTags = ColorTag::where('user_id', $user->id)
-            ->orderBy('name')
-            ->get(['id', 'name', 'color']);
-
         // Get pre-filled data from query params (from pairing)
         $prefill = $request->only(['sire_id', 'dam_id', 'pairing_id', 'clutch_id', 'hatch_date']);
 
@@ -187,9 +207,9 @@ class PigeonController extends Controller
             'parentOptions' => $this->parentOptions($user->id),
             'bloodlines' => $bloodlines,
             'colors' => $colors,
-            'colorTags' => $colorTags,
             'locations' => $locations,
             'prefill' => $prefill,
+            'driveConnected' => GoogleDriveConnection::where('user_id', $user->id)->exists(),
         ]);
     }
 
@@ -202,24 +222,21 @@ class PigeonController extends Controller
         $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
 
-        // Handle photo upload
+        // Photos go to the user's own Google Drive
         if ($request->hasFile('photo')) {
-            $data['photo_url'] = $imageService->upload(
+            $data['photo_url'] = $this->toDrive('photo', fn () => $imageService->upload(
                 $request->file('photo'),
-                'pigeons/photos',
-                1200,
-                85
-            );
+                $request->user(),
+                "{$data['ring_number']} photo",
+            ));
         }
 
-        // Handle pedigree images upload
         if ($request->hasFile('pedigree_images')) {
-            $data['pedigree_images'] = $imageService->uploadMultiple(
+            $data['pedigree_images'] = $this->toDrive('pedigree_images', fn () => $imageService->uploadMultiple(
                 $request->file('pedigree_images'),
-                'pigeons/pedigree',
-                1200,
-                85
-            );
+                $request->user(),
+                "{$data['ring_number']} pedigree",
+            ));
         }
 
         $pigeon = Pigeon::create($data);
@@ -251,11 +268,8 @@ class PigeonController extends Controller
         $this->ensureOwner($request, $pigeon);
 
         $pigeon->load([
-            'sire.colorTag:id,name,color',
-            'dam.colorTag:id,name,color',
-            'colorTag:id,name,color',
-            'sireColorTag:id,name,color',
-            'damColorTag:id,name,color',
+            'sire',
+            'dam',
             'pedigree',
             'merits',
             'location:id,name,type',
@@ -285,7 +299,7 @@ class PigeonController extends Controller
         ]);
     }
 
-    public function edit(Request $request, Pigeon $pigeon): Response
+    public function edit(Request $request, Pigeon $pigeon, OutsideBirdSync $outsideBirds): Response
     {
         $this->ensureOwner($request, $pigeon);
         
@@ -305,10 +319,6 @@ class PigeonController extends Controller
             ->orderBy('color')
             ->pluck('color');
 
-        $colorTags = ColorTag::where('user_id', $user->id)
-            ->orderBy('name')
-            ->get();
-
         $locations = Location::where('user_id', $user->id)
             ->orderBy('name')
             ->get(['id', 'name', 'type']);
@@ -318,91 +328,124 @@ class PigeonController extends Controller
             'parentOptions' => $this->parentOptions($user->id, $pigeon->id),
             'bloodlines' => $bloodlines,
             'colors' => $colors,
-            'colorTags' => $colorTags,
             'locations' => $locations,
+            'driveConnected' => GoogleDriveConnection::where('user_id', $user->id)->exists(),
+            // Other pedigrees that record the same outside sire or dam (matched by ring number)
+            'outsideLinks' => collect(self::PARENT_SIDES)->map(fn (string $letter, string $side) => $pigeon->hasExternalParent($side)
+                ? $outsideBirds->otherLabels($user->id, $pigeon->{"{$side}_ring_number"}, $pigeon->id, $letter)
+                : []),
+            // Which other pedigrees the last save also updated
+            'syncReport' => $request->session()->get('pedigreeSync'),
         ]);
     }
 
-    public function update(UpdatePigeonRequest $request, Pigeon $pigeon, ImageUploadService $imageService): RedirectResponse
+    public function update(UpdatePigeonRequest $request, Pigeon $pigeon, ImageUploadService $imageService, OutsideBirdSync $outsideBirds): RedirectResponse
     {
         $data = $request->validated();
+        // Outside parents as they were, so changes to them can be carried over to their other pedigree records
+        $outsideBefore = collect(self::PARENT_SIDES)->map(fn (string $letter) => $outsideBirds->detailsAt($pigeon, $letter));
+        $user = $request->user();
+        $label = $data['ring_number'] ?? $pigeon->ring_number;
 
         // Extract bloodlines data before updating pigeon
         $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
 
-        // Handle photo upload
+        // Images replaced or removed here leave the app only once the pigeon is saved, so a failed upload never
+        // costs the user the photo they had
+        $discard = [];
+
         if ($request->hasFile('photo')) {
-            // Delete old photo if exists
-            if ($pigeon->photo_url) {
-                $imageService->delete($pigeon->photo_url);
-            }
-            $data['photo_url'] = $imageService->upload(
+            $data['photo_url'] = $this->toDrive('photo', fn () => $imageService->upload(
                 $request->file('photo'),
-                'pigeons/photos',
-                1200,
-                85
-            );
-        }
-
-        // Handle photo removal
-        if ($request->input('remove_photo')) {
-            if ($pigeon->photo_url) {
-                $imageService->delete($pigeon->photo_url);
-            }
+                $user,
+                "{$label} photo",
+            ));
+            $discard[] = $pigeon->photo_url;
+        } elseif ($request->boolean('remove_photo')) {
             $data['photo_url'] = null;
+            $discard[] = $pigeon->photo_url;
         }
 
-        // Handle pedigree images upload
         if ($request->hasFile('pedigree_images')) {
-            $newImages = $imageService->uploadMultiple(
+            $newImages = $this->toDrive('pedigree_images', fn () => $imageService->uploadMultiple(
                 $request->file('pedigree_images'),
-                'pigeons/pedigree',
-                1200,
-                85
-            );
-            // Merge with existing pedigree images
-            $existingImages = $pigeon->pedigree_images ?? [];
-            $data['pedigree_images'] = array_merge($existingImages, $newImages);
+                $user,
+                "{$label} pedigree",
+            ));
+            $data['pedigree_images'] = array_merge($pigeon->pedigree_images ?? [], $newImages);
         }
 
-        // Handle pedigree image removal
         if ($request->input('remove_pedigree')) {
-            // Only this pigeon's own images: any other URL would delete someone else's file from the shared bucket
+            // Only this pigeon's own images: any other URL could be someone else's file
             // Keep images uploaded in this same request
             $existingImages = $request->hasFile('pedigree_images') ? $data['pedigree_images'] : ($pigeon->pedigree_images ?? []);
             $toRemove = array_values(array_intersect((array) $request->input('remove_pedigree'), $pigeon->pedigree_images ?? []));
-            if ($toRemove) {
-                $imageService->deleteMultiple($toRemove);
-            }
             $data['pedigree_images'] = array_values(array_diff($existingImages, $toRemove));
+            array_push($discard, ...$toRemove);
         }
 
         $pigeon->update($data);
 
+        if ($discard = array_values(array_filter($discard))) {
+            $imageService->deleteMultiple($discard, $user);
+        }
+
         // Sync bloodlines with pivot data
         $this->syncBloodlines($pigeon, $bloodlinesData, $request->user()->id);
 
-        if ($request->boolean('edit_pedigree')) {
-            return redirect()
-                ->route('pigeons.editPedigree', $pigeon)
-                ->with('success', 'Pigeon updated successfully.');
+        // An outside sire or dam is the same bird wherever its ring number appears: update its other records too
+        $syncedTo = [];
+        foreach (self::PARENT_SIDES as $side => $letter) {
+            $after = $outsideBirds->detailsAt($pigeon, $letter);
+
+            if ($outsideBefore[$side] && $after && $request->boolean("sync_{$side}", true)) {
+                array_push($syncedTo, ...$outsideBirds->pushEdit($pigeon, $letter, $outsideBefore[$side], $after)['updated']);
+            }
         }
 
-        return redirect()
-            ->route('pigeons.edit', $pigeon)
-            ->with('success', 'Pigeon updated successfully.');
+        $redirect = $request->boolean('edit_pedigree')
+            ? redirect()->route('pigeons.editPedigree', $pigeon)
+            : redirect()->route('pigeons.edit', $pigeon);
+
+        if ($syncedTo) {
+            $redirect->with('pedigreeSync', ['updated' => array_values(array_unique($syncedTo)), 'skipped' => []]);
+        }
+
+        return $redirect->with('success', 'Pigeon updated successfully.');
     }
 
-    public function destroy(Request $request, Pigeon $pigeon): RedirectResponse
+    public function destroy(Request $request, Pigeon $pigeon, ImageUploadService $imageService): RedirectResponse
     {
         $this->ensureOwner($request, $pigeon);
 
+        $images = array_values(array_filter([$pigeon->photo_url, ...($pigeon->pedigree_images ?? [])]));
+
         $pigeon->delete();
+
+        // Stop serving its images and move them to the Drive trash, where the user can still restore them
+        $imageService->deleteMultiple($images, $request->user());
 
         return redirect()
             ->route('pigeons.index')
             ->with('success', 'Pigeon removed successfully.');
+    }
+
+    /**
+     * Run a Google Drive upload, turning a Drive failure into a form error on the given field.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $upload
+     * @return T
+     */
+    private function toDrive(string $field, callable $upload): mixed
+    {
+        try {
+            return $upload();
+        } catch (GoogleDriveException $e) {
+            throw ValidationException::withMessages([$field => $e->getMessage()]);
+        }
     }
 
     /**
@@ -429,6 +472,34 @@ class PigeonController extends Controller
         if ($pigeon->user_id !== $request->user()?->id) {
             abort(404);
         }
+    }
+
+    /**
+     * Order the pigeon list. Birds missing the sorted value (no name, no hatch date) always go last, and the id
+     * breaks ties so pages never repeat or skip a bird.
+     */
+    private function sort(Builder $query, string $sort): Builder
+    {
+        return match ($sort) {
+            'ring' => $query->orderByRaw('ring_number IS NULL')->orderByRaw('lower(ring_number) asc')->orderBy('id'),
+            'ring_desc' => $query->orderByRaw('ring_number IS NULL')->orderByRaw('lower(ring_number) desc')->orderByDesc('id'),
+            'name' => $query->orderByRaw("name IS NULL OR name = ''")->orderByRaw('lower(name) asc')->orderByRaw('lower(ring_number) asc')->orderBy('id'),
+            'youngest' => $query->orderByRaw('hatch_date IS NULL')->orderByDesc('hatch_date')->orderByDesc('id'),
+            'oldest' => $query->orderByRaw('hatch_date IS NULL')->orderBy('hatch_date')->orderBy('id'),
+            // Sum of merit weights (MeritType::weight()), the same score Lineage uses to rank proven birds
+            'merits' => $query->orderByRaw('('.$this->meritScoreSql().') desc')->orderByDesc('created_at')->orderByDesc('id'),
+            default => $query->orderByDesc('created_at')->orderByDesc('id'),
+        };
+    }
+
+    private function meritScoreSql(): string
+    {
+        // Built only from the enum's own values and weights, never from request input
+        $weights = collect(MeritType::cases())
+            ->map(fn (MeritType $type) => "when '{$type->value}' then {$type->weight()}")
+            ->implode(' ');
+
+        return "select coalesce(sum(case pigeon_merits.type {$weights} else 0 end), 0) from pigeon_merits where pigeon_merits.pigeon_id = pigeons.id";
     }
 
     private function transformPigeon(Pigeon $pigeon): array
@@ -473,16 +544,10 @@ class PigeonController extends Controller
             'sire_ring_number' => $pigeon->sire_ring_number,
             'sire_color' => $pigeon->sire_color,
             'sire_notes' => $pigeon->sire_notes,
-            'sire_color_tag_id' => $pigeon->sire_color_tag_id,
-            'sire_color_tag' => $this->colorTagSummary($pigeon, 'sireColorTag'),
             'dam_name' => $pigeon->dam_name,
             'dam_ring_number' => $pigeon->dam_ring_number,
             'dam_color' => $pigeon->dam_color,
             'dam_notes' => $pigeon->dam_notes,
-            'dam_color_tag_id' => $pigeon->dam_color_tag_id,
-            'dam_color_tag' => $this->colorTagSummary($pigeon, 'damColorTag'),
-            'color_tag_id' => $pigeon->color_tag_id,
-            'color_tag' => $this->colorTagSummary($pigeon, 'colorTag'),
             'pedigree' => $pigeon->relationLoaded('pedigree') && $pigeon->pedigree ? [
                 'serial' => $pigeon->pedigree->serial,
                 'is_public' => $pigeon->pedigree->is_public,
@@ -514,7 +579,6 @@ class PigeonController extends Controller
             'color' => $parent->color,
             'remarks' => $parent->remarks,
             'notes' => $parent->notes,
-            'color_tag' => $this->colorTagSummary($parent, 'colorTag'),
         ];
     }
 
@@ -555,17 +619,6 @@ class PigeonController extends Controller
             'color' => $child->color,
             'mate' => $mateSummary,
         ];
-    }
-
-    private function colorTagSummary(Pigeon $pigeon, string $relation): ?array
-    {
-        $tag = $pigeon->relationLoaded($relation) ? $pigeon->getRelation($relation) : null;
-
-        return $tag ? [
-            'id' => $tag->id,
-            'name' => $tag->name,
-            'color' => $tag->color,
-        ] : null;
     }
 
     private function parentOptions(int $userId, ?int $excludeId = null)

@@ -2,9 +2,9 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
-import ColorTagSelect from '@/components/ColorTagSelect.vue';
 import FormActionBar from '@/components/FormActionBar.vue';
 import ImageCropper from '@/components/ImageCropper.vue';
+import DriveConnectNotice from '@/components/DriveConnectNotice.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -59,12 +59,6 @@ interface SelectedBloodline {
     is_primary: boolean;
 }
 
-interface ColorTag {
-    id: number;
-    name: string;
-    color: string;
-}
-
 interface LocationOption {
     id: number;
     name: string;
@@ -77,9 +71,10 @@ const props = defineProps<{
         dams: ParentOption[];
     };
     bloodlines: BloodlineOption[];
-    colorTags: ColorTag[];
     colors: string[];
     locations: LocationOption[];
+    // Images are saved to the user's Google Drive (Settings → Storage)
+    driveConnected: boolean;
     prefill?: {
         sire_id?: string;
         dam_id?: string;
@@ -101,7 +96,6 @@ const form = useForm({
     name: '',
     personal_number: '',
     status: 'stock',
-    color_tag_id: null as number | null,
     hatch_date: props.prefill?.hatch_date || '',
     gender: '',
     color: '',
@@ -115,12 +109,10 @@ const form = useForm({
     sire_ring_number: '',
     sire_color: '',
     sire_notes: '',
-    sire_color_tag_id: null as number | null,
     dam_name: '',
     dam_ring_number: '',
     dam_color: '',
     dam_notes: '',
-    dam_color_tag_id: null as number | null,
     for_sale: false,
     sale_price: '',
     hide_price: false,
@@ -482,15 +474,6 @@ const submit = (event?: SubmitEvent) => {
                                     <InputError :message="form.errors.status" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label>Pedigree Highlight Color</Label>
-                                    <ColorTagSelect
-                                        v-model="form.color_tag_id"
-                                        :color-tags="colorTags"
-                                    />
-                                    <p class="text-xs text-muted-foreground">Highlights this pigeon on cards and pedigree charts.</p>
-                                    <InputError :message="form.errors.color_tag_id" />
-                                </div>
-                                <div class="grid gap-2">
                                     <Label for="location_id">Location</Label>
                                     <select id="location_id" v-model="form.location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                         <option :value="null">— No location —</option>
@@ -562,7 +545,7 @@ const submit = (event?: SubmitEvent) => {
                                     <Network class="mt-0.5 size-5 shrink-0 text-gold" />
                                     <div class="space-y-1 text-sm">
                                         <p class="font-medium text-foreground">Grandparents and beyond</p>
-                                        <p class="text-muted-foreground">Birds you link from your loft bring their own pedigree. For external parents, you can add grandparents up to great-great-grandparents in the pedigree editor once this pigeon is saved.</p>
+                                        <p class="text-muted-foreground">Birds you link from your loft bring their own pedigree. For external parents, you can add grandparents up to great-great-grandparents in the pedigree editor once this pigeon is saved, or copy a whole side from a related pigeon.</p>
                                     </div>
                                 </div>
                                 <Button type="submit" variant="outline" data-next="pedigree" class="shrink-0" :disabled="form.processing || !!exactDuplicateMatch">Save &amp; add ancestors</Button>
@@ -632,12 +615,6 @@ const submit = (event?: SubmitEvent) => {
                                         <Label for="sire_color">Sire color</Label>
                                         <Input id="sire_color" v-model="form.sire_color" autocomplete="off" :readonly="sireFieldsReadonly" :class="sireFieldsReadonly ? 'bg-muted/50 cursor-not-allowed' : ''" />
                                         <InputError :message="form.errors.sire_color" />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label>Sire pedigree highlight color</Label>
-                                        <ColorTagSelect v-if="!sireFieldsReadonly" v-model="form.sire_color_tag_id" :color-tags="colorTags" />
-                                        <p v-else class="text-xs text-muted-foreground">Linked sires use their own pedigree highlight color.</p>
-                                        <InputError :message="form.errors.sire_color_tag_id" />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label v-if="sireFieldsReadonly" for="sire_notes">Sire notes <span class="font-normal text-muted-foreground">(private)</span></Label>
@@ -713,12 +690,6 @@ const submit = (event?: SubmitEvent) => {
                                         <InputError :message="form.errors.dam_color" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label>Dam pedigree highlight color</Label>
-                                        <ColorTagSelect v-if="!damFieldsReadonly" v-model="form.dam_color_tag_id" :color-tags="colorTags" />
-                                        <p v-else class="text-xs text-muted-foreground">Linked dams use their own pedigree highlight color.</p>
-                                        <InputError :message="form.errors.dam_color_tag_id" />
-                                    </div>
-                                    <div class="grid gap-2">
                                         <Label v-if="damFieldsReadonly" for="dam_notes">Dam notes <span class="font-normal text-muted-foreground">(private)</span></Label>
                                         <Label v-else for="dam_notes">Dam remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="dam_notes" v-model="form.dam_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
@@ -735,9 +706,10 @@ const submit = (event?: SubmitEvent) => {
                         <section class="space-y-6">
                             <div class="space-y-2">
                                 <h2 class="text-lg font-semibold text-foreground">Photos & Pedigree</h2>
-                                <p class="text-sm text-muted-foreground">Add visual documentation.</p>
+                                <p class="text-sm text-muted-foreground">Add visual documentation. Images are saved to your Google Drive.</p>
                             </div>
-                            <div class="grid gap-4">
+                            <DriveConnectNotice v-if="!driveConnected" unsaved-changes />
+                            <div v-else class="grid gap-4">
                                 <div class="grid gap-2">
                                     <Label for="photo">Pigeon Photo (Max 1)</Label>
                                     <input 
@@ -854,7 +826,7 @@ const submit = (event?: SubmitEvent) => {
                 <div class="space-y-3 py-4">
                     <div v-for="match in similarMatches" :key="match.pigeon.id" class="flex items-center gap-3 rounded-lg border p-3">
                         <div v-if="match.pigeon.photo" class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full">
-                            <img :src="`/storage/${match.pigeon.photo}`" :alt="match.pigeon.ring_number" class="h-full w-full object-cover" />
+                            <img :src="match.pigeon.photo" :alt="match.pigeon.ring_number" class="h-full w-full object-cover" />
                         </div>
                         <div v-else class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-muted">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">

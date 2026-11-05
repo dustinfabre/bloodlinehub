@@ -6,6 +6,7 @@ import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { pedigreeFilename } from '@/lib/pedigree';
+import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
     index as indexRoute,
@@ -20,7 +21,7 @@ import type {
     PedigreeSharing,
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
-import { Pencil, Printer } from 'lucide-vue-next';
+import { Contact, Pencil, Printer } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Pigeon {
@@ -79,6 +80,12 @@ const filename = computed(() =>
                         <Link :href="editPedigree({ pigeon: pigeon.id }).url">
                             <Pencil class="mr-2 h-4 w-4" />
                             Edit pedigree
+                        </Link>
+                    </Button>
+                    <Button variant="outline" as-child>
+                        <Link :href="editPedigreeDetails().url">
+                            <Contact class="mr-2 h-4 w-4" />
+                            Breeder details
                         </Link>
                     </Button>
                     <PedigreeExportActions

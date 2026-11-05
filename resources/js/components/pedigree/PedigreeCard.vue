@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { byImportance, meritChipStyle, topMerit } from '@/lib/merits';
 import {
-    contrastText,
     formatPedigreeDate,
     MAX_DEPTH,
     meritChip,
@@ -60,43 +60,24 @@ const details = computed(() => {
 
 const isLastColumn = computed(() => props.depth === MAX_DEPTH);
 
-// Where the highlight name pill goes: its own row on the subject, beside the ring number for parents and
-// grandparents, and nowhere in the narrow outer columns (the colored accent and chart legend cover those)
-const tagPlacement = computed(() => {
-    if (!props.node?.highlight) return null;
-    if (props.depth === 0) return 'row';
-    return props.depth <= 2 ? 'inline' : null;
-});
-
-const tagStyle = computed(() =>
-    props.node?.highlight
-        ? {
-              backgroundColor: props.node.highlight.color,
-              color: contrastText(props.node.highlight.color),
-          }
-        : undefined,
-);
-
-const highlightStyle = computed(() => {
-    const highlight = props.node?.highlight;
-    if (!highlight) return undefined;
-    return {
-        '--pc-highlight': highlight.color,
-        '--pc-highlight-tint': `${highlight.color}1F`,
-    };
+// The bird's most significant merit colors the card's accent stripe
+const accent = computed(() => {
+    const best = topMerit(props.node?.merits);
+    return best ? { '--pc-accent': best.color } : undefined;
 });
 
 // How many merit chips fit on a card in each generation
 const MERIT_LIMITS = [8, 6, 4, 3, 2];
 
+// Most significant first, so the narrow columns keep the merits that matter
 const merits = computed(() => {
-    const all = props.node?.merits ?? [];
+    const all = byImportance(props.node?.merits ?? []);
     const limit = MERIT_LIMITS[props.depth] ?? 2;
     return {
-        shown: all.slice(0, limit).map((merit) => ({
-            key: `${merit.type}-${merit.year ?? ''}-${merit.level ?? ''}`,
+        shown: all.slice(0, limit).map((merit, index) => ({
+            key: `${merit.type}-${merit.year ?? ''}-${merit.level ?? ''}-${index}`,
             text: meritChip(merit, props.depth),
-            category: merit.category,
+            style: meritChipStyle(merit),
             title: [merit.label, merit.level_label, merit.year, merit.detail]
                 .filter(Boolean)
                 .join(' · '),
@@ -121,15 +102,10 @@ const href = computed(() =>
     <div
         v-else
         class="pedigree-card"
-        :class="{ 'is-highlighted': node.highlight }"
+        :class="{ 'has-merit': accent }"
         :data-depth="depth"
-        :style="highlightStyle"
+        :style="accent"
     >
-        <div v-if="tagPlacement === 'row'" class="pc-tag-row">
-            <span class="pc-tag" :style="tagStyle">{{
-                node.highlight?.name
-            }}</span>
-        </div>
         <div class="pc-top">
             <span class="pc-sex" :class="sexClass">{{
                 sexSymbol(gender)
@@ -138,19 +114,16 @@ const href = computed(() =>
                 primaryLabel
             }}</Link>
             <span v-else class="pc-ring">{{ primaryLabel }}</span>
-            <span
-                v-if="tagPlacement === 'inline'"
-                class="pc-tag"
-                :style="tagStyle"
-            >
-                {{ node.highlight?.name }}
+            <span v-if="isLastColumn && merits.shown.length" class="pc-codes">
+                <b
+                    v-for="merit in merits.shown"
+                    :key="merit.key"
+                    class="pc-code"
+                    :style="merit.style"
+                    :title="merit.title"
+                    >{{ merit.text }}</b
+                >
             </span>
-            <span
-                v-if="isLastColumn && merits.shown.length"
-                class="pc-codes"
-                :title="merits.shown.map((merit) => merit.title).join('\n')"
-                >{{ merits.shown.map((merit) => merit.text).join(' ') }}</span
-            >
         </div>
 
         <div v-if="isLastColumn" class="pc-line">
@@ -163,7 +136,7 @@ const href = computed(() =>
                     v-for="merit in merits.shown"
                     :key="merit.key"
                     class="pc-merit"
-                    :class="{ 'is-breeding': merit.category === 'breeding' }"
+                    :style="merit.style"
                     :title="merit.title"
                     >{{ merit.text }}</span
                 >

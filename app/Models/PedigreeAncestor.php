@@ -18,7 +18,6 @@ class PedigreeAncestor extends Model
         'name',
         'color',
         'remarks',
-        'color_tag_id',
         'merits',
     ];
 
@@ -29,10 +28,5 @@ class PedigreeAncestor extends Model
     public function pigeon(): BelongsTo
     {
         return $this->belongsTo(Pigeon::class);
-    }
-
-    public function colorTag(): BelongsTo
-    {
-        return $this->belongsTo(ColorTag::class);
     }
 }

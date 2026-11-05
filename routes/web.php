@@ -6,8 +6,8 @@ use App\Http\Controllers\ClubSeasonController;
 use App\Http\Controllers\ClubSeasonEventController;
 use App\Http\Controllers\ClubSeasonRaceController;
 use App\Http\Controllers\ClutchController;
-use App\Http\Controllers\ColorTagController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InviteRequestController;
 use App\Http\Controllers\LineageController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MarketplaceController;
@@ -18,6 +18,7 @@ use App\Http\Controllers\OlrSeasonRaceController;
 use App\Http\Controllers\PairingController;
 use App\Http\Controllers\PedigreeAncestorController;
 use App\Http\Controllers\PedigreeController;
+use App\Http\Controllers\PedigreeCopyController;
 use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\PigeonMeritController;
 use App\Http\Controllers\PlannedPairingController;
@@ -32,6 +33,15 @@ Route::get('/', fn () => Inertia::render('Welcome'))
 Route::get('marketplace', [MarketplaceController::class, 'index'])
     ->middleware('throttle:60,1')
     ->name('marketplace.index');
+// Request an invite while registration is closed. Fortify registration is disabled in config/fortify.php, so the
+// `register` name is free: remove this route if Fortify registration is ever turned on.
+Route::middleware('guest')->group(function () {
+    Route::get('register', [InviteRequestController::class, 'create'])
+        ->name('register');
+    Route::post('invite-requests', [InviteRequestController::class, 'store'])
+        ->middleware('throttle:5,1')
+        ->name('invite-requests.store');
+});
 // Shared pedigree (QR code target); private pedigrees are only visible to their owner or with the share password
 Route::get('p/{serial}', [PedigreeController::class, 'shared'])
     ->middleware('throttle:60,1')
@@ -63,6 +73,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.saveAncestor');
     Route::delete('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'destroy'])
         ->name('pigeons.removeAncestor');
+    Route::get('pigeons/{pigeon}/pedigree/copy-sources', [PedigreeCopyController::class, 'sources'])
+        ->name('pigeons.pedigreeCopySources');
+    Route::post('pigeons/{pigeon}/pedigree/copy', [PedigreeCopyController::class, 'store'])
+        ->name('pigeons.copyPedigree');
     Route::post('pigeons/{pigeon}/merits', [PigeonMeritController::class, 'store'])
         ->name('pigeons.merits.store');
     Route::delete('pigeons/{pigeon}/merits/{merit}', [PigeonMeritController::class, 'destroy'])
@@ -105,16 +119,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('bloodlines.update');
     Route::delete('bloodlines/{bloodline}', [BloodlineController::class, 'destroy'])
         ->name('bloodlines.destroy');
-
-    // Color tags management API
-    Route::get('color-tags', [ColorTagController::class, 'index'])
-        ->name('color-tags.index');
-    Route::post('color-tags', [ColorTagController::class, 'store'])
-        ->name('color-tags.store');
-    Route::patch('color-tags/{colorTag}', [ColorTagController::class, 'update'])
-        ->name('color-tags.update');
-    Route::delete('color-tags/{colorTag}', [ColorTagController::class, 'destroy'])
-        ->name('color-tags.destroy');
 
     // Locations management
     Route::get('locations', [LocationController::class, 'index'])
@@ -273,3 +277,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+require __DIR__.'/storage.php';

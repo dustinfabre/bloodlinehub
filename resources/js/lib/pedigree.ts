@@ -1,6 +1,6 @@
+import { byImportance } from '@/lib/merits';
 import type { Merit } from '@/types/lineage';
 import type {
-    PedigreeHighlight,
     PedigreeNode,
     PedigreeSlot,
     PedigreeVisibility,
@@ -77,6 +77,19 @@ export const slotGridArea = (slot: PedigreeSlot) => {
     };
 };
 
+// Ring numbers are matched the way Lineage matches them: ignoring case, spaces and punctuation
+export const normalizeRing = (ring: string | null | undefined): string =>
+    (ring ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+// "A", "A and B", "A, B and C", "A, B and 2 more"
+export const listLabels = (labels: string[], max = 3): string => {
+    if (labels.length <= 1) return labels[0] ?? '';
+    if (labels.length > max) {
+        return `${labels.slice(0, max - 1).join(', ')} and ${labels.length - max + 1} more`;
+    }
+    return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+};
+
 export const sexSymbol = (gender: string | null): string => {
     if (gender === 'male') return '♂';
     if (gender === 'female') return '♀';
@@ -94,42 +107,14 @@ export const formatPedigreeDate = (value: string | null): string => {
     });
 };
 
-// Readable text color on top of a highlight color
-export const contrastText = (hex: string): string => {
-    const value = hex.replace('#', '');
-    const r = parseInt(value.slice(0, 2), 16);
-    const g = parseInt(value.slice(2, 4), 16);
-    const b = parseInt(value.slice(4, 6), 16);
-    return (r * 299 + g * 587 + b * 114) / 1000 > 160 ? '#14243a' : '#ffffff';
-};
+export type MeritKeyItem = Pick<
+    Merit,
+    'type' | 'code' | 'label' | 'color' | 'weight'
+>;
 
-// Unique highlight colors used anywhere in the tree, for the chart legend
-export const collectHighlights = (
-    root: PedigreeNode | null,
-): PedigreeHighlight[] => {
-    const found = new Map<string, PedigreeHighlight>();
-    const visit = (node: PedigreeNode | null) => {
-        if (!node) return;
-        if (node.highlight)
-            found.set(
-                `${node.highlight.name}|${node.highlight.color}`,
-                node.highlight,
-            );
-        visit(node.sire);
-        visit(node.dam);
-    };
-    visit(root);
-    return [...found.values()];
-};
-
-/** The merit types used anywhere on a chart, for the code key in the footer (highest category first). */
-export const collectMerits = (
-    root: PedigreeNode | null,
-): Pick<Merit, 'type' | 'code' | 'label' | 'category'>[] => {
-    const found = new Map<
-        string,
-        Pick<Merit, 'type' | 'code' | 'label' | 'category'>
-    >();
+/** The merit types used anywhere on a chart, for the color key in the footer (most significant first). */
+export const collectMerits = (root: PedigreeNode | null): MeritKeyItem[] => {
+    const found = new Map<string, MeritKeyItem>();
     const visit = (node: PedigreeNode | null) => {
         if (!node) return;
         for (const merit of node.merits ?? []) {
@@ -137,14 +122,15 @@ export const collectMerits = (
                 type: merit.type,
                 code: merit.code,
                 label: merit.label,
-                category: merit.category,
+                color: merit.color,
+                weight: merit.weight,
             });
         }
         visit(node.sire);
         visit(node.dam);
     };
     visit(root);
-    return [...found.values()];
+    return byImportance([...found.values()]);
 };
 
 /** Merit chip text on a card: the full one-liner near the subject, code and year further out. */

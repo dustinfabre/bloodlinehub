@@ -14,12 +14,6 @@ import { FlaskConical, GitFork, Network, Pencil } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 
-interface ColorTag {
-    id: number;
-    name: string;
-    color: string;
-}
-
 interface ParentSummary {
     id: number;
     name: string | null;
@@ -28,7 +22,6 @@ interface ParentSummary {
     color: string | null;
     remarks: string | null;
     notes: string | null;
-    color_tag: ColorTag | null;
 }
 
 interface ParentDisplay {
@@ -41,7 +34,6 @@ interface ParentDisplay {
     notes: string | null;
     // Notes typed on this pigeon's own record about a linked parent
     recordNotes: string | null;
-    highlight: ColorTag | null;
 }
 
 interface Pigeon {
@@ -63,13 +55,10 @@ interface Pigeon {
     sire_ring_number: string | null;
     sire_color: string | null;
     sire_notes: string | null;
-    sire_color_tag: ColorTag | null;
     dam_name: string | null;
     dam_ring_number: string | null;
     dam_color: string | null;
     dam_notes: string | null;
-    dam_color_tag: ColorTag | null;
-    color_tag: ColorTag | null;
     pedigree: { serial: string; is_public: boolean; visibility: 'private' | 'password' | 'public' } | null;
     merits: Merit[];
 }
@@ -142,12 +131,6 @@ const hatchDateFormatted = computed(() => {
     });
 });
 
-const tagStyle = (tag: ColorTag) => ({
-    backgroundColor: tag.color + '20',
-    color: tag.color,
-    border: '1px solid ' + tag.color,
-});
-
 const buildParent = (key: 'sire' | 'dam', title: string): ParentDisplay | null => {
     const linked = props.pigeon[key];
     if (linked) {
@@ -160,7 +143,6 @@ const buildParent = (key: 'sire' | 'dam', title: string): ParentDisplay | null =
             remarks: linked.remarks,
             notes: linked.notes,
             recordNotes: props.pigeon[`${key}_notes`],
-            highlight: linked.color_tag,
         };
     }
 
@@ -180,7 +162,6 @@ const buildParent = (key: 'sire' | 'dam', title: string): ParentDisplay | null =
         remarks,
         notes: null,
         recordNotes: null,
-        highlight: props.pigeon[`${key}_color_tag`],
     };
 };
 
@@ -281,13 +262,6 @@ const childDetails = (child: Child) => {
                             <p class="text-sm text-muted-foreground">Color</p>
                             <p class="font-medium">{{ pigeon.color }}</p>
                         </div>
-                        <div v-if="pigeon.color_tag">
-                            <p class="text-sm text-muted-foreground">Pedigree Highlight</p>
-                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium" :style="tagStyle(pigeon.color_tag)">
-                                <span class="size-2 rounded-full" :style="{ backgroundColor: pigeon.color_tag.color }"></span>
-                                {{ pigeon.color_tag.name }}
-                            </span>
-                        </div>
                     </CardContent>
                 </Card>
 
@@ -308,10 +282,6 @@ const childDetails = (child: Child) => {
                             <div class="flex flex-wrap items-center gap-2">
                                 <p class="text-sm font-semibold text-muted-foreground">{{ parent.title }}</p>
                                 <Badge v-if="!parent.linked" variant="outline" class="text-xs">External</Badge>
-                                <span v-if="parent.highlight" class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium" :style="tagStyle(parent.highlight)">
-                                    <span class="size-2 rounded-full" :style="{ backgroundColor: parent.highlight.color }"></span>
-                                    {{ parent.highlight.name }}
-                                </span>
                             </div>
                             <Link v-if="parent.linked" :href="showRoute({ pigeon: parent.linked.id }).url" class="font-medium text-primary hover:underline">
                                 {{ parent.label }}

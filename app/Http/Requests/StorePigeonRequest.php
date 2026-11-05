@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\RequiresGoogleDriveForImages;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StorePigeonRequest extends FormRequest
 {
+    use RequiresGoogleDriveForImages;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -68,9 +71,6 @@ class StorePigeonRequest extends FormRequest
                     \App\Models\Pairing::where('user_id', $this->user()?->id ?? 0)->select('id'),
                 )),
             ],
-            'color_tag_id' => $this->colorTagRule(),
-            'sire_color_tag_id' => $this->colorTagRule(),
-            'dam_color_tag_id' => $this->colorTagRule(),
             'location_id' => [
                 'nullable',
                 'integer',
@@ -103,20 +103,6 @@ class StorePigeonRequest extends FormRequest
             'dam_ring_number' => ['nullable', 'string', 'max:255'],
             'dam_color' => ['nullable', 'string', 'max:255'],
             'dam_notes' => ['nullable', 'string'],
-        ];
-    }
-
-    /**
-     * Highlight colors must be one of the user's own color tags.
-     *
-     * @return array<mixed>
-     */
-    private function colorTagRule(): array
-    {
-        return [
-            'nullable',
-            'integer',
-            Rule::exists('color_tags', 'id')->where(fn ($query) => $query->where('user_id', $this->user()?->id ?? 0)),
         ];
     }
 

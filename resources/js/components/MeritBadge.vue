@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { meritChipStyle } from '@/lib/merits';
 import type { Merit } from '@/types/lineage';
 import { Award, Trophy } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -21,13 +22,10 @@ const description = computed(() =>
 </script>
 
 <template>
+    <!-- Each merit has its own fixed color (MeritType::color()); the ring keeps pale ones visible on white -->
     <span
-        class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap"
-        :class="
-            merit.category === 'breeding'
-                ? 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300'
-                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
-        "
+        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-black/10 ring-inset dark:ring-white/15"
+        :style="meritChipStyle(merit)"
         :title="description"
         :aria-label="description"
     >

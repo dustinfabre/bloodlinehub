@@ -12,8 +12,9 @@ import { computed, ref, watch } from 'vue';
 export interface FilterOption {
     value: string;
     label: string;
-    // Optional swatch shown before the label (e.g. status color)
+    // Optional swatch shown before the label: a class (e.g. status color) or a CSS color (e.g. merit color)
     dotClass?: string;
+    dotColor?: string;
 }
 
 const props = withDefaults(
@@ -131,9 +132,14 @@ watch(open, (isOpen) => {
                         class="pointer-events-none"
                     />
                     <span
-                        v-if="option.dotClass"
+                        v-if="option.dotClass || option.dotColor"
                         class="size-2 shrink-0 rounded-full"
                         :class="option.dotClass"
+                        :style="
+                            option.dotColor
+                                ? { backgroundColor: option.dotColor }
+                                : undefined
+                        "
                     />
                     <span class="truncate">{{ option.label }}</span>
                 </button>

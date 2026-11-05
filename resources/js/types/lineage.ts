@@ -5,6 +5,10 @@ export interface Merit {
     label: string;
     code: string;
     category: 'racing' | 'breeding';
+    // Fixed chip color from MeritType::color()
+    color: string;
+    // MeritType::weight(): the heaviest merit colors a pedigree card's accent
+    weight: number;
     level: string | null;
     level_label: string | null;
     year: number | null;
@@ -19,6 +23,8 @@ export interface MeritTypeOption {
     code: string;
     description: string;
     category: 'racing' | 'breeding';
+    color: string;
+    weight: number;
 }
 
 export interface MeritLevelOption {

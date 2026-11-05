@@ -148,7 +148,7 @@ class SecurityAuditFixesTest extends TestCase
         $bird = $this->pigeon($this->me, 'MINE', ['pedigree_images' => [$mine]]);
 
         $this->mock(ImageUploadService::class, function (MockInterface $mock) use ($mine) {
-            $mock->shouldReceive('deleteMultiple')->once()->with([$mine]);
+            $mock->shouldReceive('deleteMultiple')->once()->with([$mine], \Mockery::type(User::class));
             $mock->shouldNotReceive('delete');
         });
 

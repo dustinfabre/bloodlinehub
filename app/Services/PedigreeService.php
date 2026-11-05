@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\ColorTag;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -18,11 +17,8 @@ class PedigreeService
     public const GENERATIONS = 5;
 
     private const RELATIONS = [
-        'colorTag:id,name,color',
-        'sireColorTag:id,name,color',
-        'damColorTag:id,name,color',
         'bloodlines',
-        'pedigreeAncestors.colorTag:id,name,color',
+        'pedigreeAncestors',
         'merits',
     ];
 
@@ -35,6 +31,7 @@ class PedigreeService
     public function chart(Pigeon $pigeon, bool $public = false): array
     {
         $pedigree = $pigeon->pedigreeRecord();
+        $profile = $pigeon->user->breederProfile;
         $shareUrl = route('pedigrees.shared', $pedigree->serial);
 
         return [
@@ -45,7 +42,9 @@ class PedigreeService
                 'visibility' => $pedigree->visibility(),
                 'share_url' => $shareUrl,
                 'qr_svg' => $this->qrSvg($shareUrl),
-                'breeder' => $pigeon->user->name,
+                'breeder' => $profile?->display_name ?: $pigeon->user->name,
+                // Only the details the breeder chose to show; never the account email
+                'contact' => $profile?->pedigreeContact() ?? ['phone' => null, 'email' => null, 'address' => null],
                 'photo_url' => $pigeon->photo_url,
                 'generated_at' => now()->toDateString(),
             ],
@@ -108,7 +107,6 @@ class PedigreeService
             'hatch_date' => $pigeon->hatch_date?->format('Y-m-d'),
             'bloodline' => $pigeon->bloodlines->firstWhere('pivot.is_primary', true)?->name ?? $pigeon->bloodline,
             'remarks' => $pigeon->remarks,
-            'highlight' => $this->highlight($pigeon->colorTag, $public),
             'merits' => $this->merits($pigeon->merits->map->summary()->values()->all(), $public),
             'sire' => $remaining > 0 ? $this->parent($pigeon, 'sire', $loaded, $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->parent($pigeon, 'dam', $loaded, $remaining - 1, $public) : null,
@@ -143,7 +141,6 @@ class PedigreeService
             'ring_number' => $ringNumber,
             'color' => $color,
             'remarks' => $remarks,
-            'highlight' => $this->highlight($child->{"{$side}ColorTag"}, $public),
             'merits' => PigeonMerit::summarizeList($child->{"{$side}_merits"}),
         ], $remaining, $public);
     }
@@ -164,7 +161,6 @@ class PedigreeService
             'ring_number' => $ancestor->ring_number,
             'color' => $ancestor->color,
             'remarks' => $ancestor->remarks,
-            'highlight' => $this->highlight($ancestor->colorTag, $public),
             'merits' => PigeonMerit::summarizeList($ancestor->merits),
         ], $remaining, $public);
     }
@@ -194,10 +190,5 @@ class PedigreeService
     private function merits(array $merits, bool $public): array
     {
         return $public ? array_map(fn (array $merit) => [...$merit, 'id' => null], $merits) : $merits;
-    }
-
-    private function highlight(?ColorTag $tag, bool $public): ?array
-    {
-        return $tag ? ['id' => $public ? null : $tag->id, 'name' => $tag->name, 'color' => $tag->color] : null;
     }
 }

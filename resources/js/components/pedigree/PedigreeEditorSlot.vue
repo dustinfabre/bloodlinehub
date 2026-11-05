@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { topMerit } from '@/lib/merits';
 import { relationName, sexSymbol } from '@/lib/pedigree';
 import { show as showRoute } from '@/routes/pigeons';
 import type { PedigreeSlot } from '@/types/pedigree';
@@ -30,11 +31,11 @@ const detail = computed(() =>
         .filter(Boolean)
         .join(' · '),
 );
-const accent = computed(() =>
-    node.value?.highlight
-        ? { boxShadow: `inset 3px 0 0 ${node.value.highlight.color}` }
-        : undefined,
-);
+// Same accent as the printed pedigree: a stripe in the color of the bird's most significant merit
+const accent = computed(() => {
+    const best = topMerit(node.value?.merits);
+    return best ? { boxShadow: `inset 3px 0 0 ${best.color}` } : undefined;
+});
 const compact = computed(() => props.entry.depth >= 3);
 </script>
 

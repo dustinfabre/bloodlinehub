@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import ColorTagSelect from '@/components/ColorTagSelect.vue';
 import InputError from '@/components/InputError.vue';
 import MeritListEditor from '@/components/pedigree/MeritListEditor.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -15,28 +15,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/composables/useToast';
-import { lineageSteps, relationName } from '@/lib/pedigree';
+import { lineageSteps, listLabels, relationName } from '@/lib/pedigree';
 import { removeAncestor, saveAncestor } from '@/routes/pigeons';
 import type {
     MeritInput,
     MeritLevelOption,
     MeritTypeOption,
 } from '@/types/lineage';
-import type { AncestorTarget } from '@/types/pedigree';
+import type { AncestorTarget, PedigreeSyncReport } from '@/types/pedigree';
+import type { Page } from '@inertiajs/core';
 import { router, useForm } from '@inertiajs/vue3';
-import { ChevronRight, Home, LoaderCircle, Trash2 } from 'lucide-vue-next';
+import {
+    ChevronRight,
+    Home,
+    Link2,
+    LoaderCircle,
+    Trash2,
+} from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
-
-interface ColorTag {
-    id: number;
-    name: string;
-    color: string;
-}
 
 const props = defineProps<{
     pigeonId: number;
     target: AncestorTarget | null;
-    colorTags: ColorTag[];
     colors: string[];
     meritTypes: MeritTypeOption[];
     meritLevels: MeritLevelOption[];
@@ -46,7 +46,7 @@ const meritEditor = ref<InstanceType<typeof MeritListEditor> | null>(null);
 
 const open = defineModel<boolean>('open', { required: true });
 
-const { success, error } = useToast();
+const { success, error, warning } = useToast();
 
 const form = useForm({
     anchor_id: 0,
@@ -55,8 +55,9 @@ const form = useForm({
     name: '',
     color: '',
     remarks: '',
-    color_tag_id: null as number | null,
     merits: [] as MeritInput[],
+    // Also apply the change to this bird's records in other pedigrees
+    sync: true,
 });
 
 // First error on any merit row, e.g. "merits.0.year"
@@ -70,6 +71,7 @@ const meritError = computed(
 
 const confirmingRemove = ref(false);
 const removing = ref(false);
+const removeEverywhere = ref(true);
 
 const node = computed(() => props.target?.entry.node ?? null);
 const isNew = computed(() => !node.value);
@@ -83,6 +85,32 @@ const anchorLabel = computed(
         'that bird',
 );
 
+// Other pedigrees this save would also change: the bird's own other records when editing it, or the other
+// records of the bird in front of this position when adding a new ancestor behind it
+const syncLabels = computed(() =>
+    isNew.value
+        ? (props.target?.offspringAlsoIn ?? [])
+        : (props.target?.alsoIn ?? []),
+);
+const offspringLabel = computed(
+    () => props.target?.offspringLabel ?? 'the bird in front',
+);
+
+// Tell the user what else changed, from the report the server leaves on the page
+const announce = (page: Page, done: string) => {
+    const report = page.props.syncReport as PedigreeSyncReport | null;
+    success(
+        report?.updated.length
+            ? `${done}, also in the pedigrees of ${listLabels(report.updated)}`
+            : done,
+    );
+    if (report?.skipped.length) {
+        warning(
+            `Not added to ${listLabels(report.skipped)}: a different bird is already recorded there`,
+        );
+    }
+};
+
 watch(
     () => [open.value, props.target] as const,
     ([isOpen, target]) => {
@@ -95,17 +123,18 @@ watch(
             name: current?.name ?? '',
             color: current?.color ?? '',
             remarks: current?.remarks ?? '',
-            color_tag_id: current?.highlight?.id ?? null,
             merits: (current?.merits ?? []).map((merit) => ({
                 type: merit.type,
                 level: merit.level,
                 year: merit.year,
                 detail: merit.detail,
             })),
+            sync: true,
         });
         form.reset();
         form.clearErrors();
         confirmingRemove.value = false;
+        removeEverywhere.value = true;
     },
     { immediate: true },
 );
@@ -114,9 +143,9 @@ const save = () => {
     meritEditor.value?.flush();
     form.put(saveAncestor({ pigeon: props.pigeonId }).url, {
         preserveScroll: true,
-        onSuccess: () => {
+        onSuccess: (page) => {
             open.value = false;
-            success(`${relation.value} saved`);
+            announce(page, `${relation.value} saved`);
         },
     });
 };
@@ -124,13 +153,17 @@ const save = () => {
 const remove = () => {
     if (!props.target) return;
     router.delete(removeAncestor({ pigeon: props.pigeonId }).url, {
-        data: { anchor_id: props.target.anchor_id, path: props.target.path },
+        data: {
+            anchor_id: props.target.anchor_id,
+            path: props.target.path,
+            sync: removeEverywhere.value,
+        },
         preserveScroll: true,
         onStart: () => (removing.value = true),
         onFinish: () => (removing.value = false),
-        onSuccess: () => {
+        onSuccess: (page) => {
             open.value = false;
-            success(`${relation.value} removed`);
+            announce(page, `${relation.value} removed`);
         },
         onError: () => error('Could not remove this ancestor'),
     });
@@ -219,14 +252,6 @@ const remove = () => {
                         </datalist>
                         <InputError :message="form.errors.color" />
                     </div>
-                    <div class="grid gap-2">
-                        <Label>Pedigree highlight color</Label>
-                        <ColorTagSelect
-                            v-model="form.color_tag_id"
-                            :color-tags="colorTags"
-                        />
-                        <InputError :message="form.errors.color_tag_id" />
-                    </div>
                 </div>
                 <div class="grid gap-2">
                     <Label for="ancestor_remarks"
@@ -262,6 +287,31 @@ const remove = () => {
             </form>
 
             <div
+                v-if="syncLabels.length && !confirmingRemove"
+                class="grid gap-2 rounded-lg border border-gold/40 bg-secondary/50 p-3 text-sm"
+            >
+                <p class="flex gap-2">
+                    <Link2 class="mt-0.5 size-4 shrink-0 text-gold" />
+                    <span v-if="isNew">
+                        {{ offspringLabel }} is also recorded in the pedigrees
+                        of {{ listLabels(syncLabels) }}.
+                    </span>
+                    <span v-else>
+                        This bird is also recorded in the pedigrees of
+                        {{ listLabels(syncLabels) }}, matched by ring number.
+                    </span>
+                </p>
+                <label class="flex items-center gap-2 pl-6">
+                    <Checkbox v-model="form.sync" />
+                    {{
+                        isNew
+                            ? `Add this ${relation.toLowerCase()} there too, where that place is empty`
+                            : 'Update those records too'
+                    }}
+                </label>
+            </div>
+
+            <div
                 v-if="confirmingRemove"
                 class="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
             >
@@ -273,6 +323,17 @@ const remove = () => {
                         recorded behind it</template
                     >?
                 </p>
+                <label
+                    v-if="target?.offspringAlsoIn.length"
+                    class="mt-2 flex items-start gap-2"
+                >
+                    <Checkbox v-model="removeEverywhere" class="mt-0.5" />
+                    <span
+                        >Also remove it behind {{ offspringLabel }} in the
+                        pedigrees of {{ listLabels(target.offspringAlsoIn) }},
+                        where the same bird is recorded</span
+                    >
+                </label>
                 <div class="mt-3 flex justify-end gap-2">
                     <Button
                         variant="outline"

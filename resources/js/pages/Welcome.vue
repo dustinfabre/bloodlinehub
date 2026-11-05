@@ -1,123 +1,87 @@
 <script setup lang="ts">
+import FeatureChapters from '@/components/landing/FeatureChapters.vue';
+import InstallAppButton from '@/components/landing/InstallAppButton.vue';
+import InstallSection from '@/components/landing/InstallSection.vue';
+import PedigreeSpecimen from '@/components/landing/PedigreeSpecimen.vue';
+import PublicLayout from '@/layouts/PublicLayout.vue';
+import { dashboard, login, register } from '@/routes';
 import { Head, Link } from '@inertiajs/vue3';
-import { dashboard, login } from '@/routes';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
-import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
-import { Bird, Layers, Shield, Users } from 'lucide-vue-next';
+import { ArrowRight } from 'lucide-vue-next';
 </script>
 
 <template>
-    <Head title="BloodlineHub" />
+    <Head title="Pigeon pedigrees, breeding and race records">
+        <meta
+            head-key="description"
+            name="description"
+            content="Keep ring numbers, pedigrees, pairings, clutches and race results for every bird in your loft. Share pedigrees by QR code and see what a bloodline has proven."
+        />
+    </Head>
 
-    <div class="min-h-screen bg-background text-foreground">
-        <nav class="bg-navy">
-            <div class="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-6">
-                <AppLogoWordmark class="h-11 sm:h-12" />
-                <div class="flex items-center gap-3">
-                    <Link
-                        v-if="$page.props.auth.user"
-                        :href="dashboard()"
-                        class="rounded-full bg-gold px-5 py-2 text-sm font-semibold text-navy shadow hover:bg-gold/90"
+    <PublicLayout>
+        <section class="border-b border-gold/30 bg-navy text-ivory">
+            <div
+                class="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-12 pb-16 sm:px-6 sm:pt-16 sm:pb-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-14 lg:pt-24 lg:pb-28"
+            >
+                <div>
+                    <h1
+                        class="animate-rise font-display text-[2.5rem] leading-[1.06] font-semibold tracking-[-0.015em] text-balance sm:text-5xl lg:text-[3.5rem]"
                     >
-                        Dashboard
-                    </Link>
-                    <template v-else>
+                        Every bird in your loft, and every bird behind it.
+                    </h1>
+                    <p
+                        class="mt-6 max-w-[34rem] animate-rise text-base leading-relaxed text-pretty text-ivory/70 sm:text-lg"
+                        style="--rise-delay: 80ms"
+                    >
+                        Ring numbers, pedigrees, pairings and race results, kept
+                        as one record. See what a bird and its bloodline have
+                        proven before you pair it, race it or sell it.
+                    </p>
+
+                    <div
+                        class="mt-9 flex animate-rise flex-wrap items-center gap-3"
+                        style="--rise-delay: 160ms"
+                    >
+                        <Link
+                            :href="
+                                $page.props.auth.user ? dashboard() : register()
+                            "
+                            class="group inline-flex min-h-11 items-center gap-2 rounded-md bg-gold px-5 text-[15px] font-semibold text-navy transition-colors duration-150 hover:bg-gold/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                        >
+                            {{
+                                $page.props.auth.user
+                                    ? 'Go to your dashboard'
+                                    : 'Request an invite'
+                            }}
+                            <ArrowRight
+                                class="size-4 transition-transform duration-150 group-hover:translate-x-0.5"
+                                aria-hidden="true"
+                            />
+                        </Link>
+                        <InstallAppButton tone="dark" size="md" />
+                    </div>
+
+                    <p
+                        v-if="!$page.props.auth.user"
+                        class="mt-7 animate-rise text-sm text-ivory/55"
+                        style="--rise-delay: 240ms"
+                    >
+                        Already have an account?
                         <Link
                             :href="login()"
-                            class="rounded-full bg-gold px-5 py-2 text-sm font-semibold text-navy shadow hover:bg-gold/90"
+                            class="font-medium text-ivory underline decoration-gold/60 underline-offset-4 transition-colors duration-150 hover:decoration-gold"
                         >
                             Log in
                         </Link>
-                    </template>
+                    </p>
                 </div>
+
+                <PedigreeSpecimen />
             </div>
-        </nav>
+        </section>
 
-        <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-16 px-6 py-20">
-            <section class="text-center">
-                <AppLogoIcon class="mx-auto mb-10 size-36 md:size-44" alt="" />
-                <h1 class="text-4xl font-bold tracking-tight md:text-6xl">
-                    Your Pigeon Pedigree Command Center
-                </h1>
-                <p class="mx-auto mt-6 max-w-3xl text-lg text-muted-foreground">
-                    Track bloodlines, manage loft records, and showcase your champions. BloodlineHub keeps every ring number, pedigree note, and sale-ready detail organised for your loft.
-                </p>
-                <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
-                    <Link
-                        v-if="!$page.props.auth.user"
-                        :href="login()"
-                        class="rounded-full bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90"
-                    >
-                        Launch App
-                    </Link>
-                    <Link
-                        v-else
-                        :href="dashboard()"
-                        class="rounded-full bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90"
-                    >
-                        Go to Dashboard
-                    </Link>
-                </div>
-            </section>
+        <FeatureChapters />
 
-            <section class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <article class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gold/20 text-navy">
-                        <Layers class="h-6 w-6" />
-                    </div>
-                    <h2 class="text-lg font-semibold">Detailed Records</h2>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Capture colour, ring and personal numbers, remarks, notes, and gallery shots for every bird in your loft.
-                    </p>
-                </article>
-
-                <article class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gold/20 text-navy">
-                        <Shield class="h-6 w-6" />
-                    </div>
-                    <h2 class="text-lg font-semibold">Pedigree Builder</h2>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Design printable pedigrees that highlight lineage and key achievements for prospective buyers.
-                    </p>
-                </article>
-
-                <article class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gold/20 text-navy">
-                        <Users class="h-6 w-6" />
-                    </div>
-                    <h2 class="text-lg font-semibold">Public Profiles</h2>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Showcase top pigeons with curated public pages and shareable links for clubs and auctions.
-                    </p>
-                </article>
-
-                <article class="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gold/20 text-navy">
-                        <Bird class="h-6 w-6" />
-                    </div>
-                    <h2 class="text-lg font-semibold">Sales & Auctions</h2>
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Prepare listings now and roll into auctions later with built-in pricing, status, and interest tracking.
-                    </p>
-                </article>
-            </section>
-
-            <section class="rounded-3xl border-t-4 border-gold bg-navy p-10 text-center shadow-sm">
-                <h2 class="text-3xl font-semibold text-gold">Built for loft management teams</h2>
-                <p class="mx-auto mt-4 max-w-2xl text-base text-ivory/80">
-                    Keep every breeder and racer organised, deliver pedigrees on demand, and transition seamlessly from record keeping to sales operations when Phase 2 unlocks.
-                </p>
-            </section>
-        </main>
-
-        <footer class="border-t border-border py-8 text-sm text-muted-foreground">
-            <div class="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
-                <div class="flex items-center gap-2 text-foreground">
-                    <AppLogoIcon class="size-8" alt="" />
-                    <span class="font-medium">BloodlineHub</span>
-                </div>
-                <span>© {{ new Date().getFullYear() }} BloodlineHub. All rights reserved.</span>
-            </div>
-        </footer>
-    </div>
+        <InstallSection />
+    </PublicLayout>
 </template>

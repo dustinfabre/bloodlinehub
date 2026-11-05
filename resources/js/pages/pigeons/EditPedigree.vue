@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AncestorDialog from '@/components/pedigree/AncestorDialog.vue';
+import CopyPedigreeDialog from '@/components/pedigree/CopyPedigreeDialog.vue';
 import PedigreeEditorSlot from '@/components/pedigree/PedigreeEditorSlot.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -7,6 +8,7 @@ import {
     flattenPedigree,
     GENERATION_LABELS,
     MAX_DEPTH,
+    normalizeRing,
     slotGridArea,
 } from '@/lib/pedigree';
 import {
@@ -20,11 +22,20 @@ import { type BreadcrumbItem } from '@/types';
 import type { MeritLevelOption, MeritTypeOption } from '@/types/lineage';
 import type {
     AncestorTarget,
+    PedigreeCopySide,
+    PedigreeLinks,
     PedigreeNode,
+    PedigreeSide,
     PedigreeSlot,
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
-import { GitBranch, Home, MousePointerClick, Network } from 'lucide-vue-next';
+import {
+    Copy,
+    GitBranch,
+    Home,
+    MousePointerClick,
+    Network,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Pigeon {
@@ -34,19 +45,13 @@ interface Pigeon {
     personal_number: string | null;
 }
 
-interface ColorTag {
-    id: number;
-    name: string;
-    color: string;
-}
-
 const props = defineProps<{
     pigeon: Pigeon;
     tree: PedigreeNode;
-    colorTags: ColorTag[];
     colors: string[];
     meritTypes: MeritTypeOption[];
     meritLevels: MeritLevelOption[];
+    links: PedigreeLinks;
 }>();
 
 const pigeonLabel = computed(
@@ -86,6 +91,23 @@ const loftBirds = computed(
         ),
 );
 
+// Loft birds whose pedigrees hold another record of this outside bird (same ring number)
+const recordedElsewhere = (node: PedigreeNode | null): string[] => {
+    if (!node?.external || !node.ring_number) return [];
+    const records = props.links[normalizeRing(node.ring_number)] ?? [];
+    return [
+        ...new Set(
+            records
+                .filter(
+                    (record) =>
+                        record.anchor_id !== node.anchor_id ||
+                        record.path !== node.path,
+                )
+                .map((record) => record.label),
+        ),
+    ];
+};
+
 // Where an external ancestor in this position is stored: on the nearest loft bird, by path from it.
 // Loft birds and the subject aren't editable here, and nothing can be added behind an unknown bird.
 const targetFor = (entry: PedigreeSlot): AncestorTarget | null => {
@@ -120,12 +142,53 @@ const targetFor = (entry: PedigreeSlot): AncestorTarget | null => {
                 other.key.length > entry.key.length &&
                 other.key.startsWith(entry.key),
         ).length,
+        alsoIn: recordedElsewhere(entry.node),
+        offspringAlsoIn: recordedElsewhere(entry.child),
+        offspringLabel: entry.child?.ring_number || entry.child?.name || null,
     };
 };
 
 const editorSlots = computed(() =>
     slots.value.map((entry) => ({ entry, target: targetFor(entry) })),
 );
+
+// What this pigeon has on each side now, for "Copy from another pigeon"
+const currentSide = (side: PedigreeSide): PedigreeCopySide => {
+    const node = props.tree[side];
+    const key = side === 'sire' ? 'S' : 'D';
+
+    if (!node) {
+        return {
+            state: 'empty',
+            pigeon_id: null,
+            ring_number: null,
+            name: null,
+            ancestors: 0,
+        };
+    }
+
+    return {
+        state: node.external ? 'external' : 'linked',
+        pigeon_id: node.id,
+        ring_number: node.ring_number,
+        name: node.name,
+        ancestors: node.external
+            ? slots.value.filter(
+                  (entry) =>
+                      entry.node &&
+                      entry.key.length > 1 &&
+                      entry.key.startsWith(key),
+              ).length
+            : null,
+    };
+};
+
+const copyTarget = computed(() => ({
+    sire: currentSide('sire'),
+    dam: currentSide('dam'),
+}));
+
+const copyOpen = ref(false);
 
 const dialogOpen = ref(false);
 const activeTarget = ref<AncestorTarget | null>(null);
@@ -154,6 +217,10 @@ const openEditor = (target: AncestorTarget | null) => {
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    <Button variant="outline" @click="copyOpen = true">
+                        <Copy class="size-4" />
+                        Copy from another pigeon
+                    </Button>
                     <Button variant="outline" as-child>
                         <Link :href="editRoute({ pigeon: pigeon.id }).url"
                             >Edit pigeon</Link
@@ -210,7 +277,8 @@ const openEditor = (target: AncestorTarget | null) => {
                     <GitBranch class="mt-0.5 size-4 shrink-0 text-gold" />
                     <p>
                         Ancestors behind a loft bird are saved on that bird, so
-                        all of its offspring inherit them. Enter them once.
+                        all of its offspring inherit them. For a related bird
+                        bought in, copy a whole side from its sibling.
                     </p>
                 </div>
             </div>
@@ -267,11 +335,16 @@ const openEditor = (target: AncestorTarget | null) => {
             </div>
         </div>
 
+        <CopyPedigreeDialog
+            v-model:open="copyOpen"
+            :pigeon-id="pigeon.id"
+            :target="copyTarget"
+        />
+
         <AncestorDialog
             v-model:open="dialogOpen"
             :pigeon-id="pigeon.id"
             :target="activeTarget"
-            :color-tags="colorTags"
             :colors="colors"
             :merit-types="meritTypes"
             :merit-levels="meritLevels"

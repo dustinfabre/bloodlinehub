@@ -128,4 +128,83 @@ class PigeonIndexFilterTest extends TestCase
             ->get(route('pigeons.index', ['per_page' => 1000]))
             ->assertInertia(fn (Assert $page) => $page->where('filters.per_page', 12));
     }
+
+    /**
+     * Ring numbers in the order the page lists them.
+     *
+     * @return list<string>
+     */
+    private function orderFor(array $query): array
+    {
+        $rings = [];
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.index', $query))
+            ->assertOk()
+            ->assertInertia(function (Assert $page) use (&$rings) {
+                $rings = collect($page->toArray()['props']['pigeons']['data'])->pluck('ring_number')->all();
+            });
+
+        return $rings;
+    }
+
+    public function test_gender_filter_takes_several_values_including_ungendered(): void
+    {
+        $this->pigeon('COCK', ['gender' => 'male']);
+        $this->pigeon('HEN', ['gender' => 'female']);
+        $this->pigeon('UNKNOWN', ['gender' => null]);
+
+        $this->assertSame(['UNKNOWN'], $this->ringsFor(['gender' => ['none']]));
+        $this->assertSame(['COCK', 'UNKNOWN'], $this->ringsFor(['gender' => ['male', 'none']]));
+        $this->assertSame(['COCK', 'HEN'], $this->ringsFor(['gender' => ['male', 'female']]));
+        // Old single-value links keep working; unknown values are ignored
+        $this->assertSame(['HEN'], $this->ringsFor(['gender' => 'female']));
+        $this->assertSame(['COCK', 'HEN', 'UNKNOWN'], $this->ringsFor(['gender' => ['other']]));
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.index', ['gender' => ['none', 'male', 'bogus']]))
+            ->assertInertia(fn (Assert $page) => $page->where('filters.gender', ['none', 'male']));
+    }
+
+    public function test_pigeons_can_be_sorted(): void
+    {
+        // Added in this order: 300 three days ago, 200 two days ago, 100 yesterday
+        $added = fn (Pigeon $pigeon, int $daysAgo) => $pigeon->forceFill(['created_at' => now()->subDays($daysAgo)])->save();
+        $added($this->pigeon('BE-2022-300', ['name' => 'Zorro', 'hatch_date' => '2022-03-01']), 3);
+        $added($this->pigeon('BE-2024-100', ['name' => 'alpha', 'hatch_date' => '2024-01-10']), 1);
+        $added($this->pigeon('BE-2023-200', ['name' => null, 'hatch_date' => null]), 2);
+
+        $this->assertSame(['BE-2024-100', 'BE-2023-200', 'BE-2022-300'], $this->orderFor([]));
+        $this->assertSame(['BE-2022-300', 'BE-2023-200', 'BE-2024-100'], $this->orderFor(['sort' => 'ring']));
+        $this->assertSame(['BE-2024-100', 'BE-2023-200', 'BE-2022-300'], $this->orderFor(['sort' => 'ring_desc']));
+        // Case-insensitive, unnamed birds last
+        $this->assertSame(['BE-2024-100', 'BE-2022-300', 'BE-2023-200'], $this->orderFor(['sort' => 'name']));
+        // Birds without a hatch date last either way
+        $this->assertSame(['BE-2024-100', 'BE-2022-300', 'BE-2023-200'], $this->orderFor(['sort' => 'youngest']));
+        $this->assertSame(['BE-2022-300', 'BE-2024-100', 'BE-2023-200'], $this->orderFor(['sort' => 'oldest']));
+        // Unknown sorts fall back to the default
+        $this->assertSame(['BE-2024-100', 'BE-2023-200', 'BE-2022-300'], $this->orderFor(['sort' => 'drop table']));
+    }
+
+    public function test_best_merits_first_uses_merit_weights(): void
+    {
+        $finisher = $this->pigeon('FINISHER');
+        $finisher->merits()->createMany([['type' => 'finisher'], ['type' => 'finisher'], ['type' => 'finisher']]);
+        $this->pigeon('NONE');
+        $this->pigeon('SUPER-BREEDER')->merits()->create(['type' => 'super_breeder']);
+        $this->pigeon('ACE')->merits()->create(['type' => 'ace_pigeon']);
+
+        // Super Breeder 9 > Ace 8 > three Finishers 3 > nothing
+        $this->assertSame(['SUPER-BREEDER', 'ACE', 'FINISHER', 'NONE'], $this->orderFor(['sort' => 'merits']));
+    }
+
+    public function test_sort_options_and_choice_are_sent_to_the_page(): void
+    {
+        $this->actingAs($this->user)
+            ->get(route('pigeons.index', ['sort' => 'oldest']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.sort', 'oldest')
+                ->has('sorts', 7)
+                ->where('sorts.0', ['value' => 'recent', 'label' => 'Recently added']));
+    }
 }

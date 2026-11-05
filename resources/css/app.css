@@ -66,6 +66,10 @@
     --color-navy: var(--navy);
     --color-gold: var(--gold);
     --color-ivory: var(--ivory);
+
+    /* Serif for landing page headings; it echoes the "Bloodline" wordmark. Loaded by the Welcome page only. */
+    --font-display:
+        'Source Serif 4', ui-serif, Georgia, 'Times New Roman', serif;
 }
 
 /*
@@ -103,6 +107,9 @@
     --ivory: #f8f6f0;
     --slate: #64748b;
     --white: #ffffff;
+
+    /* Easing for landing page motion (animate-rise, v-reveal, pedigree lines) */
+    --ease-crisp: cubic-bezier(0.22, 1, 0.36, 1);
 
     --background: var(--ivory);
     --foreground: var(--navy);
@@ -258,4 +265,45 @@
     background: var(--warning-bg) !important;
     border-color: var(--warning-border) !important;
     color: var(--warning-text) !important;
+}
+
+/*
+  Landing page motion. Kept to two effects: content rising into place on load, and
+  sections fading up once as they scroll into view. Both switch off for reduced motion.
+*/
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+}
+
+@utility animate-rise {
+    animation: rise 700ms var(--ease-crisp) both;
+    animation-delay: var(--rise-delay, 0ms);
+}
+
+/* v-reveal (resources/js/lib/reveal.ts) only hides elements below the fold, so nothing is hidden without JS */
+[data-reveal='pending'] {
+    opacity: 0;
+    transform: translateY(14px);
+}
+
+[data-reveal='shown'] {
+    transition:
+        opacity 650ms var(--ease-crisp),
+        transform 650ms var(--ease-crisp);
+    transition-delay: var(--reveal-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-rise {
+        animation: none;
+    }
+
+    [data-reveal] {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
 }

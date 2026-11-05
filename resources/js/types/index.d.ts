@@ -24,6 +24,8 @@ export type AppPageProps<
     quote: { message: string; author: string };
     auth: Auth;
     sidebarOpen: boolean;
+    // Switches set in config/features.php
+    features: { marketplace: boolean };
 };
 
 export interface User {

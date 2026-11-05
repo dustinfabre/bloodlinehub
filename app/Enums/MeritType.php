@@ -3,8 +3,8 @@
 namespace App\Enums;
 
 /**
- * The fixed merit vocabulary. Unlike color tags (each user's own highlight colors), merits mean the same thing
- * for every loft, so they can be searched, ranked and compared across bloodlines.
+ * The fixed merit vocabulary. Merits mean the same thing for every loft, so they can be searched, ranked and
+ * compared across bloodlines, and each one has the same color on every pedigree.
  *
  * Names follow international pedigree / auction usage, plus the Philippine derby & OLR terms
  * (Overall Winner, Superset Winner, Finisher) that have no international equivalent.
@@ -108,6 +108,35 @@ enum MeritType: string
         ];
     }
 
+    /**
+     * Fixed chip color, the same for every loft. Hue is the kind of merit, shade its rank within that kind
+     * (darkest = most significant):
+     *  - gold: titles (Olympiad, Ace, Overall)
+     *  - red: race wins (final, race, hot spot)
+     *  - teal: steady flying (superset, prizes, finisher)
+     *  - violet: breeding (super breeder, breeder of winners, foundation)
+     *
+     * Chip text is white or navy, whichever reads better; every pair stays at least 4.5:1. Checked for
+     * color-blind separation too, but the code on each chip is what identifies the merit.
+     */
+    public function color(): string
+    {
+        return match ($this) {
+            self::Olympiad => '#916600',
+            self::AcePigeon => '#D39900',
+            self::OverallWinner => '#EBC75E',
+            self::FinalRaceWinner => '#9A1C32',
+            self::RaceWinner => '#D0363B',
+            self::HotSpotWinner => '#F8907C',
+            self::Superset => '#00666C',
+            self::PrizeWinner => '#00A0A1',
+            self::Finisher => '#76D8CC',
+            self::SuperBreeder => '#5D339A',
+            self::BreederOfWinners => '#815AC4',
+            self::Foundation => '#B7B1F8',
+        };
+    }
+
     public function category(): string
     {
         return match ($this) {
@@ -136,7 +165,7 @@ enum MeritType: string
     }
 
     /**
-     * @return list<array{value: string, label: string, code: string, description: string, category: string}>
+     * @return list<array{value: string, label: string, code: string, description: string, category: string, color: string, weight: int}>
      */
     public static function options(): array
     {
@@ -146,6 +175,8 @@ enum MeritType: string
             'code' => $type->code(),
             'description' => $type->description(),
             'category' => $type->category(),
+            'color' => $type->color(),
+            'weight' => $type->weight(),
         ], self::cases());
     }
 }

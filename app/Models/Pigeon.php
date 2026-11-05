@@ -23,7 +23,6 @@ class Pigeon extends Model
         'hatch_date',
         'status',
         'color',
-        'color_tag_id',
         'ring_number',
         'personal_number',
         'remarks',
@@ -40,13 +39,11 @@ class Pigeon extends Model
         'sire_ring_number',
         'sire_color',
         'sire_notes',
-        'sire_color_tag_id',
         'sire_merits',
         'dam_name',
         'dam_ring_number',
         'dam_color',
         'dam_notes',
-        'dam_color_tag_id',
         'dam_merits',
         'clutch_id',
         'location_id',
@@ -90,22 +87,6 @@ class Pigeon extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function colorTag(): BelongsTo
-    {
-        return $this->belongsTo(ColorTag::class);
-    }
-
-    // Pedigree highlight colors for external (unlinked) parents
-    public function sireColorTag(): BelongsTo
-    {
-        return $this->belongsTo(ColorTag::class, 'sire_color_tag_id');
-    }
-
-    public function damColorTag(): BelongsTo
-    {
-        return $this->belongsTo(ColorTag::class, 'dam_color_tag_id');
     }
 
     public function pedigree(): HasOne

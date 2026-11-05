@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import PedigreeCard from '@/components/pedigree/PedigreeCard.vue';
+import { meritChipStyle } from '@/lib/merits';
 import {
-    collectHighlights,
     collectMerits,
     flattenPedigree,
     formatPedigreeDate,
@@ -12,6 +12,7 @@ import {
     VISIBILITY_LABELS,
 } from '@/lib/pedigree';
 import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
+import { Mail, MapPin, Phone } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -26,10 +27,12 @@ const paper = ref<HTMLElement | null>(null);
 defineExpose({ paper });
 
 const ancestorSlots = computed(() => flattenPedigree(props.tree).slice(1));
-const highlights = computed(() => collectHighlights(props.tree));
 const meritKey = computed(() => collectMerits(props.tree));
 const shareLabel = computed(() =>
     props.meta.share_url.replace(/^https?:\/\//, ''),
+);
+const hasContact = computed(() =>
+    Object.values(props.meta.contact).some(Boolean),
 );
 </script>
 
@@ -118,37 +121,63 @@ const shareLabel = computed(() =>
             </div>
 
             <footer class="pedigree-footer">
-                <div class="pedigree-legend">
-                    <template v-if="highlights.length || meritKey.length">
-                        <span
-                            v-for="highlight in highlights"
-                            :key="`${highlight.name}-${highlight.color}`"
-                            class="pedigree-legend-item"
-                        >
-                            <i :style="{ backgroundColor: highlight.color }" />
-                            {{ highlight.name }}
-                        </span>
-                        <span
-                            v-for="merit in meritKey"
-                            :key="merit.type"
-                            class="pedigree-legend-item is-merit"
-                        >
-                            <b
-                                class="pc-merit"
-                                :class="{
-                                    'is-breeding':
-                                        merit.category === 'breeding',
-                                }"
-                                >{{ merit.code }}</b
+                <div class="pedigree-footer-main">
+                    <div class="pedigree-legend">
+                        <template v-if="meritKey.length">
+                            <span
+                                v-for="merit in meritKey"
+                                :key="merit.type"
+                                class="pedigree-legend-item is-merit"
                             >
-                            {{ merit.label }}
-                        </span>
-                    </template>
-                    <span v-else>♂ Sire line above · ♀ Dam line below</span>
+                                <b
+                                    class="pc-merit"
+                                    :style="meritChipStyle(merit)"
+                                    >{{ merit.code }}</b
+                                >
+                                {{ merit.label }}
+                            </span>
+                        </template>
+                        <span v-else>♂ Sire line above · ♀ Dam line below</span>
+                    </div>
+                    <div class="pedigree-footnote">
+                        Remarks supplied by the breeder · Verify at
+                        {{ shareLabel }}
+                    </div>
                 </div>
-                <div>
-                    Remarks supplied by the breeder · Verify at
-                    {{ shareLabel }}
+
+                <div v-if="hasContact" class="pedigree-contact">
+                    <div class="pedigree-footer-label">Contact the breeder</div>
+                    <div
+                        v-if="meta.contact.phone || meta.contact.email"
+                        class="pedigree-contact-line"
+                    >
+                        <span v-if="meta.contact.phone"
+                            ><Phone />{{ meta.contact.phone }}</span
+                        >
+                        <span v-if="meta.contact.email"
+                            ><Mail />{{ meta.contact.email }}</span
+                        >
+                    </div>
+                    <div
+                        v-if="meta.contact.address"
+                        class="pedigree-contact-line is-address"
+                    >
+                        <span><MapPin />{{ meta.contact.address }}</span>
+                    </div>
+                </div>
+
+                <!-- Space to sign a printed copy -->
+                <div class="pedigree-signature">
+                    <div class="pedigree-sign is-name">
+                        <span class="pedigree-sign-line" />
+                        <span class="pedigree-footer-label"
+                            >Breeder's signature</span
+                        >
+                    </div>
+                    <div class="pedigree-sign is-date">
+                        <span class="pedigree-sign-line" />
+                        <span class="pedigree-footer-label">Date</span>
+                    </div>
                 </div>
             </footer>
         </div>
@@ -217,7 +246,7 @@ const shareLabel = computed(() =>
     flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
-    height: 80px;
+    height: 74px;
     padding: 0 28px 0 20px;
     border-bottom: 3px solid var(--gold);
     background: var(--navy);
@@ -231,7 +260,7 @@ const shareLabel = computed(() =>
 }
 
 .pedigree-logo {
-    height: 50px;
+    height: 46px;
 }
 
 .pedigree-divider {
@@ -281,7 +310,7 @@ const shareLabel = computed(() =>
     flex: 1;
     flex-direction: column;
     min-height: 0;
-    padding: 14px 28px 12px;
+    padding: 12px 28px 12px;
 }
 
 /* Generation labels share the tree's columns */
@@ -442,9 +471,9 @@ const shareLabel = computed(() =>
     background: var(--surface);
 }
 
-.pedigree-card.is-highlighted {
-    background: var(--pc-highlight-tint);
-    box-shadow: inset 3px 0 0 var(--pc-highlight);
+/* A bird with merits: a stripe in the color of its most significant merit */
+.pedigree-card.has-merit {
+    box-shadow: inset 3px 0 0 var(--pc-accent);
 }
 
 .pedigree-card.is-empty {
@@ -507,33 +536,6 @@ a.pc-ring:hover {
     text-underline-offset: 2px;
 }
 
-.pc-tag {
-    flex-shrink: 0;
-    max-width: 45%;
-    margin-left: auto;
-    overflow: hidden;
-    padding: 2px 7px;
-    border-radius: 999px;
-    font-size: 7px;
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: 0.06em;
-    text-overflow: ellipsis;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.pc-tag-row {
-    margin-bottom: 8px;
-}
-
-.pc-tag-row .pc-tag {
-    display: inline-block;
-    max-width: 100%;
-    margin-left: 0;
-    font-size: 8px;
-}
-
 .pc-name,
 .pc-meta,
 .pc-line {
@@ -571,7 +573,7 @@ a.pc-ring:hover {
     -webkit-line-clamp: var(--pc-lines, 2);
 }
 
-/* Merits: gold chips for racing, violet for breeding, the codes explained in the footer */
+/* Merits: each type has its own fixed color (set inline from MeritType::color()), explained in the footer */
 .pc-merits {
     display: flex;
     flex-wrap: wrap;
@@ -580,12 +582,11 @@ a.pc-ring:hover {
     overflow: hidden;
 }
 
-.pc-merit {
+.pc-merit,
+.pc-code {
     flex-shrink: 0;
     padding: 1px 5px;
     border-radius: 999px;
-    background: #f3e7c9;
-    color: #6b4f12;
     font-size: 7.5px;
     font-weight: 700;
     line-height: 1.35;
@@ -593,24 +594,22 @@ a.pc-ring:hover {
     white-space: nowrap;
 }
 
-.pc-merit.is-breeding {
-    background: #e9e1f6;
-    color: #4f3388;
-}
-
 .pc-merit.is-more {
     background: transparent;
     color: var(--muted);
 }
 
+/* Last column: code chips beside the ring number */
 .pc-codes {
+    display: flex;
     flex-shrink: 0;
+    gap: 2px;
     margin-left: auto;
-    color: var(--gold-deep);
-    font-size: 7.5px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
+}
+
+.pc-code {
+    padding: 0 4px;
+    font-size: 7px;
 }
 
 .pedigree-legend-item.is-merit {
@@ -626,19 +625,16 @@ a.pc-ring:hover {
     margin-top: 8px;
 }
 
+/* Dark merit colors would melt into the navy card, so its chips get a faint light ring */
 .pedigree-card[data-depth='0'] .pc-merit {
     padding: 2px 8px;
-    background: var(--gold);
-    color: var(--navy);
+    box-shadow: 0 0 0 1px rgba(248, 246, 240, 0.28);
     font-size: 9px;
-}
-
-.pedigree-card[data-depth='0'] .pc-merit.is-breeding {
-    background: #cdbcf0;
 }
 
 .pedigree-card[data-depth='0'] .pc-merit.is-more {
     background: transparent;
+    box-shadow: none;
     color: rgba(248, 246, 240, 0.7);
 }
 
@@ -656,9 +652,8 @@ a.pc-ring:hover {
     font-size: 10.5px;
 }
 
-.pedigree-card[data-depth='0'].is-highlighted {
-    background: var(--navy);
-    box-shadow: inset 4px 0 0 var(--pc-highlight);
+.pedigree-card[data-depth='0'].has-merit {
+    box-shadow: inset 4px 0 0 var(--pc-accent);
 }
 
 .pedigree-card[data-depth='0'] .pc-sex {
@@ -761,18 +756,107 @@ a.pc-ring:hover {
     font-size: 8px;
 }
 
-/* Footer */
+/* Footer: key and verify note, breeder contact, then space to sign a printed copy */
 .pedigree-footer {
     display: flex;
     flex-shrink: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    align-items: stretch;
+    gap: 20px;
     margin-top: 10px;
     padding-top: 8px;
     border-top: 1px solid var(--rule);
     color: var(--muted);
     font-size: 8.5px;
+}
+
+.pedigree-footer-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pedigree-footnote {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pedigree-footer-label {
+    font-size: 6.5px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.pedigree-contact {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 3px;
+    width: 250px;
+    padding-left: 14px;
+    border-left: 1px solid var(--rule);
+    color: var(--ink);
+}
+
+.pedigree-contact-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+}
+
+.pedigree-contact-line span {
+    display: inline-block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pedigree-contact-line.is-address span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.pedigree-contact svg {
+    /* Tailwind's base styles make SVGs block-level; keep the icons on the text line */
+    display: inline-block;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    color: var(--gold-deep);
+    vertical-align: -1px;
+}
+
+.pedigree-signature {
+    display: flex;
+    flex-shrink: 0;
+    align-items: flex-end;
+    gap: 14px;
+}
+
+.pedigree-sign {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.pedigree-sign.is-name {
+    width: 170px;
+}
+
+.pedigree-sign.is-date {
+    width: 80px;
+}
+
+.pedigree-sign-line {
+    height: 28px;
+    border-bottom: 1px solid var(--ink);
 }
 
 .pedigree-legend {
@@ -791,12 +875,5 @@ a.pc-ring:hover {
     background: var(--surface);
     color: var(--ink);
     font-weight: 600;
-}
-
-.pedigree-legend-item i {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
 }
 </style>

@@ -9,6 +9,9 @@ use Inertia\Response;
 /**
  * Public marketplace: active sale listings, visible without logging in.
  *
+ * Behind the config('features.marketplace') flag (FEATURE_MARKETPLACE). While it is off, the page is a
+ * "coming soon" screen and no listings are loaded.
+ *
  * Only what the seller chose to publish is shown: no account email, no internal ids, and no price when the
  * seller hid it.
  */
@@ -16,6 +19,10 @@ class MarketplaceController extends Controller
 {
     public function index(): Response
     {
+        if (! config('features.marketplace')) {
+            return Inertia::render('marketplace/ComingSoon');
+        }
+
         $sales = Sale::query()
             ->where('status', 'active')
             // A listing must be for the seller's own bird (older rows could point at someone else's)

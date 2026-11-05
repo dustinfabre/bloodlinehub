@@ -146,13 +146,21 @@ const formatPrice = (price: string | null) => {
                     </h1>
                     <p class="mt-1 text-sm text-muted-foreground">
                         Add your pigeons to sales and manage active listings.
-                        Active listings appear on the public marketplace.
+                        {{
+                            $page.props.features.marketplace
+                                ? 'Active listings appear on the public marketplace.'
+                                : 'Active listings will appear on the public marketplace when it opens.'
+                        }}
                     </p>
                 </div>
                 <Button variant="outline" size="sm" as-child>
                     <Link :href="marketplaceIndex().url">
                         <ExternalLink class="mr-2 h-4 w-4" />
-                        View marketplace
+                        {{
+                            $page.props.features.marketplace
+                                ? 'View marketplace'
+                                : 'Marketplace (coming soon)'
+                        }}
                     </Link>
                 </Button>
             </div>
@@ -298,7 +306,7 @@ const formatPrice = (price: string | null) => {
                                     placeholder="e.g. 0917 123 4567 or facebook.com/yourloft"
                                 />
                                 <p class="text-xs text-muted-foreground">
-                                    Shown publicly on the marketplace. Your account email is never shown.
+                                    Shown publicly on the marketplace{{ $page.props.features.marketplace ? '' : ' once it opens' }}. Your account email is never shown.
                                 </p>
                                 <InputError :message="form.errors.contact" />
                             </div>

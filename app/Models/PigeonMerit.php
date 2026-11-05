@@ -31,7 +31,7 @@ class PigeonMerit extends Model
     }
 
     /**
-     * @return array{id: ?int, type: string, label: string, code: string, category: string, level: ?string, level_label: ?string, year: ?int, detail: ?string, short: string}
+     * @return array{id: ?int, type: string, label: string, code: string, category: string, color: string, weight: int, level: ?string, level_label: ?string, year: ?int, detail: ?string, short: string}
      */
     public function summary(): array
     {
@@ -49,6 +49,9 @@ class PigeonMerit extends Model
             'label' => $type->label(),
             'code' => $type->code(),
             'category' => $type->category(),
+            'color' => $type->color(),
+            // Ranks merits on a card: the heaviest one colors the card's accent
+            'weight' => $type->weight(),
             'level' => $level?->value,
             'level_label' => $level?->label(),
             'year' => $year,

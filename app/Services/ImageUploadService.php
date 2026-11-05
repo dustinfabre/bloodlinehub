@@ -2,29 +2,36 @@
 
 namespace App\Services;
 
+use App\Models\DriveFile;
+use App\Models\GoogleDriveConnection;
+use App\Models\User;
+use App\Services\GoogleDrive\GoogleDrive;
+use App\Services\GoogleDrive\GoogleDriveException;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Intervention\Image\Laravel\Facades\Image;
 
+/**
+ * Saves images to the uploader's own Google Drive. The app keeps no image files, only a DriveFile row per image,
+ * and serves them back through MediaController.
+ */
 class ImageUploadService
 {
-    /**
-     * Upload and optimize an image to R2.
-     *
-     * @param UploadedFile $file
-     * @param string $folder
-     * @param int $maxWidth
-     * @param int $quality
-     * @return string The public URL of the uploaded image
-     */
-    public function upload(UploadedFile $file, string $folder = 'images', int $maxWidth = 1200, int $quality = 85): string
-    {
-        // Generate unique filename
-        $filename = Str::uuid() . '.webp';
-        $path = "{$folder}/{$filename}";
+    public function __construct(private GoogleDrive $drive) {}
 
-        // Load and optimize image
+    /**
+     * Optimize an image and save it to the user's Google Drive.
+     *
+     * @param  string  $name  File name in Drive, without extension (e.g. "PH-2025-1234 photo")
+     * @return string The app URL that serves the image (/media/{id}.webp)
+     *
+     * @throws GoogleDriveException When no Drive is connected or Drive refuses the file
+     */
+    public function upload(UploadedFile $file, User $user, string $name, int $maxWidth = 1200, int $quality = 85): string
+    {
+        $connection = $this->connection($user);
+
         $image = Image::read($file);
 
         // Resize if larger than max width (maintaining aspect ratio)
@@ -32,82 +39,85 @@ class ImageUploadService
             $image->scale(width: $maxWidth);
         }
 
-        // Convert to WebP and encode with quality
-        $encodedImage = $image->toWebp($quality);
+        $contents = (string) $image->toWebp($quality);
 
-        // Upload to R2
-        Storage::disk('r2')->put($path, $encodedImage);
+        $uploaded = $this->drive->upload($connection, $this->fileName($name), $contents, 'image/webp');
 
-        // Return public URL
-        return Storage::disk('r2')->url($path);
+        return DriveFile::create([
+            'user_id' => $user->id,
+            'drive_file_id' => $uploaded['id'],
+            'mime_type' => 'image/webp',
+            'size' => $uploaded['size'],
+        ])->url();
     }
 
     /**
-     * Upload multiple images.
+     * Upload several images, numbering their Drive names when there is more than one.
      *
-     * @param array<UploadedFile> $files
-     * @param string $folder
-     * @param int $maxWidth
-     * @param int $quality
-     * @return array<string> Array of public URLs
+     * @param  array<UploadedFile>  $files
+     * @return array<string> App URLs, in the same order
      */
-    public function uploadMultiple(array $files, string $folder = 'images', int $maxWidth = 1200, int $quality = 85): array
+    public function uploadMultiple(array $files, User $user, string $name, int $maxWidth = 1200, int $quality = 85): array
     {
+        $files = array_values($files);
+        $numbered = count($files) > 1;
+
         return array_map(
-            fn(UploadedFile $file) => $this->upload($file, $folder, $maxWidth, $quality),
-            $files
+            fn (UploadedFile $file, int $i) => $this->upload($file, $user, $numbered ? "{$name} ".($i + 1) : $name, $maxWidth, $quality),
+            $files,
+            array_keys($files),
         );
     }
 
     /**
-     * Delete an image from R2 by its URL.
-     *
-     * @param string|null $url
-     * @return bool
+     * Stop serving one of the user's images and move it to their Drive trash. URLs that are not the user's own
+     * Drive images (another user's, or an old external URL) are left alone.
      */
-    public function delete(?string $url): bool
+    public function delete(?string $url, User $user): bool
     {
-        if (!$url) {
+        $id = DriveFile::idFromUrl($url);
+        $driveFile = $id ? DriveFile::where('user_id', $user->id)->find($id) : null;
+
+        if (! $driveFile) {
             return false;
         }
 
-        // Extract path from URL
-        $path = $this->getPathFromUrl($url);
+        $connection = GoogleDriveConnection::forUser($user);
 
-        if ($path && Storage::disk('r2')->exists($path)) {
-            return Storage::disk('r2')->delete($path);
+        if ($connection) {
+            try {
+                $this->drive->trash($connection, $driveFile->drive_file_id);
+            } catch (GoogleDriveException $e) {
+                // The image still leaves the app; the copy simply stays in the user's Drive folder
+                Log::info('Could not trash a Drive file', ['drive_file' => $driveFile->id, 'message' => $e->getMessage()]);
+            }
         }
 
-        return false;
+        $driveFile->delete();
+
+        return true;
     }
 
     /**
-     * Delete multiple images from R2.
-     *
-     * @param array<string> $urls
-     * @return void
+     * @param  array<string>  $urls
      */
-    public function deleteMultiple(array $urls): void
+    public function deleteMultiple(array $urls, User $user): void
     {
         foreach ($urls as $url) {
-            $this->delete($url);
+            $this->delete($url, $user);
         }
     }
 
-    /**
-     * Extract the storage path from a public URL.
-     *
-     * @param string $url
-     * @return string|null
-     */
-    private function getPathFromUrl(string $url): ?string
+    private function connection(User $user): GoogleDriveConnection
     {
-        $publicUrl = config('filesystems.disks.r2.url');
-        
-        if (str_starts_with($url, $publicUrl)) {
-            return str_replace($publicUrl . '/', '', $url);
-        }
+        return GoogleDriveConnection::forUser($user)
+            ?? throw new GoogleDriveException('Connect your Google Drive in Settings → Storage to add photos.');
+    }
 
-        return null;
+    private function fileName(string $name): string
+    {
+        $name = trim(preg_replace('/[\x00-\x1F\x7F\/\\\\]+/', ' ', $name) ?? '');
+
+        return Str::limit($name !== '' ? $name : 'image', 120, '').'.webp';
     }
 }

@@ -87,6 +87,8 @@ class SecurityHardeningTest extends TestCase
 
     public function test_marketplace_shows_only_what_sellers_publish(): void
     {
+        config(['features.marketplace' => true]);
+
         $mine = $this->pigeon($this->me, 'MINE', ['photo_url' => 'https://cdn.example.test/mine.webp', 'notes' => 'private notes']);
         $hidden = $this->pigeon($this->me, 'HIDDEN-PRICE');
         $theirs = $this->pigeon($this->victim, 'THEIRS');

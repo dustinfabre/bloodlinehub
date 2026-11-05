@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ColorTag;
+use App\Enums\MeritType;
 use App\Models\PedigreeAncestor;
 use App\Models\Pigeon;
 use App\Models\User;
@@ -56,7 +56,8 @@ class PedigreeAncestorTest extends TestCase
                 ->where('tree.sire.anchor_id', $subject->id)
                 ->where('tree.sire.path', 'S')
                 ->where('colors', ['BLUE BAR'])
-                ->has('colorTags')
+                ->where('meritTypes.0.color', MeritType::Olympiad->color())
+                ->missing('colorTags')
             );
 
         $this->actingAs(User::factory()->create())
@@ -66,14 +67,13 @@ class PedigreeAncestorTest extends TestCase
 
     public function test_grandparents_can_be_added_behind_an_external_parent(): void
     {
-        $tag = ColorTag::create(['user_id' => $this->user->id, 'name' => 'Ace', 'color' => '#EF4444']);
         $subject = $this->pigeon(['sire_ring_number' => 'NL-2019-1']);
 
         $this->saveAncestor($subject, $subject, 'SD', [
             'name' => 'GOLDEN LADY',
             'color' => 'BLUE CHECK',
             'remarks' => '1st National Bourges',
-            'color_tag_id' => $tag->id,
+            'merits' => [['type' => 'olympiad', 'year' => 2019]],
         ])->assertRedirect()->assertSessionHasNoErrors();
         $this->saveAncestor($subject, $subject, 'SDS')->assertSessionHasNoErrors();
 
@@ -92,7 +92,9 @@ class PedigreeAncestorTest extends TestCase
                 ->where('tree.sire.dam.ring_number', 'RING-SD')
                 ->where('tree.sire.dam.gender', 'female')
                 ->where('tree.sire.dam.remarks', '1st National Bourges')
-                ->where('tree.sire.dam.highlight.id', $tag->id)
+                ->where('tree.sire.dam.merits.0.code', 'OLY')
+                ->where('tree.sire.dam.merits.0.color', MeritType::Olympiad->color())
+                ->missing('tree.sire.dam.highlight')
                 ->where('tree.sire.dam.anchor_id', $subject->id)
                 ->where('tree.sire.dam.path', 'SD')
                 ->where('tree.sire.dam.sire.ring_number', 'RING-SDS')
@@ -138,7 +140,6 @@ class PedigreeAncestorTest extends TestCase
 
     public function test_parent_positions_update_the_pigeon_record(): void
     {
-        $tag = ColorTag::create(['user_id' => $this->user->id, 'name' => 'Gold', 'color' => '#EAB308']);
         $subject = $this->pigeon();
 
         $this->saveAncestor($subject, $subject, 'D', [
@@ -146,7 +147,7 @@ class PedigreeAncestorTest extends TestCase
             'name' => 'QUEEN',
             'color' => 'RED',
             'remarks' => 'Top breeding hen',
-            'color_tag_id' => $tag->id,
+            'merits' => [['type' => 'super_breeder']],
         ])->assertSessionHasNoErrors();
 
         $subject->refresh();
@@ -154,7 +155,7 @@ class PedigreeAncestorTest extends TestCase
         $this->assertSame('QUEEN', $subject->dam_name);
         $this->assertSame('RED', $subject->dam_color);
         $this->assertSame('Top breeding hen', $subject->dam_notes);
-        $this->assertSame($tag->id, $subject->dam_color_tag_id);
+        $this->assertSame('super_breeder', $subject->dam_merits[0]['type']);
         $this->assertSame(0, PedigreeAncestor::count());
     }
 
@@ -182,7 +183,6 @@ class PedigreeAncestorTest extends TestCase
     public function test_input_is_validated(): void
     {
         $subject = $this->pigeon();
-        $otherTag = ColorTag::create(['user_id' => User::factory()->create()->id, 'name' => 'X', 'color' => '#000000']);
 
         $this->saveAncestor($subject, $subject, 'S', ['ring_number' => '', 'name' => ''])
             ->assertSessionHasErrors('ring_number');
@@ -190,8 +190,6 @@ class PedigreeAncestorTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->saveAncestor($subject, $subject, 'SX')->assertSessionHasErrors('path');
         $this->saveAncestor($subject, $subject, 'SSSSS')->assertSessionHasErrors('path');
-        $this->saveAncestor($subject, $subject, 'S', ['color_tag_id' => $otherTag->id])
-            ->assertSessionHasErrors('color_tag_id');
     }
 
     public function test_other_users_birds_cannot_be_edited(): void

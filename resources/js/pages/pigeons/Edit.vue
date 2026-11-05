@@ -2,9 +2,9 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
-import ColorTagSelect from '@/components/ColorTagSelect.vue';
 import FormActionBar from '@/components/FormActionBar.vue';
 import ImageCropper from '@/components/ImageCropper.vue';
+import DriveConnectNotice from '@/components/DriveConnectNotice.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,11 +12,14 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { listLabels } from '@/lib/pedigree';
+import type { PedigreeSyncReport } from '@/types/pedigree';
 import { edit as editRoute, editPedigree, index as indexRoute, show, show as showRoute, update } from '@/routes/pigeons';
 import { useToast } from '@/composables/useToast';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
-import { Network } from 'lucide-vue-next';
+import { Link2, Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 import axios from 'axios';
 
@@ -88,24 +91,15 @@ interface Pigeon {
     sire_ring_number: string | null;
     sire_color: string | null;
     sire_notes: string | null;
-    sire_color_tag_id: number | null;
     dam_name: string | null;
     dam_ring_number: string | null;
     dam_color: string | null;
     dam_notes: string | null;
-    dam_color_tag_id: number | null;
     for_sale: boolean;
     sale_price: string | null;
     hide_price: boolean;
     sale_description: string | null;
-    color_tag_id: number | null;
     location_id: number | null;
-}
-
-interface ColorTag {
-    id: number;
-    name: string;
-    color: string;
 }
 
 interface LocationOption {
@@ -121,9 +115,13 @@ const props = defineProps<{
         dams: ParentOption[];
     };
     bloodlines: BloodlineOption[];
-    colorTags: ColorTag[];
     colors: string[];
     locations: LocationOption[];
+    // Images are saved to the user's Google Drive (Settings → Storage)
+    driveConnected: boolean;
+    // Other pedigrees that record the same outside sire or dam (matched by ring number)
+    outsideLinks: { sire: string[]; dam: string[] };
+    syncReport: PedigreeSyncReport | null;
 }>();
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
@@ -141,7 +139,6 @@ const form = useForm({
     name: props.pigeon.name ?? '',
     personal_number: props.pigeon.personal_number ?? '',
     status: props.pigeon.status ?? 'stock',
-    color_tag_id: props.pigeon.color_tag_id ?? null as number | null,
     hatch_date: props.pigeon.hatch_date ?? '',
     gender: props.pigeon.gender ?? '',
     color: props.pigeon.color ?? '',
@@ -159,12 +156,13 @@ const form = useForm({
     sire_ring_number: props.pigeon.sire_ring_number ?? '',
     sire_color: props.pigeon.sire_color ?? '',
     sire_notes: props.pigeon.sire_notes ?? '',
-    sire_color_tag_id: props.pigeon.sire_color_tag_id ?? null as number | null,
     dam_name: props.pigeon.dam_name ?? '',
     dam_ring_number: props.pigeon.dam_ring_number ?? '',
     dam_color: props.pigeon.dam_color ?? '',
     dam_notes: props.pigeon.dam_notes ?? '',
-    dam_color_tag_id: props.pigeon.dam_color_tag_id ?? null as number | null,
+    // Carry changes to an outside sire or dam over to its records in other pedigrees
+    sync_sire: true,
+    sync_dam: true,
     for_sale: props.pigeon.for_sale ?? false,
     sale_price: props.pigeon.sale_price ?? '',
     hide_price: props.pigeon.hide_price ?? false,
@@ -427,10 +425,17 @@ const submit = (event?: SubmitEvent) => {
         for_sale: data.for_sale ? 1 : 0,
         hide_price: data.hide_price ? 1 : 0,
         edit_pedigree: continueToPedigree ? 1 : 0,
+        sync_sire: data.sync_sire ? 1 : 0,
+        sync_dam: data.sync_dam ? 1 : 0,
     })).patch(update({ pigeon: props.pigeon.id }).url, {
         preserveScroll: true,
         forceFormData: true,
-        onSuccess: () => success('Pigeon updated successfully!'),
+        onSuccess: (page) => {
+            const report = page.props.syncReport as PedigreeSyncReport | null;
+            success(report?.updated.length
+                ? `Pigeon updated, also in the pedigrees of ${listLabels(report.updated)}`
+                : 'Pigeon updated successfully!');
+        },
     });
 };
 </script>
@@ -523,15 +528,6 @@ const submit = (event?: SubmitEvent) => {
                                     <InputError :message="form.errors.status" />
                                 </div>
                                 <div class="grid gap-2">
-                                    <Label>Pedigree Highlight Color</Label>
-                                    <ColorTagSelect
-                                        v-model="form.color_tag_id"
-                                        :color-tags="colorTags"
-                                    />
-                                    <p class="text-xs text-muted-foreground">Highlights this pigeon on cards and pedigree charts.</p>
-                                    <InputError :message="form.errors.color_tag_id" />
-                                </div>
-                                <div class="grid gap-2">
                                     <Label for="location_id">Location</Label>
                                     <select id="location_id" v-model="form.location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                         <option :value="null">— No location —</option>
@@ -603,7 +599,7 @@ const submit = (event?: SubmitEvent) => {
                                     <Network class="mt-0.5 size-5 shrink-0 text-gold" />
                                     <div class="space-y-1 text-sm">
                                         <p class="font-medium text-foreground">Grandparents and beyond</p>
-                                        <p class="text-muted-foreground">Add grandparents up to great-great-grandparents in the pedigree editor. Ancestors behind a loft bird are saved on that bird, so its other offspring inherit them too.</p>
+                                        <p class="text-muted-foreground">Add grandparents up to great-great-grandparents in the pedigree editor, or copy a whole side from a related pigeon. Ancestors behind a loft bird are saved on that bird, so its other offspring inherit them too.</p>
                                     </div>
                                 </div>
                                 <Button v-if="form.isDirty" type="submit" variant="outline" data-next="pedigree" class="shrink-0" :disabled="form.processing">Save &amp; edit pedigree</Button>
@@ -678,17 +674,15 @@ const submit = (event?: SubmitEvent) => {
                                         <InputError :message="form.errors.sire_color" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label>Sire pedigree highlight color</Label>
-                                        <ColorTagSelect v-if="!sireFieldsReadonly" v-model="form.sire_color_tag_id" :color-tags="colorTags" />
-                                        <p v-else class="text-xs text-muted-foreground">Linked sires use their own pedigree highlight color.</p>
-                                        <InputError :message="form.errors.sire_color_tag_id" />
-                                    </div>
-                                    <div class="grid gap-2">
                                         <Label v-if="sireFieldsReadonly" for="sire_notes">Sire notes <span class="font-normal text-muted-foreground">(private)</span></Label>
                                         <Label v-else for="sire_notes">Sire remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="sire_notes" v-model="form.sire_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
                                         <p class="text-xs text-muted-foreground">{{ sireFieldsReadonly ? "The pedigree shows the linked sire's own remarks." : 'Race results or key traits of this external sire.' }}</p>
                                         <InputError :message="form.errors.sire_notes" />
+                                    </div>
+                                    <div v-if="!sireFieldsReadonly && outsideLinks.sire.length" class="grid gap-2 rounded-lg border border-gold/40 bg-secondary/50 p-3 text-sm">
+                                        <p class="flex gap-2"><Link2 class="mt-0.5 size-4 shrink-0 text-gold" />This sire is also recorded in the pedigrees of {{ listLabels(outsideLinks.sire) }}, matched by ring number.</p>
+                                        <label class="flex items-center gap-2 pl-6"><Checkbox v-model="form.sync_sire" />Update those records with changes made here</label>
                                     </div>
                                 </div>
                                 <!-- Dam -->
@@ -757,17 +751,15 @@ const submit = (event?: SubmitEvent) => {
                                         <InputError :message="form.errors.dam_color" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label>Dam pedigree highlight color</Label>
-                                        <ColorTagSelect v-if="!damFieldsReadonly" v-model="form.dam_color_tag_id" :color-tags="colorTags" />
-                                        <p v-else class="text-xs text-muted-foreground">Linked dams use their own pedigree highlight color.</p>
-                                        <InputError :message="form.errors.dam_color_tag_id" />
-                                    </div>
-                                    <div class="grid gap-2">
                                         <Label v-if="damFieldsReadonly" for="dam_notes">Dam notes <span class="font-normal text-muted-foreground">(private)</span></Label>
                                         <Label v-else for="dam_notes">Dam remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="dam_notes" v-model="form.dam_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
                                         <p class="text-xs text-muted-foreground">{{ damFieldsReadonly ? "The pedigree shows the linked dam's own remarks." : 'Race results or key traits of this external dam.' }}</p>
                                         <InputError :message="form.errors.dam_notes" />
+                                    </div>
+                                    <div v-if="!damFieldsReadonly && outsideLinks.dam.length" class="grid gap-2 rounded-lg border border-gold/40 bg-secondary/50 p-3 text-sm">
+                                        <p class="flex gap-2"><Link2 class="mt-0.5 size-4 shrink-0 text-gold" />This dam is also recorded in the pedigrees of {{ listLabels(outsideLinks.dam) }}, matched by ring number.</p>
+                                        <label class="flex items-center gap-2 pl-6"><Checkbox v-model="form.sync_dam" />Update those records with changes made here</label>
                                     </div>
                                 </div>
                             </div>
@@ -779,9 +771,10 @@ const submit = (event?: SubmitEvent) => {
                         <section class="space-y-6">
                             <div class="space-y-2">
                                 <h2 class="text-lg font-semibold text-foreground">Photos & Pedigree</h2>
-                                <p class="text-sm text-muted-foreground">Add visual documentation.</p>
+                                <p class="text-sm text-muted-foreground">Add visual documentation. Images are saved to your Google Drive.</p>
                             </div>
-                            <div class="grid gap-4">
+                            <DriveConnectNotice v-if="!driveConnected" unsaved-changes />
+                            <div v-else class="grid gap-4">
                                 <!-- Photo Upload -->
                                 <div class="grid gap-2">
                                     <Label for="photo">Pigeon Photo (Max 1)</Label>
@@ -947,7 +940,7 @@ const submit = (event?: SubmitEvent) => {
                 <div class="space-y-3 py-4">
                     <div v-for="match in similarMatches" :key="match.pigeon.id" class="flex items-center gap-3 rounded-lg border p-3">
                         <div v-if="match.pigeon.photo" class="h-12 w-12 flex-shrink-0 overflow-hidden rounded-full">
-                            <img :src="`/storage/${match.pigeon.photo}`" :alt="match.pigeon.ring_number" class="h-full w-full object-cover" />
+                            <img :src="match.pigeon.photo" :alt="match.pigeon.ring_number" class="h-full w-full object-cover" />
                         </div>
                         <div v-else class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-muted">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">

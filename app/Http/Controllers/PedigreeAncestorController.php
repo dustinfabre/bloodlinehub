@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Enums\MeritLevel;
 use App\Enums\MeritType;
-use App\Models\ColorTag;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
+use App\Services\Pedigree\OutsideBirdSync;
 use App\Services\PedigreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +21,9 @@ use Inertia\Response;
  * Each external ancestor is stored on its nearest loft bird (the "anchor") with a path relative to it, so every
  * offspring of that bird inherits it. The anchor's own parents live on the pigeons table (sire_name, dam_name, ...);
  * deeper ancestors live in pedigree_ancestors.
+ *
+ * The same outside bird can be recorded in several pedigrees (e.g. after copying a side). Unless the request opts out
+ * with sync=false, saving or removing it also updates its other records, matched by ring number (OutsideBirdSync).
  */
 class PedigreeAncestorController extends Controller
 {
@@ -29,15 +32,19 @@ class PedigreeAncestorController extends Controller
         'ring_number' => 'ring_number',
         'color' => 'color',
         'remarks' => 'notes',
-        'color_tag_id' => 'color_tag_id',
         'merits' => 'merits',
     ];
 
-    public function __construct(private PedigreeService $pedigrees) {}
+    public function __construct(
+        private PedigreeService $pedigrees,
+        private OutsideBirdSync $sync,
+    ) {}
 
     public function edit(Request $request, Pigeon $pigeon): Response
     {
         $this->ensureOwner($request, $pigeon);
+
+        $tree = $this->pedigrees->tree($pigeon);
 
         return Inertia::render('pigeons/EditPedigree', [
             'pigeon' => [
@@ -46,8 +53,11 @@ class PedigreeAncestorController extends Controller
                 'ring_number' => $pigeon->ring_number,
                 'personal_number' => $pigeon->personal_number,
             ],
-            'tree' => $this->pedigrees->tree($pigeon),
-            'colorTags' => ColorTag::where('user_id', $request->user()->id)->orderBy('name')->get(['id', 'name', 'color']),
+            'tree' => $tree,
+            // Every record of each outside bird on this chart, so the editor can say where a change also applies
+            'links' => $this->sync->recordsFor($request->user()->id, $this->outsideRings($tree)),
+            // What the last save or removal also changed in other pedigrees
+            'syncReport' => $request->session()->get('pedigreeSync'),
             // Plumage colors already used in the loft, as suggestions
             'colors' => Pigeon::where('user_id', $request->user()->id)
                 ->whereNotNull('color')
@@ -69,12 +79,8 @@ class PedigreeAncestorController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
             'color' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string', 'max:2000'],
-            'color_tag_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('color_tags', 'id')->where('user_id', $request->user()->id),
-            ],
             ...PigeonMerit::listRules('merits'),
+            'sync' => ['sometimes', 'boolean'],
         ], [
             'ring_number.required_without' => 'Enter a ring number or a name.',
         ]);
@@ -82,6 +88,7 @@ class PedigreeAncestorController extends Controller
         [$anchor, $path] = $this->slot($request, $validated);
         $details = collect($validated)->only(array_keys(self::PARENT_FIELDS))->all();
         $details['merits'] = PigeonMerit::cleanList($validated['merits'] ?? null);
+        $before = $this->sync->detailsAt($anchor, $path);
 
         if (strlen($path) === 1) {
             $side = $this->side($path);
@@ -92,14 +99,22 @@ class PedigreeAncestorController extends Controller
             $anchor->pedigreeAncestors()->updateOrCreate(['path' => $path], $details);
         }
 
-        return back()->with('success', 'Ancestor saved.');
+        if ($request->boolean('sync', true)) {
+            $report = $before
+                ? $this->sync->pushEdit($anchor, $path, $before, $details)
+                : $this->sync->pushAddition($anchor, $path, $details);
+        }
+
+        return $this->back($report ?? null, 'Ancestor saved.');
     }
 
     public function destroy(Request $request, Pigeon $pigeon): RedirectResponse
     {
         $this->ensureOwner($request, $pigeon);
 
-        [$anchor, $path] = $this->slot($request, $request->validate($this->slotRules($request)));
+        $validated = $request->validate([...$this->slotRules($request), 'sync' => ['sometimes', 'boolean']]);
+        [$anchor, $path] = $this->slot($request, $validated);
+        $removed = $this->sync->detailsAt($anchor, $path);
 
         if (strlen($path) === 1) {
             $side = $this->side($path);
@@ -111,7 +126,41 @@ class PedigreeAncestorController extends Controller
         // Ancestors further back hang off this one, so they go too
         $anchor->pedigreeAncestors()->where('path', 'like', $path.'%')->delete();
 
-        return back()->with('success', 'Ancestor removed.');
+        if ($request->boolean('sync', true)) {
+            $report = $this->sync->pushRemoval($anchor, $path, $removed['ring_number'] ?? null);
+        }
+
+        return $this->back($report ?? null, 'Ancestor removed.');
+    }
+
+    /**
+     * @param  array{updated: list<string>, skipped: list<string>}|null  $report
+     */
+    private function back(?array $report, string $message): RedirectResponse
+    {
+        $response = back()->with('success', $message);
+
+        return $report && ($report['updated'] || $report['skipped'])
+            ? $response->with('pedigreeSync', $report)
+            : $response;
+    }
+
+    /**
+     * Ring numbers of the outside birds on a chart.
+     *
+     * @return list<string>
+     */
+    private function outsideRings(?array $node): array
+    {
+        if (! $node) {
+            return [];
+        }
+
+        return [
+            ...($node['external'] && $node['ring_number'] ? [$node['ring_number']] : []),
+            ...$this->outsideRings($node['sire']),
+            ...$this->outsideRings($node['dam']),
+        ];
     }
 
     private function slotRules(Request $request): array

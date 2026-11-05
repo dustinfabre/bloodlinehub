@@ -1,12 +1,5 @@
 import type { Merit } from '@/types/lineage';
 
-export interface PedigreeHighlight {
-    // Color tag id (owner charts only)
-    id: number | null;
-    name: string;
-    color: string;
-}
-
 export interface PedigreeNode {
     // Set for birds in the loft (owner charts only)
     id: number | null;
@@ -21,13 +14,18 @@ export interface PedigreeNode {
     hatch_date: string | null;
     bloodline: string | null;
     remarks: string | null;
-    highlight: PedigreeHighlight | null;
     merits: Merit[];
     sire: PedigreeNode | null;
     dam: PedigreeNode | null;
 }
 
 export type PedigreeVisibility = 'private' | 'password' | 'public';
+
+export interface PedigreeContact {
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+}
 
 export interface PedigreeMeta {
     serial: string;
@@ -36,6 +34,8 @@ export interface PedigreeMeta {
     share_url: string;
     qr_svg: string;
     breeder: string;
+    // Breeder contact details the breeder chose to show (null when hidden or not filled in)
+    contact: PedigreeContact;
     photo_url: string | null;
     generated_at: string;
 }
@@ -71,4 +71,44 @@ export interface AncestorTarget {
     anchor: PedigreeNode | null;
     // How many recorded ancestors sit behind this one (removed along with it)
     behind: number;
+    // Loft birds whose pedigrees hold another record of this bird (same ring number)
+    alsoIn: string[];
+    // The same for the bird in front of this position (its offspring in the tree), and that bird's label
+    offspringAlsoIn: string[];
+    offspringLabel: string | null;
+}
+
+// Every record of one outside bird in the loft, keyed by normalised ring number
+export type PedigreeLinks = Record<
+    string,
+    { anchor_id: number; path: string; label: string }[]
+>;
+
+// Which other pedigrees a save or removal also changed, and which were left alone
+export interface PedigreeSyncReport {
+    updated: string[];
+    skipped: string[];
+}
+
+// One side (sire or dam) of a pigeon, as offered by "Copy from another pigeon"
+export interface PedigreeCopySide {
+    // linked: a loft bird (brings its own pedigree); external: recorded on the pigeon; empty: nothing recorded
+    state: 'linked' | 'external' | 'empty';
+    pigeon_id: number | null;
+    ring_number: string | null;
+    name: string | null;
+    // External ancestors recorded behind this parent (null for a loft bird)
+    ancestors: number | null;
+}
+
+export interface PedigreeCopySource {
+    id: number;
+    name: string | null;
+    ring_number: string | null;
+    personal_number: string | null;
+    gender: string | null;
+    // Sides on which this bird already has the same parent as the pigeon being edited
+    shared: PedigreeSide[];
+    sire: PedigreeCopySide;
+    dam: PedigreeCopySide;
 }

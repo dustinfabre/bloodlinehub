@@ -13,6 +13,7 @@ import { type BreadcrumbItem } from '@/types';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import MultiSelectFilter, { type FilterOption } from '@/components/MultiSelectFilter.vue';
 import MeritBadge from '@/components/MeritBadge.vue';
+import { byImportance, topMerit } from '@/lib/merits';
 import type { Merit, MeritTypeOption } from '@/types/lineage';
 import { Plus, Search, SlidersHorizontal, Bird, X, AlertTriangle, LoaderCircle, MapPin } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
@@ -58,11 +59,6 @@ interface Pigeon {
     remarks: string | null;
     notes: string | null;
     photo_url: string | null;
-    color_tag?: {
-        id: number;
-        name: string;
-        color: string;
-    } | null;
     location: { id: number; name: string; type: string } | null;
     merits: Merit[];
     sire: {
@@ -94,12 +90,6 @@ interface PaginatedPigeons {
     links: PaginationLink[];
 }
 
-interface ColorTag {
-    id: number;
-    name: string;
-    color: string;
-}
-
 interface ParentPigeon {
     id: number;
     name: string | null;
@@ -125,7 +115,7 @@ const props = defineProps<{
     bloodlines: BloodlineOption[];
     locations: LocationOption[];
     meritTypes: MeritTypeOption[];
-    colorTags: ColorTag[];
+    sorts: { value: string; label: string }[];
     colors: string[];
     parentOptions: { sires: ParentPigeon[]; dams: ParentPigeon[] };
     filters: {
@@ -134,8 +124,10 @@ const props = defineProps<{
         bloodline: string[];
         location: string[];
         merit: string[];
-        gender?: string | null;
+        // male / female / none (no gender recorded)
+        gender: string[];
         per_page: number;
+        sort: string;
     };
 }>();
 
@@ -166,9 +158,16 @@ const meritOptions = computed<FilterOption[]>(() =>
     props.meritTypes.map((type) => ({
         value: type.value,
         label: `${type.label} (${type.code})`,
-        dotClass: type.category === 'breeding' ? 'bg-violet-500' : 'bg-amber-500',
+        dotColor: type.color,
     })),
 );
+
+// Gender is optional, so birds without one can be filtered too
+const genderOptions: FilterOption[] = [
+    { value: 'male', label: 'Cock (male)' },
+    { value: 'female', label: 'Hen (female)' },
+    { value: 'none', label: 'Ungendered' },
+];
 
 // Mobile only: on desktop the filter row is always visible
 const showFilters = ref(false);
@@ -177,8 +176,10 @@ const statuses = ref<string[]>([...props.filters.status]);
 const bloodlineIds = ref<string[]>([...props.filters.bloodline]);
 const locationIds = ref<string[]>([...props.filters.location]);
 const meritValues = ref<string[]>([...props.filters.merit]);
-const gender = ref(props.filters.gender || 'all');
+const genders = ref<string[]>([...props.filters.gender]);
 const perPage = ref(String(props.filters.per_page));
+// Sorting is not a filter: "Clear all" leaves it alone
+const sort = ref(props.filters.sort || 'recent');
 const isFiltering = ref(false);
 
 const filterParams = () => ({
@@ -187,8 +188,9 @@ const filterParams = () => ({
     bloodline: bloodlineIds.value.length ? bloodlineIds.value : undefined,
     location: locationIds.value.length ? locationIds.value : undefined,
     merit: meritValues.value.length ? meritValues.value : undefined,
-    gender: gender.value === 'all' ? undefined : gender.value,
+    gender: genders.value.length ? genders.value : undefined,
     per_page: perPage.value === '12' ? undefined : perPage.value,
+    sort: sort.value === 'recent' ? undefined : sort.value,
 });
 
 // Skip a request when nothing actually changed (e.g. the debounced search firing after "Clear")
@@ -212,7 +214,7 @@ const applyFilters = () => {
 const debouncedSearch = useDebounceFn(applyFilters, 350);
 
 watch(search, debouncedSearch);
-watch([statuses, bloodlineIds, locationIds, meritValues, gender, perPage], applyFilters, { deep: true });
+watch([statuses, bloodlineIds, locationIds, meritValues, genders, perPage, sort], applyFilters, { deep: true });
 
 const activeFilterCount = computed(
     () =>
@@ -221,7 +223,7 @@ const activeFilterCount = computed(
         bloodlineIds.value.length +
         locationIds.value.length +
         meritValues.value.length +
-        (gender.value !== 'all' ? 1 : 0),
+        genders.value.length,
 );
 
 // Count shown on the mobile "Filters" toggle (search is visible outside the panel)
@@ -233,7 +235,7 @@ const clearFilters = () => {
     bloodlineIds.value = [];
     locationIds.value = [];
     meritValues.value = [];
-    gender.value = 'all';
+    genders.value = [];
 };
 
 const pigeonLabel = (pigeon: Pigeon) =>
@@ -245,6 +247,12 @@ const formatDate = (date: string | null) => {
 };
 
 // Status badge styles with new color scheme
+// A bird with merits gets a left border in the color of its most significant one, as on its pedigree
+const meritAccent = (pigeon: Pigeon) => {
+    const best = topMerit(pigeon.merits);
+    return best ? { borderLeftWidth: '4px', borderLeftColor: best.color } : {};
+};
+
 const getStatusBadgeStyle = (status: string) => {
     const styles: Record<string, { bg: string; text: string; label: string }> = {
         stock: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Stock' },
@@ -597,16 +605,13 @@ const submitQuickAdd = () => {
                         </div>
                         <div class="space-y-1.5">
                             <Label for="filter-gender" class="text-xs text-muted-foreground">Gender</Label>
-                            <Select v-model="gender">
-                                <SelectTrigger id="filter-gender" class="w-full">
-                                    <SelectValue placeholder="All genders" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All genders</SelectItem>
-                                    <SelectItem value="male">Male (Cock)</SelectItem>
-                                    <SelectItem value="female">Female (Hen)</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <MultiSelectFilter
+                                id="filter-gender"
+                                v-model="genders"
+                                :options="genderOptions"
+                                placeholder="Any gender"
+                                :searchable="false"
+                            />
                         </div>
                     </div>
 
@@ -624,22 +629,37 @@ const submitQuickAdd = () => {
 
             <!-- Pagination Controls -->
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex items-center gap-2">
-                    <Label for="per_page" class="text-sm text-muted-foreground whitespace-nowrap">Show:</Label>
-                    <Select v-model="perPage">
-                        <SelectTrigger id="per_page" class="w-24">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="12">12</SelectItem>
-                            <SelectItem value="24">24</SelectItem>
-                            <SelectItem value="48">48</SelectItem>
-                            <SelectItem value="96">96</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <span class="text-sm text-muted-foreground">
-                        of {{ pigeons.total }} pigeons
-                    </span>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <div class="flex items-center gap-2">
+                        <Label for="sort" class="text-sm text-muted-foreground whitespace-nowrap">Sort:</Label>
+                        <Select v-model="sort">
+                            <SelectTrigger id="sort" class="w-48">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="option in sorts" :key="option.value" :value="option.value">
+                                    {{ option.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <Label for="per_page" class="text-sm text-muted-foreground whitespace-nowrap">Show:</Label>
+                        <Select v-model="perPage">
+                            <SelectTrigger id="per_page" class="w-24">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="12">12</SelectItem>
+                                <SelectItem value="24">24</SelectItem>
+                                <SelectItem value="48">48</SelectItem>
+                                <SelectItem value="96">96</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <span class="text-sm text-muted-foreground">
+                            of {{ pigeons.total }} pigeons
+                        </span>
+                    </div>
                 </div>
                 
                 <div class="text-sm text-muted-foreground">
@@ -675,7 +695,7 @@ const submitQuickAdd = () => {
                     v-for="pigeon in pigeons.data"
                     :key="pigeon.id"
                     class="overflow-hidden transition-all hover:shadow-md"
-                    :style="pigeon.color_tag ? { borderLeftWidth: '4px', borderLeftColor: pigeon.color_tag.color } : {}"
+                    :style="meritAccent(pigeon)"
                 >
                     <!-- Photo at top of card -->
                     <div v-if="pigeon.photo_url" class="relative aspect-square bg-muted">
@@ -710,27 +730,9 @@ const submitQuickAdd = () => {
                             >
                                 {{ getStatusBadgeStyle(pigeon.status).label }}
                             </span>
-                            <span 
-                                v-if="pigeon.color_tag"
-                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                :style="{ backgroundColor: pigeon.color_tag.color + '20', color: pigeon.color_tag.color, border: '1px solid ' + pigeon.color_tag.color }"
-                            >
-                                <span class="size-2 rounded-full" :style="{ backgroundColor: pigeon.color_tag.color }"></span>
-                                {{ pigeon.color_tag.name }}
-                            </span>
-                        </div>
-                        <!-- Color tag shown separately when photo exists -->
-                        <div v-else-if="pigeon.color_tag" class="flex flex-wrap gap-1 mt-2">
-                            <span 
-                                class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                                :style="{ backgroundColor: pigeon.color_tag.color + '20', color: pigeon.color_tag.color, border: '1px solid ' + pigeon.color_tag.color }"
-                            >
-                                <span class="size-2 rounded-full" :style="{ backgroundColor: pigeon.color_tag.color }"></span>
-                                {{ pigeon.color_tag.name }}
-                            </span>
                         </div>
                         <div v-if="pigeon.merits.length" class="mt-2 flex flex-wrap gap-1">
-                            <MeritBadge v-for="(merit, index) in pigeon.merits" :key="`${merit.type}-${index}`" :merit="merit" />
+                            <MeritBadge v-for="(merit, index) in byImportance(pigeon.merits)" :key="`${merit.type}-${index}`" :merit="merit" />
                         </div>
                     </CardHeader>
                     <CardContent class="space-y-2 text-sm">

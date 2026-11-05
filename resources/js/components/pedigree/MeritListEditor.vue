@@ -53,6 +53,8 @@ const shown = computed<Merit[]>(() =>
             label: type?.label ?? merit.type,
             code: type?.code ?? merit.type,
             category: type?.category ?? 'racing',
+            color: type?.color ?? '#94a3b8',
+            weight: type?.weight ?? 0,
             level: merit.level,
             level_label: level?.label ?? null,
             year: merit.year,

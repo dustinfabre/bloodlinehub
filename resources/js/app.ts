@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import { initializeTheme } from './composables/useAppearance';
+import { listenForPwaInstall } from './composables/usePwaInstall';
 
 const appName = import.meta.env.VITE_APP_NAME || 'BloodlineHub';
 
@@ -24,6 +25,9 @@ if (import.meta.env.PROD) {
         },
     });
 }
+
+// Before the app mounts: the install prompt event can fire early
+listenForPwaInstall();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
