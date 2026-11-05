@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RaceType;
 use App\Models\Club;
 use App\Models\ClubSeason;
 use App\Models\ClubSeasonRace;
 use App\Models\Pigeon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,6 +20,7 @@ class ClubSeasonRaceController extends Controller
         abort_if($club->user_id !== auth()->id(), 403);
 
         return Inertia::render('clubs/seasons/races/Create', [
+            'raceTypes' => RaceType::options(),
             'club' => $club,
             'season' => $season,
         ]);
@@ -32,6 +35,8 @@ class ClubSeasonRaceController extends Controller
             'release_point' => ['nullable', 'string', 'max:255'],
             'distance' => ['nullable', 'numeric', 'min:0'],
             'distance_unit' => ['required', 'string', 'in:km,mi'],
+            'race_type' => ['nullable', Rule::enum(RaceType::class)],
+            'birds_released' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'race_date' => ['nullable', 'date'],
             'release_time' => ['nullable', 'date_format:H:i'],
             'weather_conditions' => ['nullable', 'string', 'max:255'],
@@ -39,7 +44,7 @@ class ClubSeasonRaceController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $race = $season->races()->create($validated);
+        $race = $season->races()->create([...$validated, 'race_type' => $validated['race_type'] ?? RaceType::Regular->value]);
 
         return redirect()->route('clubs.seasons.races.show', [$club, $season, $race])
             ->with('success', 'Race created successfully.');
@@ -57,6 +62,7 @@ class ClubSeasonRaceController extends Controller
         }]);
 
         return Inertia::render('clubs/seasons/races/Show', [
+            'raceTypes' => RaceType::options(),
             'club' => $club,
             'season' => $season,
             'race' => $race,
@@ -68,6 +74,7 @@ class ClubSeasonRaceController extends Controller
         abort_if($club->user_id !== auth()->id(), 403);
 
         return Inertia::render('clubs/seasons/races/Edit', [
+            'raceTypes' => RaceType::options(),
             'club' => $club,
             'season' => $season,
             'race' => $race,
@@ -83,6 +90,8 @@ class ClubSeasonRaceController extends Controller
             'release_point' => ['nullable', 'string', 'max:255'],
             'distance' => ['nullable', 'numeric', 'min:0'],
             'distance_unit' => ['required', 'string', 'in:km,mi'],
+            'race_type' => ['nullable', Rule::enum(RaceType::class)],
+            'birds_released' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'race_date' => ['nullable', 'date'],
             'release_time' => ['nullable', 'date_format:H:i'],
             'weather_conditions' => ['nullable', 'string', 'max:255'],
@@ -90,7 +99,7 @@ class ClubSeasonRaceController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $race->update($validated);
+        $race->update([...$validated, 'race_type' => $validated['race_type'] ?? $race->race_type]);
 
         return redirect()->route('clubs.seasons.races.show', [$club, $season, $race])
             ->with('success', 'Race updated successfully.');

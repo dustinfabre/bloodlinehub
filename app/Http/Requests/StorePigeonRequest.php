@@ -60,7 +60,14 @@ class StorePigeonRequest extends FormRequest
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'hide_price' => ['boolean'],
             'sale_description' => ['nullable', 'string'],
-            'clutch_id' => ['nullable','integer'],
+            'clutch_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('clutches', 'id')->where(fn ($q) => $q->whereIn(
+                    'pairing_id',
+                    \App\Models\Pairing::where('user_id', $this->user()?->id ?? 0)->select('id'),
+                )),
+            ],
             'color_tag_id' => $this->colorTagRule(),
             'sire_color_tag_id' => $this->colorTagRule(),
             'dam_color_tag_id' => $this->colorTagRule(),

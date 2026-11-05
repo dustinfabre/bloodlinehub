@@ -3,6 +3,7 @@ import {
     contrastText,
     formatPedigreeDate,
     MAX_DEPTH,
+    meritChip,
     sexSymbol,
 } from '@/lib/pedigree';
 import { show as showRoute } from '@/routes/pigeons';
@@ -85,6 +86,25 @@ const highlightStyle = computed(() => {
     };
 });
 
+// How many merit chips fit on a card in each generation
+const MERIT_LIMITS = [8, 6, 4, 3, 2];
+
+const merits = computed(() => {
+    const all = props.node?.merits ?? [];
+    const limit = MERIT_LIMITS[props.depth] ?? 2;
+    return {
+        shown: all.slice(0, limit).map((merit) => ({
+            key: `${merit.type}-${merit.year ?? ''}-${merit.level ?? ''}`,
+            text: meritChip(merit, props.depth),
+            category: merit.category,
+            title: [merit.label, merit.level_label, merit.year, merit.detail]
+                .filter(Boolean)
+                .join(' · '),
+        })),
+        more: Math.max(0, all.length - limit),
+    };
+});
+
 const href = computed(() =>
     props.linkable && props.node?.id
         ? showRoute({ pigeon: props.node.id }).url
@@ -125,6 +145,12 @@ const href = computed(() =>
             >
                 {{ node.highlight?.name }}
             </span>
+            <span
+                v-if="isLastColumn && merits.shown.length"
+                class="pc-codes"
+                :title="merits.shown.map((merit) => merit.title).join('\n')"
+                >{{ merits.shown.map((merit) => merit.text).join(' ') }}</span
+            >
         </div>
 
         <div v-if="isLastColumn" class="pc-line">
@@ -132,6 +158,19 @@ const href = computed(() =>
         </div>
         <template v-else>
             <div v-if="secondaryName" class="pc-name">{{ secondaryName }}</div>
+            <div v-if="merits.shown.length" class="pc-merits">
+                <span
+                    v-for="merit in merits.shown"
+                    :key="merit.key"
+                    class="pc-merit"
+                    :class="{ 'is-breeding': merit.category === 'breeding' }"
+                    :title="merit.title"
+                    >{{ merit.text }}</span
+                >
+                <span v-if="merits.more" class="pc-merit is-more"
+                    >+{{ merits.more }}</span
+                >
+            </div>
             <div v-if="details" class="pc-meta">{{ details }}</div>
             <div v-if="depth === 0 && node.hatch_date" class="pc-meta">
                 Hatched {{ formatPedigreeDate(node.hatch_date) }}

@@ -23,8 +23,9 @@ class StorePairingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'sire_id' => ['required', 'exists:pigeons,id'],
-            'dam_id' => ['required', 'exists:pigeons,id', 'different:sire_id'],
+            // Only the user's own birds
+            'sire_id' => ['required', \Illuminate\Validation\Rule::exists('pigeons', 'id')->where(fn ($q) => $q->where('user_id', $this->user()?->id ?? 0))],
+            'dam_id' => ['required', 'different:sire_id', \Illuminate\Validation\Rule::exists('pigeons', 'id')->where(fn ($q) => $q->where('user_id', $this->user()?->id ?? 0))],
             'pair_name' => ['nullable', 'string', 'max:255'],
             'breeding_location_id' => [
                 'nullable',

@@ -11,8 +11,12 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
-import { Plus, Search, Filter, Eye, Pencil, Trash2, Bird, X, AlertTriangle } from 'lucide-vue-next';
+import MultiSelectFilter, { type FilterOption } from '@/components/MultiSelectFilter.vue';
+import MeritBadge from '@/components/MeritBadge.vue';
+import type { Merit, MeritTypeOption } from '@/types/lineage';
+import { Plus, Search, SlidersHorizontal, Bird, X, AlertTriangle, LoaderCircle, MapPin } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
+import { useDebounceFn } from '@vueuse/core';
 import axios from 'axios';
 
 interface DuplicateMatch {
@@ -59,6 +63,8 @@ interface Pigeon {
         name: string;
         color: string;
     } | null;
+    location: { id: number; name: string; type: string } | null;
+    merits: Merit[];
     sire: {
         id: number;
         ring_number: string | null;
@@ -108,17 +114,27 @@ interface ParentPigeon {
     label: string;
 }
 
+interface LocationOption {
+    id: number;
+    name: string;
+    type: string;
+}
+
 const props = defineProps<{
     pigeons: PaginatedPigeons;
     bloodlines: BloodlineOption[];
+    locations: LocationOption[];
+    meritTypes: MeritTypeOption[];
     colorTags: ColorTag[];
     colors: string[];
     parentOptions: { sires: ParentPigeon[]; dams: ParentPigeon[] };
     filters: {
-        search?: string;
-        status?: string;
-        bloodline?: string;
-        gender?: string;
+        search?: string | null;
+        status: string[];
+        bloodline: string[];
+        location: string[];
+        merit: string[];
+        gender?: string | null;
         per_page: number;
     };
 }>();
@@ -127,38 +143,98 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pigeons', href: '/pigeons' },
 ];
 
+const statusOptions: FilterOption[] = [
+    { value: 'stock', label: 'In Stock', dotClass: 'bg-blue-500' },
+    { value: 'racing', label: 'Racing', dotClass: 'bg-green-500' },
+    { value: 'breeding', label: 'Breeding', dotClass: 'bg-pink-500' },
+    { value: 'injured', label: 'Injured', dotClass: 'bg-orange-500' },
+    { value: 'deceased', label: 'Deceased', dotClass: 'bg-red-500' },
+    { value: 'flyaway', label: 'Flyaway', dotClass: 'bg-amber-500' },
+    { value: 'missing', label: 'Missing', dotClass: 'bg-purple-500' },
+];
+
+const bloodlineOptions = computed<FilterOption[]>(() =>
+    props.bloodlines.map((line) => ({ value: String(line.id), label: line.name })),
+);
+
+const locationOptions = computed<FilterOption[]>(() => [
+    ...props.locations.map((location) => ({ value: String(location.id), label: location.name })),
+    { value: 'none', label: 'No location' },
+]);
+
+const meritOptions = computed<FilterOption[]>(() =>
+    props.meritTypes.map((type) => ({
+        value: type.value,
+        label: `${type.label} (${type.code})`,
+        dotClass: type.category === 'breeding' ? 'bg-violet-500' : 'bg-amber-500',
+    })),
+);
+
+// Mobile only: on desktop the filter row is always visible
 const showFilters = ref(false);
 const search = ref(props.filters.search || '');
-const status = ref(props.filters.status || 'all');
-const bloodline = ref(props.filters.bloodline || 'all');
+const statuses = ref<string[]>([...props.filters.status]);
+const bloodlineIds = ref<string[]>([...props.filters.bloodline]);
+const locationIds = ref<string[]>([...props.filters.location]);
+const meritValues = ref<string[]>([...props.filters.merit]);
 const gender = ref(props.filters.gender || 'all');
 const perPage = ref(String(props.filters.per_page));
+const isFiltering = ref(false);
+
+const filterParams = () => ({
+    search: search.value.trim() || undefined,
+    status: statuses.value.length ? statuses.value : undefined,
+    bloodline: bloodlineIds.value.length ? bloodlineIds.value : undefined,
+    location: locationIds.value.length ? locationIds.value : undefined,
+    merit: meritValues.value.length ? meritValues.value : undefined,
+    gender: gender.value === 'all' ? undefined : gender.value,
+    per_page: perPage.value === '12' ? undefined : perPage.value,
+});
+
+// Skip a request when nothing actually changed (e.g. the debounced search firing after "Clear")
+let lastApplied = JSON.stringify(filterParams());
 
 const applyFilters = () => {
-    router.get('/pigeons', {
-        search: search.value || undefined,
-        status: status.value === 'all' ? undefined : status.value,
-        bloodline: bloodline.value === 'all' ? undefined : bloodline.value,
-        gender: gender.value === 'all' ? undefined : gender.value,
-        per_page: perPage.value,
-    }, {
+    const params = filterParams();
+    const serialized = JSON.stringify(params);
+    if (serialized === lastApplied) return;
+    lastApplied = serialized;
+
+    router.get('/pigeons', params, {
         preserveState: true,
         preserveScroll: true,
+        replace: true,
+        onStart: () => (isFiltering.value = true),
+        onFinish: () => (isFiltering.value = false),
     });
 };
 
+const debouncedSearch = useDebounceFn(applyFilters, 350);
+
+watch(search, debouncedSearch);
+watch([statuses, bloodlineIds, locationIds, meritValues, gender, perPage], applyFilters, { deep: true });
+
+const activeFilterCount = computed(
+    () =>
+        (search.value.trim() ? 1 : 0) +
+        statuses.value.length +
+        bloodlineIds.value.length +
+        locationIds.value.length +
+        meritValues.value.length +
+        (gender.value !== 'all' ? 1 : 0),
+);
+
+// Count shown on the mobile "Filters" toggle (search is visible outside the panel)
+const panelFilterCount = computed(() => activeFilterCount.value - (search.value.trim() ? 1 : 0));
+
 const clearFilters = () => {
     search.value = '';
-    status.value = 'all';
-    bloodline.value = 'all';
+    statuses.value = [];
+    bloodlineIds.value = [];
+    locationIds.value = [];
+    meritValues.value = [];
     gender.value = 'all';
-    perPage.value = '12';
-    applyFilters();
 };
-
-watch(perPage, () => {
-    applyFilters();
-});
 
 const pigeonLabel = (pigeon: Pigeon) =>
     pigeon.name || pigeon.ring_number || pigeon.personal_number || `Pigeon #${pigeon.id}`;
@@ -226,10 +302,6 @@ const confirmDelete = () => {
             isDeleting.value = false;
         },
     });
-};
-
-const hasActiveFilters = () => {
-    return search.value || (status.value && status.value !== 'all') || (bloodline.value && bloodline.value !== 'all') || (gender.value && gender.value !== 'all');
 };
 
 // Quick Add modal state
@@ -441,51 +513,92 @@ const submitQuickAdd = () => {
                 </div>
             </div>
 
-            <!-- Search and Filters -->
-            <Card>
-                <CardHeader class="pb-4">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="flex-1 max-w-md">
-                            <div class="relative">
-                                <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    v-model="search"
-                                    @keyup.enter="applyFilters"
-                                    placeholder="Search by name, ring number, bloodline..."
-                                    class="pl-9"
-                                />
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <Button variant="outline" @click="applyFilters" class="flex-1 sm:flex-none">
-                                <Search class="mr-2 h-4 w-4" />
-                                Search
-                            </Button>
-                            <Button variant="outline" @click="showFilters = !showFilters" class="flex-1 sm:flex-none">
-                                <Filter class="mr-2 h-4 w-4" />
-                                Filters
-                                <Badge v-if="hasActiveFilters()" variant="secondary" class="ml-2">
-                                    {{ [search, status !== 'all' && status, bloodline !== 'all' && bloodline, gender !== 'all' && gender].filter(Boolean).length }}
-                                </Badge>
-                            </Button>
-                            <Button
-                                v-if="hasActiveFilters()"
-                                variant="ghost"
-                                @click="clearFilters"
-                                class="flex-1 sm:flex-none"
+            <!-- Search and Filters: results update as you type or pick a filter -->
+            <Card class="gap-0 py-4">
+                <CardContent class="space-y-4 px-4">
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <Search class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                v-model="search"
+                                type="search"
+                                placeholder="Search by name, ring number, bloodline, color..."
+                                class="pr-9 pl-9"
+                                aria-label="Search pigeons"
+                            />
+                            <LoaderCircle
+                                v-if="isFiltering"
+                                class="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                            />
+                            <button
+                                v-else-if="search"
+                                type="button"
+                                class="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                aria-label="Clear search"
+                                @click="search = ''"
                             >
-                                <X class="mr-2 h-4 w-4" />
-                                Clear
-                            </Button>
+                                <X class="h-4 w-4" />
+                            </button>
                         </div>
+                        <Button
+                            variant="outline"
+                            class="lg:hidden"
+                            :aria-expanded="showFilters"
+                            aria-controls="pigeon-filters"
+                            @click="showFilters = !showFilters"
+                        >
+                            <SlidersHorizontal class="h-4 w-4" />
+                            <span class="hidden sm:inline">Filters</span>
+                            <Badge v-if="panelFilterCount" variant="secondary">{{ panelFilterCount }}</Badge>
+                        </Button>
                     </div>
 
-                    <!-- Advanced Filters -->
-                    <div v-if="showFilters" class="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-3">
-                        <div class="space-y-2">
-                            <Label for="gender">Gender</Label>
+                    <div
+                        id="pigeon-filters"
+                        :class="[showFilters ? 'grid' : 'hidden', 'gap-3 sm:grid-cols-2 lg:grid lg:grid-cols-3 xl:grid-cols-5']"
+                    >
+                        <div class="space-y-1.5">
+                            <Label for="filter-status" class="text-xs text-muted-foreground">Status</Label>
+                            <MultiSelectFilter
+                                id="filter-status"
+                                v-model="statuses"
+                                :options="statusOptions"
+                                placeholder="All statuses"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <Label for="filter-bloodline" class="text-xs text-muted-foreground">Bloodline</Label>
+                            <MultiSelectFilter
+                                id="filter-bloodline"
+                                v-model="bloodlineIds"
+                                :options="bloodlineOptions"
+                                placeholder="All bloodlines"
+                                empty-text="No bloodlines yet"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <Label for="filter-location" class="text-xs text-muted-foreground">Location</Label>
+                            <MultiSelectFilter
+                                id="filter-location"
+                                v-model="locationIds"
+                                :options="locationOptions"
+                                placeholder="All locations"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <Label for="filter-merit" class="text-xs text-muted-foreground">Merit</Label>
+                            <MultiSelectFilter
+                                id="filter-merit"
+                                v-model="meritValues"
+                                :options="meritOptions"
+                                placeholder="Any merit"
+                                :searchable="false"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
+                            <Label for="filter-gender" class="text-xs text-muted-foreground">Gender</Label>
                             <Select v-model="gender">
-                                <SelectTrigger id="gender">
+                                <SelectTrigger id="filter-gender" class="w-full">
                                     <SelectValue placeholder="All genders" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -495,44 +608,18 @@ const submitQuickAdd = () => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div class="space-y-2">
-                            <Label for="status">Status</Label>
-                            <Select v-model="status">
-                                <SelectTrigger id="status">
-                                    <SelectValue placeholder="All statuses" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All statuses</SelectItem>
-                                    <SelectItem value="stock">In Stock</SelectItem>
-                                    <SelectItem value="racing">Racing</SelectItem>
-                                    <SelectItem value="breeding">Breeding</SelectItem>
-                                    <SelectItem value="injured">Injured</SelectItem>
-                                    <SelectItem value="deceased">Deceased</SelectItem>
-                                    <SelectItem value="flyaway">Flyaway</SelectItem>
-                                    <SelectItem value="missing">Missing</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div class="space-y-2">
-                            <Label for="bloodline">Bloodline</Label>
-                            <Select v-model="bloodline">
-                                <SelectTrigger id="bloodline">
-                                    <SelectValue placeholder="All bloodlines" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All bloodlines</SelectItem>
-                                    <SelectItem
-                                        v-for="line in bloodlines"
-                                        :key="line.id"
-                                        :value="String(line.id)"
-                                    >
-                                        {{ line.name }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
-                </CardHeader>
+
+                    <div v-if="activeFilterCount" class="flex items-center justify-between gap-2 border-t pt-3 text-sm">
+                        <span class="text-muted-foreground">
+                            {{ pigeons.total }} {{ pigeons.total === 1 ? 'match' : 'matches' }}
+                        </span>
+                        <Button variant="ghost" size="sm" @click="clearFilters">
+                            <X class="h-4 w-4" />
+                            Clear all
+                        </Button>
+                    </div>
+                </CardContent>
             </Card>
 
             <!-- Pagination Controls -->
@@ -546,8 +633,8 @@ const submitQuickAdd = () => {
                         <SelectContent>
                             <SelectItem value="12">12</SelectItem>
                             <SelectItem value="24">24</SelectItem>
-                            <SelectItem value="58">58</SelectItem>
-                            <SelectItem value="116">116</SelectItem>
+                            <SelectItem value="48">48</SelectItem>
+                            <SelectItem value="96">96</SelectItem>
                         </SelectContent>
                     </Select>
                     <span class="text-sm text-muted-foreground">
@@ -566,14 +653,14 @@ const submitQuickAdd = () => {
                     <Bird class="h-12 w-12 text-muted-foreground/60" />
                     <h3 class="mt-4 font-semibold">No pigeons found</h3>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        <template v-if="hasActiveFilters()">
+                        <template v-if="activeFilterCount">
                             Try adjusting your filters or search query.
                         </template>
                         <template v-else>
                             Get started by adding your first pigeon.
                         </template>
                     </p>
-                    <Button v-if="!hasActiveFilters()" as-child class="mt-4">
+                    <Button v-if="!activeFilterCount" as-child class="mt-4">
                         <Link href="/pigeons/create">
                             <Plus class="mr-2 h-4 w-4" />
                             Add Pigeon
@@ -642,6 +729,9 @@ const submitQuickAdd = () => {
                                 {{ pigeon.color_tag.name }}
                             </span>
                         </div>
+                        <div v-if="pigeon.merits.length" class="mt-2 flex flex-wrap gap-1">
+                            <MeritBadge v-for="(merit, index) in pigeon.merits" :key="`${merit.type}-${index}`" :merit="merit" />
+                        </div>
                     </CardHeader>
                     <CardContent class="space-y-2 text-sm">
                         <div v-if="pigeon.ring_number" class="flex justify-between">
@@ -663,6 +753,13 @@ const submitQuickAdd = () => {
                         <div v-if="pigeon.gender" class="flex justify-between">
                             <span class="text-muted-foreground">Gender:</span>
                             <span class="capitalize">{{ pigeon.gender }}</span>
+                        </div>
+                        <div v-if="pigeon.location" class="flex justify-between gap-2">
+                            <span class="text-muted-foreground">Location:</span>
+                            <span class="inline-flex min-w-0 items-center gap-1">
+                                <MapPin class="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span class="truncate">{{ pigeon.location.name }}</span>
+                            </span>
                         </div>
                         <div v-if="pigeon.sire" class="flex justify-between border-t pt-2 mt-2">
                             <span class="text-muted-foreground">Sire:</span>

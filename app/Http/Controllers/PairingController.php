@@ -7,6 +7,7 @@ use App\Models\Pigeon;
 use App\Models\Location;
 use App\Http\Requests\StorePairingRequest;
 use App\Http\Requests\UpdatePairingRequest;
+use App\Services\Merits\GoldenPairs;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -44,20 +45,31 @@ class PairingController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $likeOp = $this->likeOperator();
-            $query->whereHas('sire', function ($q) use ($search, $likeOp) {
-                $q->where('name', $likeOp, '%' . $search . '%')
-                    ->orWhere('ring_number', $likeOp, '%' . $search . '%');
-            })->orWhereHas('dam', function ($q) use ($search, $likeOp) {
-                $q->where('name', $likeOp, '%' . $search . '%')
-                    ->orWhere('ring_number', $likeOp, '%' . $search . '%');
+            // Grouped so the OR stays inside the user's own pairings
+            $query->where(function ($query) use ($search, $likeOp) {
+                $query->whereHas('sire', function ($q) use ($search, $likeOp) {
+                    $q->where('name', $likeOp, '%' . $search . '%')
+                        ->orWhere('ring_number', $likeOp, '%' . $search . '%');
+                })->orWhereHas('dam', function ($q) use ($search, $likeOp) {
+                    $q->where('name', $likeOp, '%' . $search . '%')
+                        ->orWhere('ring_number', $likeOp, '%' . $search . '%');
+                });
             });
         }
 
         // Sort by pair name
         $query->orderBy('pair_name', 'asc');
 
-        $perPage = $request->input('per_page', 20);
+        // Only the page sizes the page offers, so one request can't pull every pairing at once
+        $perPage = in_array($request->integer('per_page'), [10, 20, 50, 100], true) ? $request->integer('per_page') : 20;
         $pairings = $query->paginate($perPage)->withQueryString();
+
+        // Golden Pair status of each pair on this page
+        $golden = app(GoldenPairs::class)->forPairs($user->id, $pairings->getCollection()->map(fn (Pairing $pairing) => [$pairing->sire_id, $pairing->dam_id]));
+        $pairings->getCollection()->each(fn (Pairing $pairing) => $pairing->setAttribute(
+            'golden_pair',
+            $golden[GoldenPairs::key((int) $pairing->sire_id, (int) $pairing->dam_id)] ?? null,
+        ));
 
         return Inertia::render('pairings/Index', [
             'pairings' => $pairings,
@@ -100,6 +112,11 @@ class PairingController extends Controller
             'sires' => $sires,
             'dams' => $dams,
             'locations' => Location::where('user_id', $user->id)->orderBy('name')->get(['id', 'name', 'type']),
+            // Pre-selected birds, e.g. from Test Pairing
+            'prefill' => [
+                'sire_id' => $request->integer('sire_id') ?: null,
+                'dam_id' => $request->integer('dam_id') ?: null,
+            ],
         ]);
     }
 
@@ -135,7 +152,8 @@ class PairingController extends Controller
         if ($request->breeding_location_id) {
             $pigeonUpdate['location_id'] = $request->breeding_location_id;
         }
-        Pigeon::whereIn('id', [$request->sire_id, $request->dam_id])
+        Pigeon::where('user_id', $user->id)
+            ->whereIn('id', [$request->sire_id, $request->dam_id])
             ->update($pigeonUpdate);
 
         return redirect()->route('pairings.show', $pairing)
@@ -188,6 +206,7 @@ class PairingController extends Controller
 
         return Inertia::render('pairings/Show', [
             'pairing' => $pairing,
+            'goldenPair' => app(GoldenPairs::class)->forPair($request->user()->id, $pairing->sire_id, $pairing->dam_id),
             'activePairings' => $activePairings,
             'locations' => Location::where('user_id', $request->user()->id)->orderBy('name')->get(['id', 'name', 'type']),
         ]);
@@ -257,7 +276,8 @@ class PairingController extends Controller
 
         // If active, update pigeon statuses back to 'stock'
         if ($pairing->isActive()) {
-            Pigeon::whereIn('id', [$pairing->sire_id, $pairing->dam_id])
+            Pigeon::where('user_id', $pairing->user_id)
+                ->whereIn('id', [$pairing->sire_id, $pairing->dam_id])
                 ->update(['status' => 'stock']);
         }
 
@@ -285,7 +305,8 @@ class PairingController extends Controller
         $pairing->end();
 
         // Update pigeon statuses back to 'stock'
-        Pigeon::whereIn('id', [$pairing->sire_id, $pairing->dam_id])
+        Pigeon::where('user_id', $pairing->user_id)
+            ->whereIn('id', [$pairing->sire_id, $pairing->dam_id])
             ->update(['status' => 'stock']);
 
         return redirect()->route('pairings.show', $pairing)

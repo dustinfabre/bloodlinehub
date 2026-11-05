@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ColorTagSelect from '@/components/ColorTagSelect.vue';
 import InputError from '@/components/InputError.vue';
+import MeritListEditor from '@/components/pedigree/MeritListEditor.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -16,6 +17,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/composables/useToast';
 import { lineageSteps, relationName } from '@/lib/pedigree';
 import { removeAncestor, saveAncestor } from '@/routes/pigeons';
+import type {
+    MeritInput,
+    MeritLevelOption,
+    MeritTypeOption,
+} from '@/types/lineage';
 import type { AncestorTarget } from '@/types/pedigree';
 import { router, useForm } from '@inertiajs/vue3';
 import { ChevronRight, Home, LoaderCircle, Trash2 } from 'lucide-vue-next';
@@ -32,7 +38,11 @@ const props = defineProps<{
     target: AncestorTarget | null;
     colorTags: ColorTag[];
     colors: string[];
+    meritTypes: MeritTypeOption[];
+    meritLevels: MeritLevelOption[];
 }>();
+
+const meritEditor = ref<InstanceType<typeof MeritListEditor> | null>(null);
 
 const open = defineModel<boolean>('open', { required: true });
 
@@ -46,7 +56,17 @@ const form = useForm({
     color: '',
     remarks: '',
     color_tag_id: null as number | null,
+    merits: [] as MeritInput[],
 });
+
+// First error on any merit row, e.g. "merits.0.year"
+const meritError = computed(
+    () =>
+        form.errors.merits ??
+        Object.entries(form.errors).find(([key]) =>
+            key.startsWith('merits.'),
+        )?.[1],
+);
 
 const confirmingRemove = ref(false);
 const removing = ref(false);
@@ -76,6 +96,12 @@ watch(
             color: current?.color ?? '',
             remarks: current?.remarks ?? '',
             color_tag_id: current?.highlight?.id ?? null,
+            merits: (current?.merits ?? []).map((merit) => ({
+                type: merit.type,
+                level: merit.level,
+                year: merit.year,
+                detail: merit.detail,
+            })),
         });
         form.reset();
         form.clearErrors();
@@ -85,6 +111,7 @@ watch(
 );
 
 const save = () => {
+    meritEditor.value?.flush();
     form.put(saveAncestor({ pigeon: props.pigeonId }).url, {
         preserveScroll: true,
         onSuccess: () => {
@@ -112,7 +139,7 @@ const remove = () => {
 
 <template>
     <Dialog v-model:open="open">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>
                     {{ isNew ? 'Add' : 'Edit' }} {{ relation.toLowerCase() }}
@@ -215,6 +242,22 @@ const remove = () => {
                         placeholder="Race results, breeder, key traits..."
                     />
                     <InputError :message="form.errors.remarks" />
+                </div>
+                <div class="grid gap-2">
+                    <Label
+                        >Merits
+                        <span class="font-normal text-muted-foreground"
+                            >(shown on pedigree, used in Lineage and Test
+                            Pairing)</span
+                        ></Label
+                    >
+                    <MeritListEditor
+                        ref="meritEditor"
+                        v-model="form.merits"
+                        :merit-types="meritTypes"
+                        :merit-levels="meritLevels"
+                        :error="meritError"
+                    />
                 </div>
             </form>
 

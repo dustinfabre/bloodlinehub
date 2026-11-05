@@ -3,9 +3,14 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import GoldenPairBadge from '@/components/GoldenPairBadge.vue';
+import PigeonMerits from '@/components/PigeonMerits.vue';
 import { edit, editPedigree, index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
+import { index as lineageIndex } from '@/routes/lineage';
+import { index as testPairingIndex } from '@/routes/test-pairing';
+import type { GoldenPairInfo, Merit, MeritLevelOption, MeritSuggestion, MeritTypeOption } from '@/types/lineage';
 import { Head, Link } from '@inertiajs/vue3';
-import { Network, Pencil } from 'lucide-vue-next';
+import { FlaskConical, GitFork, Network, Pencil } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 
@@ -66,6 +71,7 @@ interface Pigeon {
     dam_color_tag: ColorTag | null;
     color_tag: ColorTag | null;
     pedigree: { serial: string; is_public: boolean; visibility: 'private' | 'password' | 'public' } | null;
+    merits: Merit[];
 }
 
 interface Child {
@@ -84,7 +90,19 @@ interface Child {
 const props = defineProps<{
     pigeon: Pigeon;
     children: Child[];
+    meritTypes: MeritTypeOption[];
+    meritLevels: MeritLevelOption[];
+    meritSuggestions: MeritSuggestion[];
+    // Golden Pair status of this bird's parents (null unless both are in the loft)
+    parentPair: GoldenPairInfo | null;
 }>();
+
+// Test Pairing pre-filled with this bird on its side of the pair
+const testPairingUrl = computed(() => {
+    if (props.pigeon.gender === 'male') return testPairingIndex({ query: { sire: props.pigeon.id } }).url;
+    if (props.pigeon.gender === 'female') return testPairingIndex({ query: { dam: props.pigeon.id } }).url;
+    return null;
+});
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
 
@@ -187,9 +205,21 @@ const childDetails = (child: Child) => {
     <Head :title="pigeonLabel" />
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 class="text-3xl font-bold">{{ pigeonLabel }}</h1>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <Link :href="lineageIndex({ query: { pigeon: pigeon.id } }).url">
+                        <Button variant="outline">
+                            <GitFork class="mr-2 h-4 w-4" />
+                            Lineage
+                        </Button>
+                    </Link>
+                    <Link v-if="testPairingUrl" :href="testPairingUrl">
+                        <Button variant="outline">
+                            <FlaskConical class="mr-2 h-4 w-4" />
+                            Test Pair
+                        </Button>
+                    </Link>
                     <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url">
                         <Button variant="outline">
                             <Network class="mr-2 h-4 w-4" />
@@ -264,7 +294,14 @@ const childDetails = (child: Child) => {
                 <!-- Parents -->
                 <Card>
                     <CardHeader>
-                        <CardTitle>Parents</CardTitle>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <CardTitle>Parents</CardTitle>
+                            <GoldenPairBadge
+                                v-if="parentPair?.golden"
+                                :winners="parentPair.winner_count"
+                                :offspring="parentPair.offspring"
+                            />
+                        </div>
                     </CardHeader>
                     <CardContent class="space-y-6">
                         <div v-for="parent in parents" :key="parent.key" class="space-y-2">
@@ -299,12 +336,31 @@ const childDetails = (child: Child) => {
                     </CardContent>
                 </Card>
 
+                <!-- Merits -->
+                <PigeonMerits
+                    class="lg:col-span-2"
+                    :pigeon-id="pigeon.id"
+                    :merits="pigeon.merits"
+                    :merit-types="meritTypes"
+                    :merit-levels="meritLevels"
+                    :suggestions="meritSuggestions"
+                />
+
                 <!-- Offspring -->
                 <Card class="lg:col-span-2">
                     <CardHeader>
                         <div class="flex items-center justify-between gap-2">
-                            <CardTitle>Offspring</CardTitle>
-                            <Badge v-if="children.length > 0" variant="secondary">{{ children.length }}</Badge>
+                            <div class="flex items-center gap-2">
+                                <CardTitle>Offspring</CardTitle>
+                                <Badge v-if="children.length > 0" variant="secondary">{{ children.length }}</Badge>
+                            </div>
+                            <Link
+                                v-if="children.length > 0"
+                                :href="lineageIndex({ query: { pigeon: pigeon.id } }).url"
+                                class="text-sm text-primary hover:underline"
+                            >
+                                Grandchildren & more
+                            </Link>
                         </div>
                     </CardHeader>
                     <CardContent>

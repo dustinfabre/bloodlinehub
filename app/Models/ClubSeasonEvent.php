@@ -31,6 +31,14 @@ class ClubSeasonEvent extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Same as entries(). Nested routes use it to resolve {pigeon} only among this event's entries (scoped route bindings).
+     */
+    public function pigeons(): BelongsToMany
+    {
+        return $this->entries();
+    }
+
     public function getEntriesCountAttribute(): int
     {
         return $this->entries()->count();

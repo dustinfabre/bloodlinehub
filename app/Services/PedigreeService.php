@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ColorTag;
 use App\Models\Pigeon;
+use App\Models\PigeonMerit;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -22,6 +23,7 @@ class PedigreeService
         'damColorTag:id,name,color',
         'bloodlines',
         'pedigreeAncestors.colorTag:id,name,color',
+        'merits',
     ];
 
     /**
@@ -107,6 +109,7 @@ class PedigreeService
             'bloodline' => $pigeon->bloodlines->firstWhere('pivot.is_primary', true)?->name ?? $pigeon->bloodline,
             'remarks' => $pigeon->remarks,
             'highlight' => $this->highlight($pigeon->colorTag, $public),
+            'merits' => $this->merits($pigeon->merits->map->summary()->values()->all(), $public),
             'sire' => $remaining > 0 ? $this->parent($pigeon, 'sire', $loaded, $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->parent($pigeon, 'dam', $loaded, $remaining - 1, $public) : null,
         ];
@@ -141,6 +144,7 @@ class PedigreeService
             'color' => $color,
             'remarks' => $remarks,
             'highlight' => $this->highlight($child->{"{$side}ColorTag"}, $public),
+            'merits' => PigeonMerit::summarizeList($child->{"{$side}_merits"}),
         ], $remaining, $public);
     }
 
@@ -161,6 +165,7 @@ class PedigreeService
             'color' => $ancestor->color,
             'remarks' => $ancestor->remarks,
             'highlight' => $this->highlight($ancestor->colorTag, $public),
+            'merits' => PigeonMerit::summarizeList($ancestor->merits),
         ], $remaining, $public);
     }
 
@@ -181,6 +186,14 @@ class PedigreeService
             'sire' => $remaining > 0 ? $this->ancestor($anchor, $path.'S', $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->ancestor($anchor, $path.'D', $remaining - 1, $public) : null,
         ];
+    }
+
+    /**
+     * Public charts leave out the internal merit IDs.
+     */
+    private function merits(array $merits, bool $public): array
+    {
+        return $public ? array_map(fn (array $merit) => [...$merit, 'id' => null], $merits) : $merits;
     }
 
     private function highlight(?ColorTag $tag, bool $public): ?array

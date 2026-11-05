@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Club;
 use App\Models\ClubSeason;
 use App\Models\Pigeon;
+use App\Services\Merits\MeritSuggester;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -97,6 +98,7 @@ class ClubSeasonController extends Controller
             ->get();
 
         return Inertia::render('clubs/seasons/Show', [
+            'standings' => app(MeritSuggester::class)->season('club', $season->id),
             'club' => $club,
             'season' => $season,
             'availablePigeons' => $availablePigeons,
@@ -211,23 +213,27 @@ class ClubSeasonController extends Controller
     {
         abort_if($club->user_id !== auth()->id(), 403);
 
+        // The pigeon record itself is changed below (status), so check it directly too
+        abort_if($pigeon->user_id !== auth()->id(), 404);
+
         $validated = $request->validate([
             'entry_number' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
+            'overall_position' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'status' => ['nullable', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
         ]);
 
-        $updateData = [
-            'entry_number' => $validated['entry_number'] ?? null,
-            'notes' => $validated['notes'] ?? null,
-        ];
+        // Only change the fields sent, so changing the status doesn't clear the entry number or notes
+        $updateData = collect($validated)->only(['entry_number', 'notes', 'overall_position'])->all();
 
         // If status is provided, update the pigeon's status directly
         if (isset($validated['status'])) {
             $pigeon->update(['status' => $validated['status']]);
         }
 
-        $season->entries()->updateExistingPivot($pigeon->id, $updateData);
+        if ($updateData) {
+            $season->entries()->updateExistingPivot($pigeon->id, $updateData);
+        }
 
         return back()->with('success', 'Entry updated successfully.');
     }

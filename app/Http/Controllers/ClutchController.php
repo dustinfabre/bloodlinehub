@@ -6,6 +6,7 @@ use App\Models\Clutch;
 use App\Models\Pairing;
 use App\Models\Pigeon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ClutchController extends Controller
 {
@@ -14,12 +15,14 @@ class ClutchController extends Controller
      */
     public function store(Request $request, Pairing $pairing)
     {
+        $this->ensureOwner($request, $pairing);
+
         $validated = $request->validate([
             'eggs_laid_date' => ['nullable', 'date'],
             'hatched_date' => ['nullable', 'date', 'after_or_equal:eggs_laid_date'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'is_fostered' => ['boolean'],
-            'biological_pairing_id' => ['nullable', 'exists:pairings,id'],
+            'biological_pairing_id' => ['nullable', Rule::exists('pairings', 'id')->where('user_id', $request->user()->id)],
         ]);
 
         // Calculate next clutch number
@@ -47,6 +50,8 @@ class ClutchController extends Controller
      */
     public function update(Request $request, Pairing $pairing, Clutch $clutch)
     {
+        $this->ensureOwner($request, $pairing);
+
         // Ensure clutch belongs to this pairing
         if ($clutch->pairing_id !== $pairing->id) {
             abort(404);
@@ -58,7 +63,7 @@ class ClutchController extends Controller
             'status' => ['required', 'in:pending,successful,unsuccessful'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'is_fostered' => ['boolean'],
-            'biological_pairing_id' => ['nullable', 'exists:pairings,id'],
+            'biological_pairing_id' => ['nullable', Rule::exists('pairings', 'id')->where('user_id', $request->user()->id)],
             'success_location_id' => [
                 'nullable',
                 'integer',
@@ -94,8 +99,10 @@ class ClutchController extends Controller
     /**
      * Remove the specified clutch from storage.
      */
-    public function destroy(Pairing $pairing, Clutch $clutch)
+    public function destroy(Request $request, Pairing $pairing, Clutch $clutch)
     {
+        $this->ensureOwner($request, $pairing);
+
         // Ensure clutch belongs to this pairing
         if ($clutch->pairing_id !== $pairing->id) {
             abort(404);
@@ -111,5 +118,13 @@ class ClutchController extends Controller
 
         return redirect()->route('pairings.show', $pairing)
             ->with('success', 'Clutch deleted successfully.');
+    }
+
+    /**
+     * Clutches belong to the user through their pairing.
+     */
+    private function ensureOwner(Request $request, Pairing $pairing): void
+    {
+        abort_unless($pairing->user_id === $request->user()?->id, 404);
     }
 }

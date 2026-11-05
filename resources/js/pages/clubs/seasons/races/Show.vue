@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RaceTypeOption } from '@/types/lineage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +35,8 @@ interface ClubRaceResult {
 }
 
 interface ClubSeasonRace {
+    race_type: string;
+    birds_released: number | null;
     id: number;
     name: string;
     release_point: string;
@@ -67,7 +70,15 @@ const props = defineProps<{
     club: Club;
     season: ClubSeason;
     race: ClubSeasonRace;
+    raceTypes: RaceTypeOption[];
 }>();
+
+// Shown for hot spot, final and training races; regular races need no label
+const raceTypeLabel = computed(() =>
+    props.race.race_type && props.race.race_type !== 'regular'
+        ? props.raceTypes.find((type) => type.value === props.race.race_type)?.label
+        : null,
+);
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Clubs', href: '/clubs' },
@@ -266,6 +277,10 @@ const toggleDNA = (result: ClubRaceResult) => {
                         </h1>
                         <Badge variant="secondary" class="font-mono">
                             {{ arrivedCount }}/{{ race.results.length }}
+                        </Badge>
+                        <Badge v-if="raceTypeLabel" variant="secondary">{{ raceTypeLabel }}</Badge>
+                        <Badge v-if="race.birds_released" variant="outline">
+                            {{ race.birds_released.toLocaleString() }} released
                         </Badge>
                     </div>
                     <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-4">

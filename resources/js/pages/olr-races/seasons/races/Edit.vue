@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RaceTypeOption } from '@/types/lineage';
 import AppLayout from '@/layouts/AppLayout.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,8 @@ interface OlrSeason {
 }
 
 interface OlrSeasonRace {
+    race_type: string;
+    birds_released: number | null;
     id: number;
     name: string;
     release_point: string | null;
@@ -35,6 +38,7 @@ const props = defineProps<{
     olrRace: OlrRace;
     season: OlrSeason;
     race: OlrSeasonRace;
+    raceTypes: RaceTypeOption[];
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -48,10 +52,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 const form = useForm({
     name: props.race.name,
     release_point: props.race.release_point || '',
+    race_type: props.race.race_type ?? 'regular',
+    birds_released: props.race.birds_released?.toString() ?? '',
     distance: props.race.distance?.toString() || '',
     distance_unit: props.race.distance_unit,
-    race_date: props.race.race_date || '',
-    release_time: props.race.release_time || '',
+    // Dates arrive as full timestamps; the date input needs YYYY-MM-DD
+    race_date: props.race.race_date?.slice(0, 10) ?? '',
+    release_time: props.race.release_time?.slice(0, 5) ?? '',
     weather_conditions: props.race.weather_conditions || '',
     wind_direction: props.race.wind_direction || '',
     notes: props.race.notes || '',
@@ -98,6 +105,42 @@ const submit = () => {
                                 placeholder="e.g., Lucena City"
                             />
                             <InputError :message="form.errors.release_point" />
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="space-y-2">
+                                <Label for="race_type">Race type</Label>
+                                <select
+                                    id="race_type"
+                                    v-model="form.race_type"
+                                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                >
+                                    <option v-for="type in raceTypes" :key="type.value" :value="type.value">
+                                        {{ type.label }}
+                                    </option>
+                                </select>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ raceTypes.find((type) => type.value === form.race_type)?.description }}
+                                </p>
+                                <p v-if="form.errors.race_type" class="text-sm text-destructive">{{ form.errors.race_type }}</p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="birds_released">Birds released</Label>
+                                <Input
+                                    id="birds_released"
+                                    v-model="form.birds_released"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    inputmode="numeric"
+                                    placeholder="e.g., 1200"
+                                />
+                                <p class="text-xs text-muted-foreground">
+                                    All birds in the race, from the official result. Used for Prize Winner (top 20%).
+                                </p>
+                                <p v-if="form.errors.birds_released" class="text-sm text-destructive">{{ form.errors.birds_released }}</p>
+                            </div>
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-2">

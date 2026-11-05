@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MeritLevel;
+use App\Enums\MeritType;
 use App\Models\ColorTag;
 use App\Models\Pigeon;
+use App\Models\PigeonMerit;
 use App\Services\PedigreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +30,7 @@ class PedigreeAncestorController extends Controller
         'color' => 'color',
         'remarks' => 'notes',
         'color_tag_id' => 'color_tag_id',
+        'merits' => 'merits',
     ];
 
     public function __construct(private PedigreeService $pedigrees) {}
@@ -50,6 +54,8 @@ class PedigreeAncestorController extends Controller
                 ->distinct()
                 ->orderBy('color')
                 ->pluck('color'),
+            'meritTypes' => MeritType::options(),
+            'meritLevels' => MeritLevel::options(),
         ]);
     }
 
@@ -68,12 +74,14 @@ class PedigreeAncestorController extends Controller
                 'integer',
                 Rule::exists('color_tags', 'id')->where('user_id', $request->user()->id),
             ],
+            ...PigeonMerit::listRules('merits'),
         ], [
             'ring_number.required_without' => 'Enter a ring number or a name.',
         ]);
 
         [$anchor, $path] = $this->slot($request, $validated);
         $details = collect($validated)->only(array_keys(self::PARENT_FIELDS))->all();
+        $details['merits'] = PigeonMerit::cleanList($validated['merits'] ?? null);
 
         if (strlen($path) === 1) {
             $side = $this->side($path);

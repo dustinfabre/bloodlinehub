@@ -32,8 +32,16 @@ class OlrSeason extends Model
     public function entries(): BelongsToMany
     {
         return $this->belongsToMany(Pigeon::class, 'olr_season_entries')
-            ->withPivot('id', 'entry_number', 'notes')
+            ->withPivot('id', 'entry_number', 'notes', 'overall_position')
             ->withTimestamps();
+    }
+
+    /**
+     * Same as entries(). Nested routes use it to resolve {pigeon} only among this season's entries (scoped route bindings).
+     */
+    public function pigeons(): BelongsToMany
+    {
+        return $this->entries();
     }
 
     public function races(): HasMany

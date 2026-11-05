@@ -1,3 +1,4 @@
+import type { Merit } from '@/types/lineage';
 import type {
     PedigreeHighlight,
     PedigreeNode,
@@ -120,6 +121,39 @@ export const collectHighlights = (
     visit(root);
     return [...found.values()];
 };
+
+/** The merit types used anywhere on a chart, for the code key in the footer (highest category first). */
+export const collectMerits = (
+    root: PedigreeNode | null,
+): Pick<Merit, 'type' | 'code' | 'label' | 'category'>[] => {
+    const found = new Map<
+        string,
+        Pick<Merit, 'type' | 'code' | 'label' | 'category'>
+    >();
+    const visit = (node: PedigreeNode | null) => {
+        if (!node) return;
+        for (const merit of node.merits ?? []) {
+            found.set(merit.type, {
+                type: merit.type,
+                code: merit.code,
+                label: merit.label,
+                category: merit.category,
+            });
+        }
+        visit(node.sire);
+        visit(node.dam);
+    };
+    visit(root);
+    return [...found.values()];
+};
+
+/** Merit chip text on a card: the full one-liner near the subject, code and year further out. */
+export const meritChip = (merit: Merit, depth: number): string =>
+    depth <= 1
+        ? merit.short
+        : [merit.code, merit.year ? `'${String(merit.year).slice(-2)}` : null]
+              .filter(Boolean)
+              .join(' ');
 
 export const pedigreeFilename = (
     ringNumber: string | null,

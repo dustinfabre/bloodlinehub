@@ -3,6 +3,7 @@ import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import PedigreeCard from '@/components/pedigree/PedigreeCard.vue';
 import {
     collectHighlights,
+    collectMerits,
     flattenPedigree,
     formatPedigreeDate,
     GENERATION_LABELS,
@@ -26,6 +27,7 @@ defineExpose({ paper });
 
 const ancestorSlots = computed(() => flattenPedigree(props.tree).slice(1));
 const highlights = computed(() => collectHighlights(props.tree));
+const meritKey = computed(() => collectMerits(props.tree));
 const shareLabel = computed(() =>
     props.meta.share_url.replace(/^https?:\/\//, ''),
 );
@@ -117,7 +119,7 @@ const shareLabel = computed(() =>
 
             <footer class="pedigree-footer">
                 <div class="pedigree-legend">
-                    <template v-if="highlights.length">
+                    <template v-if="highlights.length || meritKey.length">
                         <span
                             v-for="highlight in highlights"
                             :key="`${highlight.name}-${highlight.color}`"
@@ -125,6 +127,21 @@ const shareLabel = computed(() =>
                         >
                             <i :style="{ backgroundColor: highlight.color }" />
                             {{ highlight.name }}
+                        </span>
+                        <span
+                            v-for="merit in meritKey"
+                            :key="merit.type"
+                            class="pedigree-legend-item is-merit"
+                        >
+                            <b
+                                class="pc-merit"
+                                :class="{
+                                    'is-breeding':
+                                        merit.category === 'breeding',
+                                }"
+                                >{{ merit.code }}</b
+                            >
+                            {{ merit.label }}
                         </span>
                     </template>
                     <span v-else>♂ Sire line above · ♀ Dam line below</span>
@@ -552,6 +569,81 @@ a.pc-ring:hover {
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--pc-lines, 2);
+}
+
+/* Merits: gold chips for racing, violet for breeding, the codes explained in the footer */
+.pc-merits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 3px;
+    margin-top: 3px;
+    overflow: hidden;
+}
+
+.pc-merit {
+    flex-shrink: 0;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: #f3e7c9;
+    color: #6b4f12;
+    font-size: 7.5px;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.pc-merit.is-breeding {
+    background: #e9e1f6;
+    color: #4f3388;
+}
+
+.pc-merit.is-more {
+    background: transparent;
+    color: var(--muted);
+}
+
+.pc-codes {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--gold-deep);
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.pedigree-legend-item.is-merit {
+    padding-left: 3px;
+}
+
+.pedigree-legend-item.is-merit .pc-merit {
+    font-size: 7px;
+}
+
+.pedigree-card[data-depth='0'] .pc-merits {
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.pedigree-card[data-depth='0'] .pc-merit {
+    padding: 2px 8px;
+    background: var(--gold);
+    color: var(--navy);
+    font-size: 9px;
+}
+
+.pedigree-card[data-depth='0'] .pc-merit.is-breeding {
+    background: #cdbcf0;
+}
+
+.pedigree-card[data-depth='0'] .pc-merit.is-more {
+    background: transparent;
+    color: rgba(248, 246, 240, 0.7);
+}
+
+.pedigree-card[data-depth='1'] .pc-merit {
+    font-size: 8.5px;
 }
 
 /* The bird itself: a navy hero card */

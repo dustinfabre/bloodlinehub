@@ -32,6 +32,7 @@ interface Props {
     sires: Pigeon[];
     dams: Pigeon[];
     locations: LocationOption[];
+    prefill?: { sire_id: number | null; dam_id: number | null };
 }
 
 const props = defineProps<Props>();
@@ -98,6 +99,12 @@ const selectDam = (dam: Pigeon) => {
     damSearch.value = formatSelectedPigeon(dam);
     showDamDropdown.value = false;
 };
+
+// Birds pre-selected from Test Pairing (only if they are still available to pair)
+const prefilledSire = props.sires.find(s => s.id === props.prefill?.sire_id);
+const prefilledDam = props.dams.find(d => d.id === props.prefill?.dam_id);
+if (prefilledSire) selectSire(prefilledSire);
+if (prefilledDam) selectDam(prefilledDam);
 
 const handleSireBlur = () => {
     window.setTimeout(() => showSireDropdown.value = false, 200);

@@ -1,3 +1,5 @@
+import type { Merit } from '@/types/lineage';
+
 export interface PedigreeHighlight {
     // Color tag id (owner charts only)
     id: number | null;
@@ -20,6 +22,7 @@ export interface PedigreeNode {
     bloodline: string | null;
     remarks: string | null;
     highlight: PedigreeHighlight | null;
+    merits: Merit[];
     sire: PedigreeNode | null;
     dam: PedigreeNode | null;
 }

@@ -13,6 +13,8 @@ class Pigeon extends Model
 {
     use HasFactory;
 
+    public const STATUSES = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'flyaway', 'missing'];
+
     protected $fillable = [
         'user_id',
         'name',
@@ -39,11 +41,13 @@ class Pigeon extends Model
         'sire_color',
         'sire_notes',
         'sire_color_tag_id',
+        'sire_merits',
         'dam_name',
         'dam_ring_number',
         'dam_color',
         'dam_notes',
         'dam_color_tag_id',
+        'dam_merits',
         'clutch_id',
         'location_id',
     ];
@@ -53,6 +57,8 @@ class Pigeon extends Model
         'hatch_date' => 'date',
         'for_sale' => 'boolean',
         'hide_price' => 'boolean',
+        'sire_merits' => 'array',
+        'dam_merits' => 'array',
     ];
 
     public function user(): BelongsTo
@@ -115,6 +121,15 @@ class Pigeon extends Model
         return $this->belongsTo(Location::class);
     }
 
+    // Standard merits (fixed vocabulary), most recent first; merits without a year last
+    public function merits(): HasMany
+    {
+        return $this->hasMany(PigeonMerit::class)
+            ->orderByRaw('year IS NULL')
+            ->orderByDesc('year')
+            ->orderBy('id');
+    }
+
     public function sire(): BelongsTo
     {
         return $this->belongsTo(self::class, 'sire_id');
@@ -139,7 +154,7 @@ class Pigeon extends Model
     public function olrSeasonEntries(): BelongsToMany
     {
         return $this->belongsToMany(OlrSeason::class, 'olr_season_entries')
-            ->withPivot('id', 'entry_number', 'notes')
+            ->withPivot('id', 'entry_number', 'notes', 'overall_position')
             ->withTimestamps();
     }
 
@@ -155,7 +170,7 @@ class Pigeon extends Model
     public function clubSeasonEntries(): BelongsToMany
     {
         return $this->belongsToMany(ClubSeason::class, 'club_season_entries')
-            ->withPivot('id', 'entry_number', 'notes')
+            ->withPivot('id', 'entry_number', 'notes', 'overall_position')
             ->withTimestamps();
     }
 

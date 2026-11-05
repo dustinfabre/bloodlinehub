@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MeritLevel;
+use App\Enums\MeritType;
 use App\Http\Requests\StorePigeonRequest;
 use App\Http\Requests\UpdatePigeonRequest;
 use App\Models\Bloodline;
@@ -9,6 +11,8 @@ use App\Models\ColorTag;
 use App\Models\Location;
 use App\Models\Pigeon;
 use App\Services\ImageUploadService;
+use App\Services\Merits\GoldenPairs;
+use App\Services\Merits\MeritSuggester;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,8 +32,9 @@ class PigeonController extends Controller
     {
         $user = $request->user();
         
-        $perPage = $request->input('per_page', 12);
-        $perPage = in_array($perPage, [12, 21, 52, 104]) ? $perPage : 12;
+        // Multiples of 12 so the 2- and 3-column card grids always fill complete rows
+        $perPage = (int) $request->input('per_page', 12);
+        $perPage = in_array($perPage, [12, 24, 48, 96], true) ? $perPage : 12;
 
         $query = Pigeon::query()
             ->with([
@@ -37,8 +42,19 @@ class PigeonController extends Controller
                 'dam:id,ring_number,personal_number,color',
                 'bloodlines',
                 'colorTag:id,name,color',
+                'location:id,name,type',
+                'merits',
             ])
             ->where('user_id', $user->id);
+
+        $statuses = array_values(array_intersect($this->arrayInput($request, 'status'), Pigeon::STATUSES));
+        $bloodlineFilter = $this->arrayInput($request, 'bloodline');
+        $locationFilter = $this->arrayInput($request, 'location');
+        $meritFilter = array_values(array_intersect(
+            $this->arrayInput($request, 'merit'),
+            array_column(MeritType::cases(), 'value'),
+        ));
+        $gender = in_array($request->input('gender'), ['male', 'female'], true) ? $request->input('gender') : null;
 
         // Search functionality
         if ($search = $request->input('search')) {
@@ -56,29 +72,44 @@ class PigeonController extends Controller
             });
         }
 
-        // Filter by gender
-        if ($gender = $request->input('gender')) {
+        if ($gender) {
             $query->where('gender', $gender);
         }
 
-        // Filter by status (can be multiple)
-        if ($status = $request->input('status')) {
-            if (is_array($status)) {
-                $query->whereIn('status', $status);
-            } else {
-                $query->where('status', $status);
-            }
+        if ($statuses) {
+            $query->whereIn('status', $statuses);
         }
 
-        // Filter by bloodline (supports new bloodline IDs)
-        if ($bloodline = $request->input('bloodline')) {
-            if (is_numeric($bloodline)) {
-                // Filter by bloodline ID (new system)
-                $query->whereHas('bloodlines', fn ($q) => $q->where('bloodlines.id', $bloodline));
-            } else {
-                // Filter by legacy bloodline string for backward compatibility
-                $query->where('bloodline', $bloodline);
-            }
+        // Bloodlines match if the bird carries ANY of the selected lines (primary or not).
+        // Non-numeric values are legacy bloodline strings kept for old bookmarked URLs.
+        if ($bloodlineFilter) {
+            $ids = array_filter($bloodlineFilter, 'is_numeric');
+            $names = array_diff($bloodlineFilter, $ids);
+            $query->where(function ($q) use ($ids, $names) {
+                if ($ids) {
+                    $q->whereHas('bloodlines', fn ($bq) => $bq->whereIn('bloodlines.id', $ids));
+                }
+                if ($names) {
+                    $q->orWhereIn('bloodline', $names);
+                }
+            });
+        }
+
+        // "none" matches birds without a location
+        if ($locationFilter) {
+            $ids = array_filter($locationFilter, 'is_numeric');
+            $query->where(function ($q) use ($ids, $locationFilter) {
+                if ($ids) {
+                    $q->whereIn('location_id', $ids);
+                }
+                if (in_array('none', $locationFilter, true)) {
+                    $q->orWhereNull('location_id');
+                }
+            });
+        }
+
+        if ($meritFilter) {
+            $query->whereHas('merits', fn ($q) => $q->whereIn('type', $meritFilter));
         }
 
         $pigeons = $query->latest()
@@ -106,14 +137,20 @@ class PigeonController extends Controller
         return Inertia::render('pigeons/Index', [
             'pigeons' => $pigeons,
             'bloodlines' => $bloodlines,
+            'locations' => Location::where('user_id', $user->id)
+                ->orderBy('name')
+                ->get(['id', 'name', 'type']),
+            'meritTypes' => MeritType::options(),
             'colors' => $colors,
             'colorTags' => $colorTags,
             'parentOptions' => $this->parentOptions($user->id),
             'filters' => [
                 'search' => $request->input('search'),
-                'gender' => $request->input('gender'),
-                'status' => $request->input('status'),
-                'bloodline' => $request->input('bloodline'),
+                'gender' => $gender,
+                'status' => $statuses,
+                'bloodline' => array_values($bloodlineFilter),
+                'location' => array_values($locationFilter),
+                'merit' => $meritFilter,
                 'per_page' => $perPage,
             ],
         ]);
@@ -162,7 +199,7 @@ class PigeonController extends Controller
         $data['user_id'] = $request->user()->id;
 
         // Extract bloodlines data before creating pigeon
-        $bloodlinesData = $request->input('bloodlines', []);
+        $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
 
         // Handle photo upload
@@ -220,6 +257,8 @@ class PigeonController extends Controller
             'sireColorTag:id,name,color',
             'damColorTag:id,name,color',
             'pedigree',
+            'merits',
+            'location:id,name,type',
         ]);
 
         // Offspring are birds in the loft that have this pigeon linked as their sire or dam
@@ -236,6 +275,13 @@ class PigeonController extends Controller
         return Inertia::render('pigeons/Show', [
             'pigeon' => $this->transformPigeon($pigeon),
             'children' => $children,
+            'meritTypes' => MeritType::options(),
+            'meritLevels' => MeritLevel::options(),
+            'meritSuggestions' => app(MeritSuggester::class)->forPigeons($pigeon->user_id, [$pigeon->id])[$pigeon->id] ?? [],
+            // Whether this bird comes from a Golden Pair (its parents' youngsters include several winners)
+            'parentPair' => $pigeon->sire_id && $pigeon->dam_id
+                ? app(GoldenPairs::class)->forPair($pigeon->user_id, $pigeon->sire_id, $pigeon->dam_id)
+                : null,
         ]);
     }
 
@@ -282,7 +328,7 @@ class PigeonController extends Controller
         $data = $request->validated();
 
         // Extract bloodlines data before updating pigeon
-        $bloodlinesData = $request->input('bloodlines', []);
+        $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
 
         // Handle photo upload
@@ -322,9 +368,13 @@ class PigeonController extends Controller
 
         // Handle pedigree image removal
         if ($request->input('remove_pedigree')) {
-            $toRemove = $request->input('remove_pedigree');
-            $imageService->deleteMultiple($toRemove);
-            $existingImages = $pigeon->pedigree_images ?? [];
+            // Only this pigeon's own images: any other URL would delete someone else's file from the shared bucket
+            // Keep images uploaded in this same request
+            $existingImages = $request->hasFile('pedigree_images') ? $data['pedigree_images'] : ($pigeon->pedigree_images ?? []);
+            $toRemove = array_values(array_intersect((array) $request->input('remove_pedigree'), $pigeon->pedigree_images ?? []));
+            if ($toRemove) {
+                $imageService->deleteMultiple($toRemove);
+            }
             $data['pedigree_images'] = array_values(array_diff($existingImages, $toRemove));
         }
 
@@ -353,6 +403,25 @@ class PigeonController extends Controller
         return redirect()
             ->route('pigeons.index')
             ->with('success', 'Pigeon removed successfully.');
+    }
+
+    /**
+     * A query parameter that may be sent as a single value or an array (status=x or status[]=x&status[]=y).
+     *
+     * @return list<string>
+     */
+    private function arrayInput(Request $request, string $key): array
+    {
+        $value = $request->input($key);
+
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('strval', array_filter((array) $value, 'is_scalar')),
+            fn (string $item) => $item !== '',
+        )));
     }
 
     private function ensureOwner(Request $request, Pigeon $pigeon): void
@@ -419,6 +488,9 @@ class PigeonController extends Controller
                 'is_public' => $pigeon->pedigree->is_public,
                 'visibility' => $pigeon->pedigree->visibility(),
             ] : null,
+            'merits' => $pigeon->relationLoaded('merits')
+                ? $pigeon->merits->map->summary()->values()->all()
+                : [],
             'location_id' => $pigeon->location_id,
             'location' => $pigeon->relationLoaded('location') && $pigeon->location ? [
                 'id' => $pigeon->location->id,
@@ -749,11 +821,24 @@ class PigeonController extends Controller
         $syncData = [];
         $primaryBloodlineName = null;
 
+        // Bloodline ids sent by the client must be the user's own
+        $ownIds = Bloodline::where('user_id', $userId)
+            ->whereIn('id', collect($bloodlinesData)->filter(fn ($item) => is_array($item) && isset($item['id']) && is_numeric($item['id']))->pluck('id'))
+            ->pluck('id')
+            ->flip();
+
         foreach ($bloodlinesData as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
             // Item can be: { id: number, is_primary: bool } or { name: string, is_primary: bool }
             if (isset($item['id'])) {
-                $bloodlineId = $item['id'];
-            } elseif (isset($item['name'])) {
+                if (! isset($ownIds[$item['id']])) {
+                    continue;
+                }
+                $bloodlineId = (int) $item['id'];
+            } elseif (isset($item['name']) && is_string($item['name']) && trim($item['name']) !== '') {
                 // Create or find bloodline by name
                 $bloodline = Bloodline::firstOrCreate(
                     ['user_id' => $userId, 'name' => strtoupper($item['name'])],

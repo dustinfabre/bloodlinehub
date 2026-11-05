@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
+import GoldenPairBadge from '@/components/GoldenPairBadge.vue';
+import type { GoldenPairInfo } from '@/types/lineage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +34,7 @@ interface Pairing {
     sire: Pigeon;
     dam: Pigeon;
     offspring: Pigeon[];
+    golden_pair: GoldenPairInfo | null;
 }
 
 interface PaginatedPairings {
@@ -214,6 +217,12 @@ const formatDate = (date: string) => {
                             <div class="flex-1">
                                 <CardTitle class="text-lg">{{ pairing.pair_name }}</CardTitle>
                                 <CardDescription>Clutch #{{ pairing.current_clutch_number }}</CardDescription>
+                                <GoldenPairBadge
+                                    v-if="pairing.golden_pair?.golden"
+                                    class="mt-2"
+                                    :winners="pairing.golden_pair.winner_count"
+                                    :offspring="pairing.golden_pair.offspring"
+                                />
                             </div>
                             <Badge :variant="pairing.status === 'active' ? 'default' : 'secondary'">
                                 {{ pairing.status }}

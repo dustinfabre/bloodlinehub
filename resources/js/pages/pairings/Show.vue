@@ -2,6 +2,9 @@
 import { ref, watch } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
+import GoldenPairBadge from '@/components/GoldenPairBadge.vue';
+import MeritBadge from '@/components/MeritBadge.vue';
+import type { GoldenPairInfo } from '@/types/lineage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -68,6 +71,8 @@ interface Pairing {
 
 interface Props {
     pairing: Pairing;
+    // Golden Pair status of this cock and hen, from their youngsters' merits
+    goldenPair: GoldenPairInfo;
     activePairings: Array<{
         id: number;
         pair_name: string;
@@ -99,24 +104,6 @@ const fosterToTargetPairingId = ref('');
 
 const ringSuggestions = ref<string[]>([]);
 let ringDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-watch(() => offspringForm.ring_number, (value) => {
-    if (ringDebounceTimer) clearTimeout(ringDebounceTimer);
-    const prefix = value.toUpperCase().trim();
-    if (prefix.length < 2) {
-        ringSuggestions.value = [];
-        return;
-    }
-    ringDebounceTimer = setTimeout(async () => {
-        try {
-            const res = await fetch(`/pigeons/suggest-ring-number?prefix=${encodeURIComponent(prefix)}`);
-            const data = await res.json();
-            ringSuggestions.value = data.suggestions ?? [];
-        } catch {
-            ringSuggestions.value = [];
-        }
-    }, 300);
-});
 
 const { success } = useToast();
 
@@ -170,6 +157,25 @@ const offspringForm = useForm({
     status: 'stock',
     remarks: '',
     notes: '',
+});
+
+// Suggest ring numbers as the breeder types (set up after offspringForm exists)
+watch(() => offspringForm.ring_number, (value) => {
+    if (ringDebounceTimer) clearTimeout(ringDebounceTimer);
+    const prefix = value.toUpperCase().trim();
+    if (prefix.length < 2) {
+        ringSuggestions.value = [];
+        return;
+    }
+    ringDebounceTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(`/pigeons/suggest-ring-number?prefix=${encodeURIComponent(prefix)}`);
+            const data = await res.json();
+            ringSuggestions.value = data.suggestions ?? [];
+        } catch {
+            ringSuggestions.value = [];
+        }
+    }, 300);
 });
 
 const addClutch = () => {
@@ -399,6 +405,11 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                             <Badge :variant="pairing.status === 'active' ? 'default' : 'secondary'">
                                 {{ pairing.status }}
                             </Badge>
+                            <GoldenPairBadge
+                                v-if="goldenPair.golden"
+                                :winners="goldenPair.winner_count"
+                                :offspring="goldenPair.offspring"
+                            />
                         </div>
                         <p class="text-muted-foreground mt-1">
                             {{ pairing.clutches.length }} clutch(es)
@@ -415,6 +426,31 @@ const getClutchAgeInfo = (clutch: Clutch) => {
                             <Link :href="pairingsEdit({ pairing: pairing.id }).url">Edit</Link>
                         </Button>
                     </div>
+                </div>
+
+                <!-- Winners bred by this pair -->
+                <div
+                    v-if="goldenPair.winner_count > 0"
+                    class="flex flex-col gap-2 rounded-lg border border-gold/40 bg-gold/10 p-4 text-sm sm:flex-row sm:items-center sm:gap-4"
+                >
+                    <p class="font-medium sm:shrink-0">
+                        {{ goldenPair.winner_count }}
+                        {{ goldenPair.winner_count === 1 ? 'winner' : 'winners' }}
+                        from {{ goldenPair.offspring }}
+                        {{ goldenPair.offspring === 1 ? 'youngster' : 'youngsters' }}
+                    </p>
+                    <ul class="flex flex-wrap gap-x-4 gap-y-2">
+                        <li v-for="winner in goldenPair.winners" :key="winner.id" class="flex flex-wrap items-center gap-1.5">
+                            <Link :href="pigeonsShow({ pigeon: winner.id }).url" class="font-medium text-primary hover:underline">
+                                {{ winner.name || winner.ring_number || winner.personal_number }}
+                            </Link>
+                            <MeritBadge
+                                v-for="(merit, index) in winner.merits.slice(0, 3)"
+                                :key="`${merit.type}-${index}`"
+                                :merit="merit"
+                            />
+                        </li>
+                    </ul>
                 </div>
 
                 <!-- Pairing Details -->

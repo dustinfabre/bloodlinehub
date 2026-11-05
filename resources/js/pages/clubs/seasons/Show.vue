@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
+import SeasonStandings from '@/components/SeasonStandings.vue';
+import type { SeasonStanding } from '@/types/lineage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +74,7 @@ const props = defineProps<{
     club: Club;
     season: ClubSeason;
     availablePigeons: Pigeon[];
+    standings: Record<number, SeasonStanding>;
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -746,6 +749,15 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                     </div>
                 </CardContent>
             </Card>
+
+            <!-- Standings & merit suggestions -->
+            <SeasonStandings
+                v-if="season.entries.length > 0 && season.races.length > 0"
+                :entries="season.entries"
+                :standings="standings"
+                :season-status="season.status"
+                :entry-url="(id: number) => `/clubs/${club.id}/seasons/${season.id}/entries/${id}`"
+            />
         </div>
     </AppLayout>
 </template>

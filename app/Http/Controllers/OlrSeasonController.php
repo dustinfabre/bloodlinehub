@@ -6,6 +6,7 @@ use App\Models\Location;
 use App\Models\OlrRace;
 use App\Models\OlrSeason;
 use App\Models\Pigeon;
+use App\Services\Merits\MeritSuggester;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -92,6 +93,7 @@ class OlrSeasonController extends Controller
         return Inertia::render('olr-races/seasons/Show', [
             'olrRace' => $olrRace,
             'season' => $season,
+            'standings' => app(MeritSuggester::class)->season('olr', $season->id),
             'availablePigeons' => $availablePigeons,
         ]);
     }
@@ -229,21 +231,26 @@ class OlrSeasonController extends Controller
     {
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
+        // The pigeon record itself is changed below (status), so check it directly too
+        abort_if($pigeon->user_id !== auth()->id(), 404);
+
         $validated = $request->validate([
             'notes' => ['nullable', 'string'],
+            'overall_position' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'status' => ['nullable', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
         ]);
 
-        $updateData = [
-            'notes' => $validated['notes'] ?? null,
-        ];
+        // Only change the fields sent, so changing the status doesn't clear the notes
+        $updateData = collect($validated)->only(['notes', 'overall_position'])->all();
 
         // If status is provided, update the pigeon's status directly
         if (isset($validated['status'])) {
             $pigeon->update(['status' => $validated['status']]);
         }
 
-        $season->entries()->updateExistingPivot($pigeon->id, $updateData);
+        if ($updateData) {
+            $season->entries()->updateExistingPivot($pigeon->id, $updateData);
+        }
 
         return back()->with('success', 'Entry updated successfully.');
     }

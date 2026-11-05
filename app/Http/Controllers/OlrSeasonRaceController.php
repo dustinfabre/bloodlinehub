@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RaceType;
 use App\Models\OlrRace;
 use App\Models\OlrSeason;
 use App\Models\OlrSeasonRace;
 use App\Models\Pigeon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,6 +20,7 @@ class OlrSeasonRaceController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         return Inertia::render('olr-races/seasons/races/Create', [
+            'raceTypes' => RaceType::options(),
             'olrRace' => $olrRace,
             'season' => $season,
         ]);
@@ -32,6 +35,8 @@ class OlrSeasonRaceController extends Controller
             'release_point' => ['nullable', 'string', 'max:255'],
             'distance' => ['nullable', 'numeric', 'min:0'],
             'distance_unit' => ['required', 'string', 'in:km,mi'],
+            'race_type' => ['nullable', Rule::enum(RaceType::class)],
+            'birds_released' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'race_date' => ['nullable', 'date'],
             'release_time' => ['nullable', 'date_format:H:i'],
             'weather_conditions' => ['nullable', 'string', 'max:255'],
@@ -39,7 +44,7 @@ class OlrSeasonRaceController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $race = $season->races()->create($validated);
+        $race = $season->races()->create([...$validated, 'race_type' => $validated['race_type'] ?? RaceType::Regular->value]);
 
         return redirect()->route('olr-races.seasons.races.show', [$olrRace, $season, $race])
             ->with('success', 'Race created successfully.');
@@ -62,6 +67,7 @@ class OlrSeasonRaceController extends Controller
             ->get(['pigeons.id', 'pigeons.name', 'pigeons.ring_number', 'pigeons.personal_number', 'pigeons.color', 'pigeons.status']);
 
         return Inertia::render('olr-races/seasons/races/Show', [
+            'raceTypes' => RaceType::options(),
             'olrRace' => $olrRace,
             'season' => $season,
             'race' => $race,
@@ -74,6 +80,7 @@ class OlrSeasonRaceController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         return Inertia::render('olr-races/seasons/races/Edit', [
+            'raceTypes' => RaceType::options(),
             'olrRace' => $olrRace,
             'season' => $season,
             'race' => $race,
@@ -89,6 +96,8 @@ class OlrSeasonRaceController extends Controller
             'release_point' => ['nullable', 'string', 'max:255'],
             'distance' => ['nullable', 'numeric', 'min:0'],
             'distance_unit' => ['required', 'string', 'in:km,mi'],
+            'race_type' => ['nullable', Rule::enum(RaceType::class)],
+            'birds_released' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'race_date' => ['nullable', 'date'],
             'release_time' => ['nullable', 'date_format:H:i'],
             'weather_conditions' => ['nullable', 'string', 'max:255'],
@@ -96,7 +105,7 @@ class OlrSeasonRaceController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $race->update($validated);
+        $race->update([...$validated, 'race_type' => $validated['race_type'] ?? $race->race_type]);
 
         return redirect()->route('olr-races.seasons.races.show', [$olrRace, $season, $race])
             ->with('success', 'Race updated successfully.');

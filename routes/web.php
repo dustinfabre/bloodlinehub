@@ -8,8 +8,10 @@ use App\Http\Controllers\ClubSeasonRaceController;
 use App\Http\Controllers\ClutchController;
 use App\Http\Controllers\ColorTagController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LineageController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\MeritSuggestionController;
 use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\OlrSeasonController;
 use App\Http\Controllers\OlrSeasonRaceController;
@@ -17,7 +19,10 @@ use App\Http\Controllers\PairingController;
 use App\Http\Controllers\PedigreeAncestorController;
 use App\Http\Controllers\PedigreeController;
 use App\Http\Controllers\PigeonController;
+use App\Http\Controllers\PigeonMeritController;
+use App\Http\Controllers\PlannedPairingController;
 use App\Http\Controllers\SalesController;
+use App\Http\Controllers\TestPairingController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -57,6 +62,34 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.saveAncestor');
     Route::delete('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'destroy'])
         ->name('pigeons.removeAncestor');
+    Route::post('pigeons/{pigeon}/merits', [PigeonMeritController::class, 'store'])
+        ->name('pigeons.merits.store');
+    Route::delete('pigeons/{pigeon}/merits/{merit}', [PigeonMeritController::class, 'destroy'])
+        ->name('pigeons.merits.destroy');
+
+    // Merits suggested from race results and offspring
+    Route::post('merit-suggestions/accept', [MeritSuggestionController::class, 'accept'])
+        ->name('merit-suggestions.accept');
+    Route::post('merit-suggestions/dismiss', [MeritSuggestionController::class, 'dismiss'])
+        ->name('merit-suggestions.dismiss');
+
+    // Lineage: descendants, siblings and shared descendants of two birds
+    Route::get('lineage', [LineageController::class, 'index'])
+        ->name('lineage.index');
+    Route::get('lineage/search', [LineageController::class, 'search'])
+        ->name('lineage.search');
+
+    // Test pairing: relationship, inbreeding and proof of a planned cross
+    Route::get('test-pairing', [TestPairingController::class, 'index'])
+        ->name('test-pairing.index');
+
+    // Breeding plan: test pairs saved for next season
+    Route::post('planned-pairings', [PlannedPairingController::class, 'store'])
+        ->name('planned-pairings.store');
+    Route::patch('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'update'])
+        ->name('planned-pairings.update');
+    Route::delete('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'destroy'])
+        ->name('planned-pairings.destroy');
 
     // Bloodlines management API
     Route::get('bloodlines', [BloodlineController::class, 'index'])
@@ -116,120 +149,126 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // OLR Races management
     Route::resource('olr-races', OlrRaceController::class);
     
-    // OLR Seasons
-    Route::get('olr-races/{olr_race}/seasons/create', [OlrSeasonController::class, 'create'])
-        ->name('olr-races.seasons.create');
-    Route::post('olr-races/{olr_race}/seasons', [OlrSeasonController::class, 'store'])
-        ->name('olr-races.seasons.store');
-    Route::get('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'show'])
-        ->name('olr-races.seasons.show');
-    Route::get('olr-races/{olr_race}/seasons/{season}/edit', [OlrSeasonController::class, 'edit'])
-        ->name('olr-races.seasons.edit');
-    Route::patch('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'update'])
-        ->name('olr-races.seasons.update');
-    Route::delete('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'destroy'])
-        ->name('olr-races.seasons.destroy');
+    // Nested OLR routes: each {season}, {race} and {pigeon} must belong to the one before it (404 otherwise)
+    Route::scopeBindings()->group(function () {
+        // OLR Seasons
+        Route::get('olr-races/{olr_race}/seasons/create', [OlrSeasonController::class, 'create'])
+            ->name('olr-races.seasons.create');
+        Route::post('olr-races/{olr_race}/seasons', [OlrSeasonController::class, 'store'])
+            ->name('olr-races.seasons.store');
+        Route::get('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'show'])
+            ->name('olr-races.seasons.show');
+        Route::get('olr-races/{olr_race}/seasons/{season}/edit', [OlrSeasonController::class, 'edit'])
+            ->name('olr-races.seasons.edit');
+        Route::patch('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'update'])
+            ->name('olr-races.seasons.update');
+        Route::delete('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'destroy'])
+            ->name('olr-races.seasons.destroy');
     
-    // OLR Season Entries
-    Route::post('olr-races/{olr_race}/seasons/{season}/entries', [OlrSeasonController::class, 'addEntry'])
-        ->name('olr-races.seasons.entries.store');
-    Route::post('olr-races/{olr_race}/seasons/{season}/entries/bulk', [OlrSeasonController::class, 'addBulkEntries'])
-        ->name('olr-races.seasons.entries.bulk');
-    Route::delete('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'removeEntry'])
-        ->name('olr-races.seasons.entries.destroy');
-    Route::patch('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'updateEntry'])
-        ->name('olr-races.seasons.entries.update');
+        // OLR Season Entries
+        Route::post('olr-races/{olr_race}/seasons/{season}/entries', [OlrSeasonController::class, 'addEntry'])
+            ->name('olr-races.seasons.entries.store');
+        Route::post('olr-races/{olr_race}/seasons/{season}/entries/bulk', [OlrSeasonController::class, 'addBulkEntries'])
+            ->name('olr-races.seasons.entries.bulk');
+        Route::delete('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'removeEntry'])
+            ->name('olr-races.seasons.entries.destroy');
+        Route::patch('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'updateEntry'])
+            ->name('olr-races.seasons.entries.update');
     
-    // OLR Season Races
-    Route::get('olr-races/{olr_race}/seasons/{season}/races/create', [OlrSeasonRaceController::class, 'create'])
-        ->name('olr-races.seasons.races.create');
-    Route::post('olr-races/{olr_race}/seasons/{season}/races', [OlrSeasonRaceController::class, 'store'])
-        ->name('olr-races.seasons.races.store');
-    Route::get('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'show'])
-        ->name('olr-races.seasons.races.show');
-    Route::get('olr-races/{olr_race}/seasons/{season}/races/{race}/edit', [OlrSeasonRaceController::class, 'edit'])
-        ->name('olr-races.seasons.races.edit');
-    Route::patch('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'update'])
-        ->name('olr-races.seasons.races.update');
-    Route::delete('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'destroy'])
-        ->name('olr-races.seasons.races.destroy');
+        // OLR Season Races
+        Route::get('olr-races/{olr_race}/seasons/{season}/races/create', [OlrSeasonRaceController::class, 'create'])
+            ->name('olr-races.seasons.races.create');
+        Route::post('olr-races/{olr_race}/seasons/{season}/races', [OlrSeasonRaceController::class, 'store'])
+            ->name('olr-races.seasons.races.store');
+        Route::get('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'show'])
+            ->name('olr-races.seasons.races.show');
+        Route::get('olr-races/{olr_race}/seasons/{season}/races/{race}/edit', [OlrSeasonRaceController::class, 'edit'])
+            ->name('olr-races.seasons.races.edit');
+        Route::patch('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'update'])
+            ->name('olr-races.seasons.races.update');
+        Route::delete('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'destroy'])
+            ->name('olr-races.seasons.races.destroy');
     
-    // OLR Race Results
-    Route::post('olr-races/{olr_race}/seasons/{season}/races/{race}/results', [OlrSeasonRaceController::class, 'addResult'])
-        ->name('olr-races.seasons.races.results.store');
-    Route::delete('olr-races/{olr_race}/seasons/{season}/races/{race}/results/{pigeon}', [OlrSeasonRaceController::class, 'removeResult'])
-        ->name('olr-races.seasons.races.results.destroy');
-    Route::patch('olr-races/{olr_race}/seasons/{season}/races/{race}/results/{pigeon}', [OlrSeasonRaceController::class, 'updateResult'])
-        ->name('olr-races.seasons.races.results.update');
-    Route::post('olr-races/{olr_race}/seasons/{season}/races/{race}/add-all-entries', [OlrSeasonRaceController::class, 'addAllEntries'])
-        ->name('olr-races.seasons.races.add-all-entries');
+        // OLR Race Results
+        Route::post('olr-races/{olr_race}/seasons/{season}/races/{race}/results', [OlrSeasonRaceController::class, 'addResult'])
+            ->name('olr-races.seasons.races.results.store');
+        Route::delete('olr-races/{olr_race}/seasons/{season}/races/{race}/results/{pigeon}', [OlrSeasonRaceController::class, 'removeResult'])
+            ->name('olr-races.seasons.races.results.destroy');
+        Route::patch('olr-races/{olr_race}/seasons/{season}/races/{race}/results/{pigeon}', [OlrSeasonRaceController::class, 'updateResult'])
+            ->name('olr-races.seasons.races.results.update');
+        Route::post('olr-races/{olr_race}/seasons/{season}/races/{race}/add-all-entries', [OlrSeasonRaceController::class, 'addAllEntries'])
+            ->name('olr-races.seasons.races.add-all-entries');
+    });
 
     // Clubs management
     Route::resource('clubs', ClubController::class);
     
-    // Club Seasons
-    Route::get('clubs/{club}/seasons/create', [ClubSeasonController::class, 'create'])
-        ->name('clubs.seasons.create');
-    Route::post('clubs/{club}/seasons', [ClubSeasonController::class, 'store'])
-        ->name('clubs.seasons.store');
-    Route::get('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'show'])
-        ->name('clubs.seasons.show');
-    Route::get('clubs/{club}/seasons/{season}/edit', [ClubSeasonController::class, 'edit'])
-        ->name('clubs.seasons.edit');
-    Route::patch('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'update'])
-        ->name('clubs.seasons.update');
-    Route::delete('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'destroy'])
-        ->name('clubs.seasons.destroy');
+    // Nested club routes: each {season}, {event}, {race} and {pigeon} must belong to the one before it (404 otherwise)
+    Route::scopeBindings()->group(function () {
+        // Club Seasons
+        Route::get('clubs/{club}/seasons/create', [ClubSeasonController::class, 'create'])
+            ->name('clubs.seasons.create');
+        Route::post('clubs/{club}/seasons', [ClubSeasonController::class, 'store'])
+            ->name('clubs.seasons.store');
+        Route::get('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'show'])
+            ->name('clubs.seasons.show');
+        Route::get('clubs/{club}/seasons/{season}/edit', [ClubSeasonController::class, 'edit'])
+            ->name('clubs.seasons.edit');
+        Route::patch('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'update'])
+            ->name('clubs.seasons.update');
+        Route::delete('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'destroy'])
+            ->name('clubs.seasons.destroy');
     
-    // Club Season Entries
-    Route::post('clubs/{club}/seasons/{season}/entries', [ClubSeasonController::class, 'addEntry'])
-        ->name('clubs.seasons.entries.store');
-    Route::post('clubs/{club}/seasons/{season}/entries/bulk', [ClubSeasonController::class, 'addBulkEntries'])
-        ->name('clubs.seasons.entries.bulk');
-    Route::delete('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'removeEntry'])
-        ->name('clubs.seasons.entries.destroy');
-    Route::patch('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'updateEntry'])
-        ->name('clubs.seasons.entries.update');
+        // Club Season Entries
+        Route::post('clubs/{club}/seasons/{season}/entries', [ClubSeasonController::class, 'addEntry'])
+            ->name('clubs.seasons.entries.store');
+        Route::post('clubs/{club}/seasons/{season}/entries/bulk', [ClubSeasonController::class, 'addBulkEntries'])
+            ->name('clubs.seasons.entries.bulk');
+        Route::delete('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'removeEntry'])
+            ->name('clubs.seasons.entries.destroy');
+        Route::patch('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'updateEntry'])
+            ->name('clubs.seasons.entries.update');
     
-    // Club Season Events
-    Route::post('clubs/{club}/seasons/{season}/events', [ClubSeasonEventController::class, 'store'])
-        ->name('clubs.seasons.events.store');
-    Route::get('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'show'])
-        ->name('clubs.seasons.events.show');
-    Route::patch('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'update'])
-        ->name('clubs.seasons.events.update');
-    Route::delete('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'destroy'])
-        ->name('clubs.seasons.events.destroy');
-    Route::post('clubs/{club}/seasons/{season}/events/{event}/entries', [ClubSeasonEventController::class, 'addEntry'])
-        ->name('clubs.seasons.events.entries.store');
-    Route::post('clubs/{club}/seasons/{season}/events/{event}/entries/bulk', [ClubSeasonEventController::class, 'addBulkEntries'])
-        ->name('clubs.seasons.events.entries.bulk');
-    Route::delete('clubs/{club}/seasons/{season}/events/{event}/entries/{pigeon}', [ClubSeasonEventController::class, 'removeEntry'])
-        ->name('clubs.seasons.events.entries.destroy');
+        // Club Season Events
+        Route::post('clubs/{club}/seasons/{season}/events', [ClubSeasonEventController::class, 'store'])
+            ->name('clubs.seasons.events.store');
+        Route::get('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'show'])
+            ->name('clubs.seasons.events.show');
+        Route::patch('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'update'])
+            ->name('clubs.seasons.events.update');
+        Route::delete('clubs/{club}/seasons/{season}/events/{event}', [ClubSeasonEventController::class, 'destroy'])
+            ->name('clubs.seasons.events.destroy');
+        Route::post('clubs/{club}/seasons/{season}/events/{event}/entries', [ClubSeasonEventController::class, 'addEntry'])
+            ->name('clubs.seasons.events.entries.store');
+        Route::post('clubs/{club}/seasons/{season}/events/{event}/entries/bulk', [ClubSeasonEventController::class, 'addBulkEntries'])
+            ->name('clubs.seasons.events.entries.bulk');
+        Route::delete('clubs/{club}/seasons/{season}/events/{event}/entries/{pigeon}', [ClubSeasonEventController::class, 'removeEntry'])
+            ->name('clubs.seasons.events.entries.destroy');
 
-    // Club Season Races
-    Route::get('clubs/{club}/seasons/{season}/races/create', [ClubSeasonRaceController::class, 'create'])
-        ->name('clubs.seasons.races.create');
-    Route::post('clubs/{club}/seasons/{season}/races', [ClubSeasonRaceController::class, 'store'])
-        ->name('clubs.seasons.races.store');
-    Route::get('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'show'])
-        ->name('clubs.seasons.races.show');
-    Route::get('clubs/{club}/seasons/{season}/races/{race}/edit', [ClubSeasonRaceController::class, 'edit'])
-        ->name('clubs.seasons.races.edit');
-    Route::patch('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'update'])
-        ->name('clubs.seasons.races.update');
-    Route::delete('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'destroy'])
-        ->name('clubs.seasons.races.destroy');
+        // Club Season Races
+        Route::get('clubs/{club}/seasons/{season}/races/create', [ClubSeasonRaceController::class, 'create'])
+            ->name('clubs.seasons.races.create');
+        Route::post('clubs/{club}/seasons/{season}/races', [ClubSeasonRaceController::class, 'store'])
+            ->name('clubs.seasons.races.store');
+        Route::get('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'show'])
+            ->name('clubs.seasons.races.show');
+        Route::get('clubs/{club}/seasons/{season}/races/{race}/edit', [ClubSeasonRaceController::class, 'edit'])
+            ->name('clubs.seasons.races.edit');
+        Route::patch('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'update'])
+            ->name('clubs.seasons.races.update');
+        Route::delete('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'destroy'])
+            ->name('clubs.seasons.races.destroy');
     
-    // Club Race Results
-    Route::post('clubs/{club}/seasons/{season}/races/{race}/results', [ClubSeasonRaceController::class, 'addResult'])
-        ->name('clubs.seasons.races.results.store');
-    Route::delete('clubs/{club}/seasons/{season}/races/{race}/results/{pigeon}', [ClubSeasonRaceController::class, 'removeResult'])
-        ->name('clubs.seasons.races.results.destroy');
-    Route::patch('clubs/{club}/seasons/{season}/races/{race}/results/{pigeon}', [ClubSeasonRaceController::class, 'updateResult'])
-        ->name('clubs.seasons.races.results.update');
-    Route::post('clubs/{club}/seasons/{season}/races/{race}/add-all-entries', [ClubSeasonRaceController::class, 'addAllEntries'])
-        ->name('clubs.seasons.races.add-all-entries');
+        // Club Race Results
+        Route::post('clubs/{club}/seasons/{season}/races/{race}/results', [ClubSeasonRaceController::class, 'addResult'])
+            ->name('clubs.seasons.races.results.store');
+        Route::delete('clubs/{club}/seasons/{season}/races/{race}/results/{pigeon}', [ClubSeasonRaceController::class, 'removeResult'])
+            ->name('clubs.seasons.races.results.destroy');
+        Route::patch('clubs/{club}/seasons/{season}/races/{race}/results/{pigeon}', [ClubSeasonRaceController::class, 'updateResult'])
+            ->name('clubs.seasons.races.results.update');
+        Route::post('clubs/{club}/seasons/{season}/races/{race}/add-all-entries', [ClubSeasonRaceController::class, 'addAllEntries'])
+            ->name('clubs.seasons.races.add-all-entries');
+    });
 });
 
 require __DIR__.'/settings.php';

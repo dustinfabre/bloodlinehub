@@ -19,6 +19,11 @@ class PedigreeAncestor extends Model
         'color',
         'remarks',
         'color_tag_id',
+        'merits',
+    ];
+
+    protected $casts = [
+        'merits' => 'array',
     ];
 
     public function pigeon(): BelongsTo

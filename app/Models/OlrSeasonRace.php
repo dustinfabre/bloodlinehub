@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RaceType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +12,8 @@ class OlrSeasonRace extends Model
     protected $fillable = [
         'olr_season_id',
         'name',
+        'race_type',
+        'birds_released',
         'release_point',
         'distance',
         'distance_unit',
@@ -24,6 +27,8 @@ class OlrSeasonRace extends Model
     protected $casts = [
         'race_date' => 'date',
         'distance' => 'decimal:2',
+        'race_type' => RaceType::class,
+        'birds_released' => 'integer',
     ];
 
     public function season(): BelongsTo
@@ -36,6 +41,14 @@ class OlrSeasonRace extends Model
         return $this->belongsToMany(Pigeon::class, 'olr_race_results')
             ->withPivot('id', 'position', 'arrival_time', 'speed', 'notes', 'did_not_arrive')
             ->withTimestamps();
+    }
+
+    /**
+     * Same as results(). Nested routes use it to resolve {pigeon} only among birds with a result in this race (scoped route bindings).
+     */
+    public function pigeons(): BelongsToMany
+    {
+        return $this->results();
     }
 
     public function getArrivedCountAttribute(): int

@@ -17,6 +17,7 @@ import {
     show as showRoute,
 } from '@/routes/pigeons';
 import { type BreadcrumbItem } from '@/types';
+import type { MeritLevelOption, MeritTypeOption } from '@/types/lineage';
 import type {
     AncestorTarget,
     PedigreeNode,
@@ -44,6 +45,8 @@ const props = defineProps<{
     tree: PedigreeNode;
     colorTags: ColorTag[];
     colors: string[];
+    meritTypes: MeritTypeOption[];
+    meritLevels: MeritLevelOption[];
 }>();
 
 const pigeonLabel = computed(
@@ -270,6 +273,8 @@ const openEditor = (target: AncestorTarget | null) => {
             :target="activeTarget"
             :color-tags="colorTags"
             :colors="colors"
+            :merit-types="meritTypes"
+            :merit-levels="meritLevels"
         />
     </AppLayout>
 </template>
