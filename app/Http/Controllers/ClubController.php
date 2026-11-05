@@ -29,11 +29,13 @@ class ClubController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->normalizeWebsite($request);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', 'max:255'],
-            'website' => ['nullable', 'string', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255', 'url:http,https'],
             'description' => ['nullable', 'string'],
             'status' => ['required', 'string', 'in:active,inactive'],
         ]);
@@ -73,11 +75,13 @@ class ClubController extends Controller
     {
         abort_if($club->user_id !== auth()->id(), 403);
 
+        $this->normalizeWebsite($request);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', 'max:255'],
-            'website' => ['nullable', 'string', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255', 'url:http,https'],
             'description' => ['nullable', 'string'],
             'status' => ['required', 'string', 'in:active,inactive'],
         ]);

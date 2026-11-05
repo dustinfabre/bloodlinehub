@@ -30,6 +30,7 @@ Route::get('/', fn () => Inertia::render('Welcome'))
     ->name('home');
 // Public marketplace (no auth required)
 Route::get('marketplace', [MarketplaceController::class, 'index'])
+    ->middleware('throttle:60,1')
     ->name('marketplace.index');
 // Shared pedigree (QR code target); private pedigrees are only visible to their owner or with the share password
 Route::get('p/{serial}', [PedigreeController::class, 'shared'])

@@ -5,12 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import InputError from '@/components/InputError.vue';
+import { index as marketplaceIndex } from '@/routes/marketplace';
 import { index as salesIndex, store as salesStore, destroy as salesDestroy } from '@/routes/sales';
 import { useToast } from '@/composables/useToast';
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';
-import { Plus, X, DollarSign } from 'lucide-vue-next';
+import { Plus, X, DollarSign, ExternalLink } from 'lucide-vue-next';
 
 interface ParentSummary {
     id: number;
@@ -25,7 +27,7 @@ interface Pigeon {
     ring_number: string | null;
     personal_number: string | null;
     color: string | null;
-    photos: string[] | null;
+    photo_url: string | null;
     sire: ParentSummary | null;
     dam: ParentSummary | null;
 }
@@ -36,6 +38,7 @@ interface Sale {
     hide_price: boolean;
     description: string | null;
     additional_photos: string[] | null;
+    contact: string | null;
     created_at: string;
     pigeon: {
         id: number;
@@ -44,7 +47,7 @@ interface Sale {
         ring_number: string | null;
         personal_number: string | null;
         color: string | null;
-        photos: string[] | null;
+        photo_url: string | null;
     };
 }
 
@@ -71,12 +74,18 @@ const form = useForm({
     price: '',
     hide_price: false,
     description: '',
+    contact: '',
     additional_photos: [] as string[],
 });
 
+// First error on any photo line, e.g. "additional_photos.1"
+const photoError = () =>
+    form.errors.additional_photos ??
+    Object.entries(form.errors).find(([key]) => key.startsWith('additional_photos.'))?.[1];
+
 const photosText = ref('');
 
-const pigeonLabel = (pigeon: Pigeon) =>
+const pigeonLabel = (pigeon: Pick<Pigeon, 'id' | 'name' | 'ring_number' | 'personal_number'>) =>
     pigeon.name || pigeon.ring_number || pigeon.personal_number || `Pigeon #${pigeon.id}`;
 
 const selectPigeon = (pigeonId: number) => {
@@ -136,9 +145,16 @@ const formatPrice = (price: string | null) => {
                         Sales Management
                     </h1>
                     <p class="mt-1 text-sm text-muted-foreground">
-                        Add your pigeons to sales and manage active listings
+                        Add your pigeons to sales and manage active listings.
+                        Active listings appear on the public marketplace.
                     </p>
                 </div>
+                <Button variant="outline" size="sm" as-child>
+                    <Link :href="marketplaceIndex().url">
+                        <ExternalLink class="mr-2 h-4 w-4" />
+                        View marketplace
+                    </Link>
+                </Button>
             </div>
 
             <!-- Active Sales -->
@@ -177,6 +193,9 @@ const formatPrice = (price: string | null) => {
                                 </div>
                                 <p v-if="sale.description" class="text-sm text-muted-foreground line-clamp-2">
                                     {{ sale.description }}
+                                </p>
+                                <p v-if="sale.contact" class="text-sm">
+                                    <span class="text-muted-foreground">Contact:</span> {{ sale.contact }}
                                 </p>
                             </CardContent>
                         </Card>
@@ -231,6 +250,7 @@ const formatPrice = (price: string | null) => {
                         </div>
 
                         <form @submit.prevent="submitSale" class="space-y-4">
+                            <InputError :message="form.errors.pigeon_id" />
                             <div class="grid gap-4 md:grid-cols-2">
                                 <div class="space-y-2">
                                     <Label for="price">Sale Price ($)</Label>
@@ -242,6 +262,7 @@ const formatPrice = (price: string | null) => {
                                         min="0"
                                         placeholder="0.00"
                                     />
+                                    <InputError :message="form.errors.price" />
                                 </div>
                                 <div class="flex items-end space-y-2">
                                     <label class="flex items-center space-x-2">
@@ -265,6 +286,21 @@ const formatPrice = (price: string | null) => {
                                     class="min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground"
                                     placeholder="Describe the pigeon's qualities, achievements, breeding potential..."
                                 />
+                                <InputError :message="form.errors.description" />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="contact">How buyers can reach you</Label>
+                                <Input
+                                    id="contact"
+                                    v-model="form.contact"
+                                    maxlength="255"
+                                    placeholder="e.g. 0917 123 4567 or facebook.com/yourloft"
+                                />
+                                <p class="text-xs text-muted-foreground">
+                                    Shown publicly on the marketplace. Your account email is never shown.
+                                </p>
+                                <InputError :message="form.errors.contact" />
                             </div>
 
                             <div class="space-y-2">
@@ -276,7 +312,8 @@ const formatPrice = (price: string | null) => {
                                     class="min-h-[96px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] placeholder:text-muted-foreground"
                                     placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg"
                                 />
-                                <p class="text-xs text-muted-foreground">One URL per line</p>
+                                <p class="text-xs text-muted-foreground">One URL per line, up to 6, each starting with https://</p>
+                                <InputError :message="photoError()" />
                             </div>
 
                             <div class="flex gap-2">

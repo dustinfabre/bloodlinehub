@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -61,7 +62,7 @@ class PedigreeController extends Controller
                 Rule::requiredIf(fn () => $request->input('visibility') === 'password' && $pedigree->password === null),
                 'nullable',
                 'string',
-                'min:4',
+                'min:8',
                 'max:64',
             ],
             'expires' => ['required_if:visibility,password', 'nullable', Rule::in([...array_keys(self::PASSWORD_DURATIONS), 'custom'])],
@@ -141,7 +142,24 @@ class PedigreeController extends Controller
             'password' => ['required', 'string', 'max:64'],
         ]);
 
+        // Wrong guesses are also limited per pedigree, whatever address they come from (the route limit is per visitor)
+        $limits = $this->unlockLimits($pedigree);
+
+        foreach ($limits as [$key, $maxAttempts]) {
+            if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+                $minutes = (int) ceil(RateLimiter::availableIn($key) / 60);
+
+                throw ValidationException::withMessages([
+                    'password' => "Too many wrong passwords for this pedigree. Try again in {$minutes} ".($minutes === 1 ? 'minute.' : 'minutes.'),
+                ]);
+            }
+        }
+
         if (! $pedigree->hasActivePassword() || ! Hash::check($validated['password'], $pedigree->password)) {
+            foreach ($limits as [$key, , $decaySeconds]) {
+                RateLimiter::hit($key, $decaySeconds);
+            }
+
             throw ValidationException::withMessages([
                 'password' => 'That password is not correct.',
             ]);
@@ -150,6 +168,19 @@ class PedigreeController extends Controller
         $request->session()->put($this->accessKey($pedigree), $pedigree->accessToken());
 
         return redirect()->route('pedigrees.shared', $pedigree->serial);
+    }
+
+    /**
+     * Failed-attempt windows for one pedigree: 10 per 15 minutes and 50 per day.
+     *
+     * @return list<array{0: string, 1: int, 2: int}> [limiter key, max failed attempts, window in seconds]
+     */
+    private function unlockLimits(Pedigree $pedigree): array
+    {
+        return [
+            ["pedigree-unlock:{$pedigree->id}:15m", 10, 15 * 60],
+            ["pedigree-unlock:{$pedigree->id}:day", 50, 24 * 60 * 60],
+        ];
     }
 
     private function findBySerial(string $serial): Pedigree

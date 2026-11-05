@@ -61,6 +61,32 @@ class Pigeon extends Model
         'dam_merits' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        // While a parent is linked, {side}_notes on its offspring are private notes about it. Once the parent is
+        // gone those fields would be read as the remarks of an external parent and shown on the pedigree, so move
+        // them into each offspring's private notes first.
+        static::deleting(function (Pigeon $parent) {
+            foreach (['sire', 'dam'] as $side) {
+                $children = self::query()
+                    ->where("{$side}_id", $parent->id)
+                    ->whereNotNull("{$side}_notes")
+                    ->where("{$side}_notes", '!=', '')
+                    ->get(['id', 'notes', "{$side}_notes"]);
+
+                foreach ($children as $child) {
+                    $label = $parent->ring_number ?: $parent->name ?: "#{$parent->id}";
+                    $moved = "Notes about former {$side} {$label} (removed from the loft):\n".$child->{"{$side}_notes"};
+
+                    self::whereKey($child->id)->update([
+                        'notes' => trim(($child->notes ? $child->notes."\n\n" : '').$moved),
+                        "{$side}_notes" => null,
+                    ]);
+                }
+            }
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

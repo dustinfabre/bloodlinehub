@@ -127,7 +127,7 @@ class OlrSeasonRaceController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'pigeon_id' => ['required', 'exists:pigeons,id'],
+            'pigeon_id' => ['required', Rule::exists('pigeons', 'id')->where('user_id', auth()->id())],
             'position' => ['nullable', 'integer', 'min:1'],
             'arrival_time' => ['nullable', 'date_format:H:i:s'],
             'speed' => ['nullable', 'numeric', 'min:0'],

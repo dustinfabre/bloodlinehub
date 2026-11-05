@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeHttpUrl } from '@/lib/utils';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,9 +116,10 @@ const handleDelete = () => {
                                 Website
                             </dt>
                             <dd class="mt-1 text-sm">
-                                <a :href="olrRace.website" target="_blank" class="text-primary hover:underline">
+                                <a v-if="safeHttpUrl(olrRace.website)" :href="safeHttpUrl(olrRace.website)" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">
                                     {{ olrRace.website }}
                                 </a>
+                                <span v-else class="truncate">{{ olrRace.website }}</span>
                             </dd>
                         </div>
                     </dl>

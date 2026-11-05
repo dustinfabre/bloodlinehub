@@ -43,6 +43,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Load balancer / CDN addresses whose X-Forwarded-* headers are trusted for
+    | the visitor's IP: comma-separated, or "*" when the app is only reachable
+    | through the proxy. Empty means forwarded headers are ignored.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

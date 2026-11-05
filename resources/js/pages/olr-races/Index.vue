@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { safeHttpUrl } from '@/lib/utils';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,9 +93,10 @@ const handleDelete = (race: OlrRace) => {
                             </div>
                             <div v-if="race.website" class="flex items-center gap-2">
                                 <Globe class="h-4 w-4" />
-                                <a :href="race.website" target="_blank" class="text-primary hover:underline truncate">
+                                <a v-if="safeHttpUrl(race.website)" :href="safeHttpUrl(race.website)" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline truncate">
                                     {{ race.website }}
                                 </a>
+                                <span v-else class="truncate">{{ race.website }}</span>
                             </div>
                             <div class="flex items-center gap-2 pt-2 border-t">
                                 <span class="font-medium text-foreground">{{ race.seasons_count }}</span>

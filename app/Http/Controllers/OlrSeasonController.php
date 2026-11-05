@@ -9,6 +9,7 @@ use App\Models\Pigeon;
 use App\Services\Merits\MeritSuggester;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,7 +44,7 @@ class OlrSeasonController extends Controller
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'status' => ['required', 'string', 'in:active,completed,cancelled'],
             'pigeon_ids' => ['nullable', 'array'],
-            'pigeon_ids.*' => ['exists:pigeons,id'],
+            'pigeon_ids.*' => [Rule::exists('pigeons', 'id')->where('user_id', auth()->id())],
         ]);
 
         $season = $olrRace->seasons()->create([
@@ -142,7 +143,7 @@ class OlrSeasonController extends Controller
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'pigeon_id' => ['required', 'exists:pigeons,id'],
+            'pigeon_id' => ['required', Rule::exists('pigeons', 'id')->where('user_id', auth()->id())],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -177,7 +178,7 @@ class OlrSeasonController extends Controller
 
         $validated = $request->validate([
             'pigeon_ids' => ['required', 'array'],
-            'pigeon_ids.*' => ['exists:pigeons,id'],
+            'pigeon_ids.*' => [Rule::exists('pigeons', 'id')->where('user_id', auth()->id())],
         ]);
 
         // Verify all pigeons belong to the user

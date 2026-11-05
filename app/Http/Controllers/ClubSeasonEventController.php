@@ -8,6 +8,7 @@ use App\Models\ClubSeasonEvent;
 use App\Models\Pigeon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -83,11 +84,12 @@ class ClubSeasonEventController extends Controller
         abort_if($club->user_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'pigeon_id' => ['required', 'exists:pigeons,id'],
+            'pigeon_id' => ['required', Rule::exists('pigeons', 'id')->where('user_id', auth()->id())],
         ]);
 
-        $pigeon = Pigeon::where('id', $validated['pigeon_id'])
-            ->where('user_id', auth()->id())
+        // Only birds entered in this season can go into its events
+        $pigeon = $season->entries()
+            ->where('pigeons.id', $validated['pigeon_id'])
             ->firstOrFail();
 
         if (!$event->entries()->where('pigeon_id', $pigeon->id)->exists()) {
@@ -103,12 +105,13 @@ class ClubSeasonEventController extends Controller
 
         $validated = $request->validate([
             'pigeon_ids' => ['required', 'array'],
-            'pigeon_ids.*' => ['exists:pigeons,id'],
+            'pigeon_ids.*' => [Rule::exists('pigeons', 'id')->where('user_id', auth()->id())],
         ]);
 
-        $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
-            ->where('user_id', auth()->id())
-            ->pluck('id');
+        // Only birds entered in this season can go into its events
+        $pigeons = $season->entries()
+            ->whereIn('pigeons.id', $validated['pigeon_ids'])
+            ->pluck('pigeons.id');
 
         foreach ($pigeons as $pigeonId) {
             if (!$event->entries()->where('pigeon_id', $pigeonId)->exists()) {

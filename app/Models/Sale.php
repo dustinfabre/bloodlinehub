@@ -14,6 +14,7 @@ class Sale extends Model
         'hide_price',
         'description',
         'additional_photos',
+        'contact',
         'status',
         'sold_at',
     ];

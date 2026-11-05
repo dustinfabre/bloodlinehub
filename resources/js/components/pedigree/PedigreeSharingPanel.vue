@@ -266,7 +266,7 @@ const showLink = computed(() => props.sharing.visibility !== 'private');
                             :placeholder="
                                 sharing.has_password
                                     ? 'Leave blank to keep the current password'
-                                    : 'At least 4 characters'
+                                    : 'At least 8 characters'
                             "
                         />
                         <InputError :message="form.errors.password" />

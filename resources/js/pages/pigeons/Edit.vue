@@ -684,7 +684,7 @@ const submit = (event?: SubmitEvent) => {
                                         <InputError :message="form.errors.sire_color_tag_id" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label v-if="sireFieldsReadonly" for="sire_notes">Sire notes</Label>
+                                        <Label v-if="sireFieldsReadonly" for="sire_notes">Sire notes <span class="font-normal text-muted-foreground">(private)</span></Label>
                                         <Label v-else for="sire_notes">Sire remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="sire_notes" v-model="form.sire_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
                                         <p class="text-xs text-muted-foreground">{{ sireFieldsReadonly ? "The pedigree shows the linked sire's own remarks." : 'Race results or key traits of this external sire.' }}</p>
@@ -763,7 +763,7 @@ const submit = (event?: SubmitEvent) => {
                                         <InputError :message="form.errors.dam_color_tag_id" />
                                     </div>
                                     <div class="grid gap-2">
-                                        <Label v-if="damFieldsReadonly" for="dam_notes">Dam notes</Label>
+                                        <Label v-if="damFieldsReadonly" for="dam_notes">Dam notes <span class="font-normal text-muted-foreground">(private)</span></Label>
                                         <Label v-else for="dam_notes">Dam remarks <span class="font-normal text-muted-foreground">(shown on pedigree)</span></Label>
                                         <textarea id="dam_notes" v-model="form.dam_notes" rows="3" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 placeholder:text-muted-foreground" />
                                         <p class="text-xs text-muted-foreground">{{ damFieldsReadonly ? "The pedigree shows the linked dam's own remarks." : 'Race results or key traits of this external dam.' }}</p>

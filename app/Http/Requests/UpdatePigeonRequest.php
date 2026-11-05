@@ -61,9 +61,9 @@ class UpdatePigeonRequest extends FormRequest
             'personal_number' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
-            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
             'pedigree_images' => ['nullable', 'array', 'max:2'],
-            'pedigree_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'pedigree_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
             'remove_photo' => ['nullable', 'boolean'],
             'remove_pedigree' => ['nullable', 'array'],
             'remove_pedigree.*' => ['string'],
@@ -122,6 +122,17 @@ class UpdatePigeonRequest extends FormRequest
             'nullable',
             'integer',
             Rule::exists('color_tags', 'id')->where(fn ($query) => $query->where('user_id', $this->user()?->id ?? 0)),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'photo.dimensions' => 'The photo can be at most 8000 × 8000 pixels.',
+            'pedigree_images.*.dimensions' => 'Pedigree images can be at most 8000 × 8000 pixels.',
         ];
     }
 }
