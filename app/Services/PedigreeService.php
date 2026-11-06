@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
+use App\Models\User;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -31,7 +32,6 @@ class PedigreeService
     public function chart(Pigeon $pigeon, bool $public = false): array
     {
         $pedigree = $pigeon->pedigreeRecord();
-        $profile = $pigeon->user->breederProfile;
         $shareUrl = route('pedigrees.shared', $pedigree->serial);
 
         return [
@@ -42,23 +42,82 @@ class PedigreeService
                 'visibility' => $pedigree->visibility(),
                 'share_url' => $shareUrl,
                 'qr_svg' => $this->qrSvg($shareUrl),
-                'breeder' => $profile?->display_name ?: $pigeon->user->name,
-                // Only the details the breeder chose to show; never the account email
-                'contact' => $profile?->pedigreeContact() ?? ['phone' => null, 'email' => null, 'address' => null],
+                ...$this->breeder($pigeon->user),
                 'photo_url' => $pigeon->photo_url,
                 'generated_at' => now()->toDateString(),
             ],
         ];
     }
 
-    public function tree(Pigeon $subject, bool $public = false): array
+    /**
+     * Props for a sample chart of a youngster from $sire × $dam (Test Pairing): the pedigree it would have,
+     * built from the parents' own pedigrees. Owner view only; it has no serial, share link or QR code.
+     * Both birds must belong to $breeder.
+     */
+    public function sampleChart(User $breeder, Pigeon $sire, Pigeon $dam): array
+    {
+        $tree = [
+            'id' => null,
+            'external' => false,
+            'anchor_id' => null,
+            'path' => null,
+            'name' => 'Youngster',
+            'ring_number' => null,
+            'color' => null,
+            'gender' => null,
+            'hatch_date' => null,
+            'bloodline' => null,
+            'remarks' => null,
+            'merits' => [],
+            'sire' => $this->tree($sire, generations: self::GENERATIONS - 1),
+            'dam' => $this->tree($dam, generations: self::GENERATIONS - 1),
+        ];
+
+        // The youngster's bloodline: the parents' shared line, or both
+        $lines = array_values(array_unique(array_filter([$tree['sire']['bloodline'], $tree['dam']['bloodline']])));
+        $tree['bloodline'] = $lines ? implode(' × ', $lines) : null;
+
+        return [
+            'tree' => $tree,
+            'meta' => [
+                'serial' => 'SAMPLE',
+                'is_public' => false,
+                'visibility' => 'private',
+                'share_url' => '',
+                'qr_svg' => '',
+                ...$this->breeder($breeder),
+                'photo_url' => null,
+                'generated_at' => now()->toDateString(),
+            ],
+        ];
+    }
+
+    /**
+     * The breeder name and the contact details the breeder chose to show; never the account email.
+     *
+     * @return array{breeder: string, contact: array{phone: ?string, email: ?string, address: ?string}}
+     */
+    private function breeder(User $user): array
+    {
+        $profile = $user->breederProfile;
+
+        return [
+            'breeder' => $profile?->display_name ?: $user->name,
+            'contact' => $profile?->pedigreeContact() ?? ['phone' => null, 'email' => null, 'address' => null],
+        ];
+    }
+
+    /**
+     * The pedigree of $subject: the bird and $generations - 1 generations of ancestors.
+     */
+    public function tree(Pigeon $subject, bool $public = false, int $generations = self::GENERATIONS): array
     {
         $subject->loadMissing(self::RELATIONS);
         $loaded = [$subject->id => $subject];
         $frontier = [$subject];
 
         // Load ancestors one generation per query rather than one query per bird
-        for ($generation = 1; $generation < self::GENERATIONS && $frontier; $generation++) {
+        for ($generation = 1; $generation < $generations && $frontier; $generation++) {
             $ids = collect($frontier)
                 ->flatMap(fn (Pigeon $pigeon) => [$pigeon->sire_id, $pigeon->dam_id])
                 ->filter(fn ($id) => $id && ! isset($loaded[$id]))
@@ -76,7 +135,7 @@ class PedigreeService
             }
         }
 
-        return $this->node($subject, $loaded, self::GENERATIONS - 1, $public);
+        return $this->node($subject, $loaded, $generations - 1, $public);
     }
 
     /**

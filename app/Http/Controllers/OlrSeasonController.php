@@ -21,7 +21,7 @@ class OlrSeasonController extends Controller
 
         // Get available pigeons (not deceased, missing, or flyaway), in the standard pigeon search format (see CLAUDE.md)
         $availablePigeons = Pigeon::where('user_id', auth()->id())
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->inLoft()
             ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('ring_number')
             ->orderBy('personal_number')
@@ -86,7 +86,7 @@ class OlrSeasonController extends Controller
 
         // Get available pigeons (not already entered in this season), in the standard pigeon search format
         $availablePigeons = Pigeon::where('user_id', auth()->id())
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->inLoft()
             ->whereNotIn('id', $season->entries->pluck('id'))
             ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('ring_number')

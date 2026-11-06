@@ -32,10 +32,14 @@ class PedigreeController extends Controller
     {
         $this->ensureOwner($request, $pigeon);
 
+        $profile = $pigeon->user->breederProfile;
+
         return Inertia::render('pigeons/Pedigree', [
             'pigeon' => $this->summary($pigeon),
             ...$this->pedigrees->chart($pigeon),
             'sharing' => $this->sharing($pigeon->pedigreeRecord()),
+            // Whether any phone, email or address has been entered (shown or not), to prompt breeders who haven't
+            'hasContactDetails' => filled($profile?->phone) || filled($profile?->email) || filled($profile?->address),
         ]);
     }
 

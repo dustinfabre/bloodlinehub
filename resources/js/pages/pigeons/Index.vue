@@ -13,7 +13,7 @@ import { type BreadcrumbItem } from '@/types';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
 import type { PigeonSearchItem } from '@/types/pigeon-search';
-import MultiSelectFilter, { type FilterOption } from '@/components/MultiSelectFilter.vue';
+import MultiSelectFilter, { type FilterOption, type FilterPreset } from '@/components/MultiSelectFilter.vue';
 import MeritBadge from '@/components/MeritBadge.vue';
 import { byImportance, topMerit } from '@/lib/merits';
 import type { Merit, MeritTypeOption } from '@/types/lineage';
@@ -108,6 +108,8 @@ const props = defineProps<{
     sorts: { value: string; label: string }[];
     colors: string[];
     parentOptions: { sires: ParentPigeon[]; dams: ParentPigeon[] };
+    // In stock, racing, breeding and injured: the list shows these unless another status filter is picked
+    inLoftStatuses: string[];
     filters: {
         search?: string | null;
         status: string[];
@@ -134,6 +136,14 @@ const statusOptions: FilterOption[] = [
     { value: 'flyaway', label: 'Flyaway', dotClass: 'bg-amber-500' },
     { value: 'missing', label: 'Missing', dotClass: 'bg-purple-500' },
 ];
+
+const statusPresets = computed<FilterPreset[]>(() => [
+    { label: 'In the loft', values: props.inLoftStatuses },
+    {
+        label: 'No longer in the loft',
+        values: statusOptions.map((option) => option.value).filter((value) => !props.inLoftStatuses.includes(value)),
+    },
+]);
 
 const bloodlineOptions = computed<FilterOption[]>(() =>
     props.bloodlines.map((line) => ({ value: String(line.id), label: line.name })),
@@ -172,9 +182,17 @@ const perPage = ref(String(props.filters.per_page));
 const sort = ref(props.filters.sort || 'recent');
 const isFiltering = ref(false);
 
+// The default view: birds in the loft (deceased, flyaway and missing birds are left out)
+const showingInLoft = computed(
+    () =>
+        statuses.value.length === props.inLoftStatuses.length &&
+        props.inLoftStatuses.every((status) => statuses.value.includes(status)),
+);
+
 const filterParams = () => ({
     search: search.value.trim() || undefined,
-    status: statuses.value.length ? statuses.value : undefined,
+    // No status in the URL means "in the loft"; an empty selection means every status
+    status: showingInLoft.value ? undefined : statuses.value.length ? statuses.value : 'all',
     bloodline: bloodlineIds.value.length ? bloodlineIds.value : undefined,
     location: locationIds.value.length ? locationIds.value : undefined,
     merit: meritValues.value.length ? meritValues.value : undefined,
@@ -209,7 +227,7 @@ watch([statuses, bloodlineIds, locationIds, meritValues, genders, perPage, sort]
 const activeFilterCount = computed(
     () =>
         (search.value.trim() ? 1 : 0) +
-        statuses.value.length +
+        (showingInLoft.value ? 0 : Math.max(statuses.value.length, 1)) +
         bloodlineIds.value.length +
         locationIds.value.length +
         meritValues.value.length +
@@ -221,7 +239,7 @@ const panelFilterCount = computed(() => activeFilterCount.value - (search.value.
 
 const clearFilters = () => {
     search.value = '';
-    statuses.value = [];
+    statuses.value = [...props.inLoftStatuses];
     bloodlineIds.value = [];
     locationIds.value = [];
     meritValues.value = [];
@@ -561,6 +579,7 @@ const submitQuickAdd = () => {
                                 id="filter-status"
                                 v-model="statuses"
                                 :options="statusOptions"
+                                :presets="statusPresets"
                                 placeholder="All statuses"
                             />
                         </div>
@@ -647,9 +666,17 @@ const submitQuickAdd = () => {
                             </SelectContent>
                         </Select>
                         <span class="text-sm text-muted-foreground">
-                            of {{ pigeons.total }} pigeons
+                            of {{ pigeons.total }} {{ showingInLoft ? 'pigeons in the loft' : 'pigeons' }}
                         </span>
                     </div>
+                    <button
+                        v-if="showingInLoft"
+                        type="button"
+                        class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        @click="statuses = []"
+                    >
+                        Include deceased, flyaway and missing
+                    </button>
                 </div>
                 
                 <div class="text-sm text-muted-foreground">

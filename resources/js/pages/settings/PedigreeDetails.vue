@@ -64,7 +64,7 @@ const submit = () => {
             <div class="flex flex-col space-y-6">
                 <HeadingSmall
                     title="Pedigree details"
-                    description="Your breeder details on every pedigree: on screen, in downloads and when printed."
+                    description="Your loft name, phone number, email and address on every pedigree: on screen, in downloads and when printed."
                 />
 
                 <form class="space-y-6" @submit.prevent="submit">

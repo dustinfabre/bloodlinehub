@@ -24,6 +24,8 @@ const props = defineProps<{
     selected: Selected | null;
     gender?: 'male' | 'female';
     placeholder?: string;
+    // Only offer birds in the loft (not deceased, flyaway or missing)
+    inLoft?: boolean;
 }>();
 
 const emit = defineEmits<{ select: [pigeon: PickerPigeon]; clear: [] }>();
@@ -56,7 +58,11 @@ const load = async () => {
     loading.value = true;
     try {
         const { data } = await axios.get(searchRoute().url, {
-            params: { q: query.value || undefined, gender: props.gender },
+            params: {
+                q: query.value || undefined,
+                gender: props.gender,
+                in_loft: props.inLoft ? 1 : undefined,
+            },
         });
         // Ignore responses that arrive after a newer search
         if (current !== requestId) return;

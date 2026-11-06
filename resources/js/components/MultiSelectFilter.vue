@@ -17,6 +17,12 @@ export interface FilterOption {
     dotColor?: string;
 }
 
+// A named selection offered as a one-click shortcut; the trigger shows its label while it is selected
+export interface FilterPreset {
+    label: string;
+    values: string[];
+}
+
 const props = withDefaults(
     defineProps<{
         id?: string;
@@ -25,9 +31,10 @@ const props = withDefaults(
         // Show a search box inside the list; defaults to on for long lists
         searchable?: boolean;
         emptyText?: string;
+        presets?: FilterPreset[];
         class?: string;
     }>(),
-    { searchable: undefined, emptyText: 'No options' },
+    { searchable: undefined, emptyText: 'No options', presets: () => [] },
 );
 
 const model = defineModel<string[]>({ default: () => [] });
@@ -50,7 +57,17 @@ const selectedLabels = computed(() =>
         .map((o) => o.label),
 );
 
+const activePreset = computed(
+    () =>
+        props.presets.find(
+            (preset) =>
+                preset.values.length === model.value.length &&
+                preset.values.every((value) => model.value.includes(value)),
+        ) ?? null,
+);
+
 const triggerText = computed(() => {
+    if (activePreset.value) return activePreset.value.label;
     if (selectedLabels.value.length === 0) return props.placeholder;
     if (selectedLabels.value.length <= 2)
         return selectedLabels.value.join(', ');
@@ -88,7 +105,7 @@ watch(open, (isOpen) => {
                 >
                 <span class="flex shrink-0 items-center gap-1">
                     <span
-                        v-if="model.length > 2"
+                        v-if="model.length > 2 && !activePreset"
                         class="rounded-full bg-primary px-1.5 text-[10px] leading-4 font-semibold text-primary-foreground"
                     >
                         {{ model.length }}
@@ -111,6 +128,26 @@ watch(open, (isOpen) => {
                     placeholder="Search..."
                     class="h-9 w-full bg-transparent pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground"
                 />
+            </div>
+            <div
+                v-if="presets.length"
+                class="flex flex-wrap gap-1 border-b p-1"
+            >
+                <button
+                    v-for="preset in presets"
+                    :key="preset.label"
+                    type="button"
+                    :aria-pressed="activePreset === preset"
+                    class="rounded-sm px-2 py-1 text-xs outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent"
+                    :class="
+                        activePreset === preset
+                            ? 'bg-accent font-medium text-foreground'
+                            : 'text-muted-foreground'
+                    "
+                    @click="model = [...preset.values]"
+                >
+                    {{ preset.label }}
+                </button>
             </div>
             <div
                 class="max-h-64 overflow-y-auto p-1"

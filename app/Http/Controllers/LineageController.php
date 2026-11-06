@@ -55,7 +55,8 @@ class LineageController extends Controller
     }
 
     /**
-     * Bird picker search (JSON). Optional gender narrows to that gender plus birds with no gender recorded.
+     * Bird picker search (JSON). Optional gender narrows to that gender plus birds with no gender recorded;
+     * in_loft leaves out deceased, flyaway and missing birds (e.g. when choosing birds to pair).
      */
     public function search(Request $request): JsonResponse
     {
@@ -65,6 +66,7 @@ class LineageController extends Controller
 
         $pigeons = Pigeon::query()
             ->where('user_id', $request->user()->id)
+            ->when($request->boolean('in_loft'), fn ($q) => $q->inLoft())
             ->when($gender, fn ($q) => $q->where(fn ($g) => $g->where('gender', $gender)->orWhereNull('gender')))
             ->when($term !== '', fn ($q) => $q->where(fn ($s) => $s
                 ->where('ring_number', $likeOp, "%{$term}%")

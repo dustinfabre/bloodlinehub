@@ -15,9 +15,10 @@ class SalesController extends Controller
     {
         $userId = $request->user()->id;
 
-        // Get user's pigeons that are not already in active sales, in the standard pigeon search format (see CLAUDE.md)
+        // The user's birds in the loft that are not already in active sales, in the standard pigeon search format (see CLAUDE.md)
         $availablePigeons = Pigeon::query()
             ->where('user_id', $userId)
+            ->inLoft()
             ->whereNotIn('id', function ($query) use ($userId) {
                 $query->select('pigeon_id')
                     ->from('sales')

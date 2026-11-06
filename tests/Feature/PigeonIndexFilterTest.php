@@ -61,6 +61,38 @@ class PigeonIndexFilterTest extends TestCase
         $this->assertSame(['R-3'], $this->ringsFor(['status' => 'stock']));
     }
 
+    public function test_the_list_shows_birds_in_the_loft_by_default(): void
+    {
+        foreach (Pigeon::STATUSES as $status) {
+            $this->pigeon(strtoupper($status), ['status' => $status]);
+        }
+
+        $this->assertSame(['BREEDING', 'INJURED', 'RACING', 'STOCK'], $this->ringsFor([]));
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.status', ['stock', 'racing', 'breeding', 'injured'])
+                ->where('inLoftStatuses', ['stock', 'racing', 'breeding', 'injured'])
+                ->where('pigeons.total', 4)
+            );
+    }
+
+    public function test_gone_birds_can_still_be_listed(): void
+    {
+        $this->pigeon('R-1', ['status' => 'racing']);
+        $this->pigeon('R-2', ['status' => 'deceased']);
+        $this->pigeon('R-3', ['status' => 'missing']);
+        $this->pigeon('R-4', ['status' => 'flyaway']);
+
+        $this->assertSame(['R-1', 'R-2', 'R-3', 'R-4'], $this->ringsFor(['status' => 'all']));
+        $this->assertSame(['R-2', 'R-4'], $this->ringsFor(['status' => ['deceased', 'flyaway']]));
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.index', ['status' => 'all']))
+            ->assertInertia(fn (Assert $page) => $page->where('filters.status', []));
+    }
+
     public function test_unknown_status_values_are_ignored(): void
     {
         $this->pigeon('R-1', ['status' => 'racing']);

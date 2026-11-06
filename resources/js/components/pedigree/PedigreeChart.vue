@@ -9,6 +9,7 @@ import {
     formatPedigreeDate,
     GENERATION_LABELS,
     MAX_DEPTH,
+    normalizeRing,
     slotGridArea,
     VISIBILITY_LABELS,
 } from '@/lib/pedigree';
@@ -25,6 +26,10 @@ const props = defineProps<{
     meta: PedigreeMeta;
     // The details of loft birds link to their pigeon pages (owner view only)
     linkable?: boolean;
+    // A sample for a pairing not yet made (Test Pairing): no serial, QR code or signature lines
+    sample?: boolean;
+    // Outline ancestors that appear more than once, i.e. what the bird is line-bred on
+    markRepeated?: boolean;
 }>();
 
 // The fixed-size A4 sheet; exported as-is for image and PDF downloads
@@ -39,6 +44,25 @@ const shareLabel = computed(() =>
 const hasContact = computed(() =>
     Object.values(props.meta.contact).some(Boolean),
 );
+
+// Chart positions of ancestors found more than once (same ring number, or the same loft bird)
+const repeatedKeys = computed(() => {
+    const positions = new Map<string, string[]>();
+    if (!props.markRepeated) return new Set<string>();
+    for (const slot of ancestorSlots.value) {
+        const ring = normalizeRing(slot.node?.ring_number);
+        const identity = ring
+            ? `ring:${ring}`
+            : slot.node?.id
+              ? `id:${slot.node.id}`
+              : null;
+        if (!identity) continue;
+        positions.set(identity, [...(positions.get(identity) ?? []), slot.key]);
+    }
+    return new Set(
+        [...positions.values()].filter((keys) => keys.length > 1).flat(),
+    );
+});
 
 // Clicking a card shows everything recorded about that bird
 const detailsOpen = ref(false);
@@ -60,7 +84,11 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                 <AppLogoWordmark class="pedigree-logo" />
                 <span class="pedigree-divider" aria-hidden="true" />
                 <div>
-                    <div class="pedigree-eyebrow">Five-generation</div>
+                    <div class="pedigree-eyebrow">
+                        {{
+                            sample ? 'Sample · Test pairing' : 'Five-generation'
+                        }}
+                    </div>
                     <div class="pedigree-title">Pedigree</div>
                 </div>
             </div>
@@ -70,10 +98,14 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     <dd>{{ meta.breeder }}</dd>
                 </div>
                 <div>
-                    <dt>Issued</dt>
+                    <dt>{{ sample ? 'Prepared' : 'Issued' }}</dt>
                     <dd>{{ formatPedigreeDate(meta.generated_at) }}</dd>
                 </div>
-                <div>
+                <div v-if="sample">
+                    <dt>Status</dt>
+                    <dd>Sample, not yet bred</dd>
+                </div>
+                <div v-else>
                     <dt>Pedigree No.</dt>
                     <dd class="is-mono">{{ meta.serial }}</dd>
                 </div>
@@ -104,7 +136,18 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     />
                     <span class="pedigree-stub" />
                     <span class="pedigree-fork" />
-                    <div class="pedigree-qr-block">
+                    <div v-if="sample" class="pedigree-qr-block is-sample">
+                        <div>
+                            <div class="pedigree-qr-label">Test pairing</div>
+                            <div class="pedigree-qr-serial">
+                                Sample pedigree
+                            </div>
+                            <div class="pedigree-qr-hint">
+                                What a youngster of this pair would carry
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="pedigree-qr-block">
                         <div class="pedigree-qr" v-html="meta.qr_svg" />
                         <div>
                             <div class="pedigree-qr-label">Scan to verify</div>
@@ -131,6 +174,7 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                         :node="position.node"
                         :depth="position.depth"
                         :side="position.side"
+                        :repeated="repeatedKeys.has(position.key)"
                         @open="showDetails(position.key, position.node)"
                     />
                     <template
@@ -160,8 +204,19 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                             </span>
                         </template>
                         <span v-else>♂ Sire line above · ♀ Dam line below</span>
+                        <span
+                            v-if="repeatedKeys.size"
+                            class="pedigree-legend-item is-repeat"
+                        >
+                            <b class="pedigree-repeat-key" />
+                            Appears more than once
+                        </span>
                     </div>
-                    <div class="pedigree-footnote">
+                    <div v-if="sample" class="pedigree-footnote">
+                        Sample from Test Pairing, not a registered bird ·
+                        Remarks supplied by the breeder
+                    </div>
+                    <div v-else class="pedigree-footnote">
                         Remarks supplied by the breeder · Verify at
                         {{ shareLabel }}
                     </div>
@@ -189,7 +244,7 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                 </div>
 
                 <!-- Space to sign a printed copy -->
-                <div class="pedigree-signature">
+                <div v-if="!sample" class="pedigree-signature">
                     <div class="pedigree-sign is-name">
                         <span class="pedigree-sign-line" />
                         <span class="pedigree-footer-label"
@@ -503,6 +558,26 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
 /* A bird with merits: a stripe in the color of its most significant merit */
 .pedigree-card.has-merit {
     box-shadow: inset 3px 0 0 var(--pc-accent);
+}
+
+/* An ancestor found more than once in the pedigree (line breeding): a gold ring on a warm tile */
+.pedigree-card.is-repeated,
+.pedigree-repeat-key {
+    background: #fbf3df;
+    box-shadow: inset 0 0 0 1.5px var(--gold-deep);
+}
+
+.pedigree-card.has-merit.is-repeated {
+    box-shadow:
+        inset 3px 0 0 var(--pc-accent),
+        inset 0 0 0 1.5px var(--gold-deep);
+}
+
+.pedigree-repeat-key {
+    display: inline-block;
+    width: 14px;
+    height: 9px;
+    border-radius: 3px;
 }
 
 /* Clicking a card opens the bird's details (screen only; exports never show the hover ring) */

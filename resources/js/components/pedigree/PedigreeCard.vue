@@ -17,6 +17,8 @@ const props = defineProps<{
     depth: number;
     // null for the subject bird
     side: PedigreeSide | null;
+    // Found more than once in the pedigree (outlined, see PedigreeChart's markRepeated)
+    repeated?: boolean;
 }>();
 
 const emit = defineEmits<{ open: [] }>();
@@ -100,7 +102,7 @@ const label = computed(() =>
     <div
         v-else
         class="pedigree-card is-clickable"
-        :class="{ 'has-merit': accent }"
+        :class="{ 'has-merit': accent, 'is-repeated': repeated }"
         :data-depth="depth"
         :style="accent"
         role="button"

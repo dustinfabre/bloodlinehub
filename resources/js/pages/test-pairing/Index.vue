@@ -5,6 +5,9 @@ import BirdRow from '@/components/lineage/BirdRow.vue';
 import BreedingPlan from '@/components/lineage/BreedingPlan.vue';
 import PigeonPicker from '@/components/lineage/PigeonPicker.vue';
 import SharedDescendants from '@/components/lineage/SharedDescendants.vue';
+import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
+import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.vue';
+import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +23,7 @@ import { useToast } from '@/composables/useToast';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { COI_LEVEL_STYLES } from '@/lib/coi';
 import { birdLabel, percent, positionWords } from '@/lib/lineage';
+import { pedigreeFilename } from '@/lib/pedigree';
 import { index as lineageIndex } from '@/routes/lineage';
 import {
     create as createPairing,
@@ -40,17 +44,20 @@ import type {
     PlannedPair,
     SharedReport,
 } from '@/types/lineage';
+import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { useStorage } from '@vueuse/core';
 import {
     AlertTriangle,
     ArrowLeftRight,
     BookmarkCheck,
     BookmarkPlus,
+    ChevronDown,
     Heart,
     Info,
     Users,
 } from 'lucide-vue-next';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface Analysis {
     coi: number;
@@ -87,6 +94,8 @@ const props = defineProps<{
     // The open pair's entry in the breeding plan, if saved
     plan: { id: number; notes: string | null } | null;
     plans: PlannedPair[];
+    // The pedigree a youngster of the pair would have
+    sample: { tree: PedigreeNode; meta: PedigreeMeta } | null;
 }>();
 
 const { success } = useToast();
@@ -194,6 +203,18 @@ const completeGenerations = computed(() => {
     return complete;
 });
 
+// The sample pedigree is large; breeders who don't read it can fold it away (remembered on this device)
+const showSample = useStorage('test-pairing.show-sample-pedigree', true);
+const sampleChart = ref<InstanceType<typeof PedigreeChart> | null>(null);
+const sampleFilename = computed(() =>
+    pedigreeFilename(
+        [props.sire?.ring_number, props.dam?.ring_number]
+            .filter(Boolean)
+            .join('-x-') || null,
+        'sample',
+    ),
+);
+
 const createPairingUrl = computed(
     () =>
         createPairing({
@@ -231,6 +252,7 @@ const createPairingUrl = computed(
                             id="test-sire"
                             :selected="sire"
                             gender="male"
+                            in-loft
                             placeholder="Search cocks..."
                             @select="selectSire"
                             @clear="visit(null, dam?.id)"
@@ -252,6 +274,7 @@ const createPairingUrl = computed(
                             id="test-dam"
                             :selected="dam"
                             gender="female"
+                            in-loft
                             placeholder="Search hens..."
                             @select="selectDam"
                             @clear="visit(sire?.id, null)"
@@ -425,6 +448,57 @@ const createPairingUrl = computed(
                             the same or higher. Bought-in ancestors are matched
                             by ring number.
                         </p>
+                    </CardContent>
+                </Card>
+
+                <!-- Sample pedigree: the same pairing, read as the youngster's pedigree -->
+                <Card v-if="sample">
+                    <CardHeader>
+                        <div
+                            class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+                        >
+                            <div>
+                                <CardTitle>Sample pedigree</CardTitle>
+                                <CardDescription>
+                                    The pedigree a youngster of
+                                    {{ birdLabel(sire) }} ×
+                                    {{ birdLabel(dam) }} would have, from the
+                                    pedigrees recorded for both. Ancestors that
+                                    appear more than once are outlined in gold.
+                                </CardDescription>
+                            </div>
+                            <div class="flex shrink-0 flex-wrap gap-2">
+                                <PedigreeExportActions
+                                    v-if="showSample"
+                                    :target="sampleChart?.paper"
+                                    :filename="sampleFilename"
+                                />
+                                <Button
+                                    variant="ghost"
+                                    :aria-expanded="showSample"
+                                    aria-controls="sample-pedigree"
+                                    @click="showSample = !showSample"
+                                >
+                                    <ChevronDown
+                                        class="size-4 transition-transform"
+                                        :class="{ 'rotate-180': showSample }"
+                                    />
+                                    {{ showSample ? 'Hide' : 'Show' }}
+                                </Button>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent v-if="showSample" id="sample-pedigree">
+                        <PedigreeViewer>
+                            <PedigreeChart
+                                ref="sampleChart"
+                                :tree="sample.tree"
+                                :meta="sample.meta"
+                                sample
+                                mark-repeated
+                                linkable
+                            />
+                        </PedigreeViewer>
                     </CardContent>
                 </Card>
 

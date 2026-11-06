@@ -21,7 +21,7 @@ import type {
     PedigreeSharing,
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
-import { Contact, Pencil, Printer } from 'lucide-vue-next';
+import { Contact, Mail, MapPin, Pencil, Phone, Printer } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Pigeon {
@@ -36,6 +36,8 @@ const props = defineProps<{
     tree: PedigreeNode;
     meta: PedigreeMeta;
     sharing: PedigreeSharing;
+    // Any phone, email or address entered in Pedigree details, whether shown or hidden
+    hasContactDetails: boolean;
 }>();
 
 const pigeonLabel = computed(
@@ -85,7 +87,7 @@ const filename = computed(() =>
                     <Button variant="outline" as-child>
                         <Link :href="editPedigreeDetails().url">
                             <Contact class="mr-2 h-4 w-4" />
-                            Breeder details
+                            Contact details
                         </Link>
                     </Button>
                     <PedigreeExportActions
@@ -111,6 +113,37 @@ const filename = computed(() =>
                 :share-url="meta.share_url"
                 :sharing="sharing"
             />
+
+            <div
+                v-if="!hasContactDetails"
+                class="flex flex-col gap-3 rounded-lg border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="flex items-start gap-3">
+                    <div
+                        class="flex shrink-0 gap-1 pt-0.5 text-muted-foreground"
+                        aria-hidden="true"
+                    >
+                        <Phone class="size-4" />
+                        <Mail class="size-4" />
+                        <MapPin class="size-4" />
+                    </div>
+                    <div class="text-sm">
+                        <p class="font-medium">
+                            No contact details on this pedigree yet
+                        </p>
+                        <p class="text-muted-foreground">
+                            Add your phone number, email and address once in
+                            Pedigree details and they appear at the bottom of
+                            all your pedigrees, so buyers know how to reach you.
+                        </p>
+                    </div>
+                </div>
+                <Button size="sm" class="shrink-0" as-child>
+                    <Link :href="editPedigreeDetails().url">
+                        Add contact details
+                    </Link>
+                </Button>
+            </div>
 
             <PedigreeViewer>
                 <PedigreeChart ref="chart" :tree="tree" :meta="meta" linkable />

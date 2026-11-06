@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,12 @@ class Pigeon extends Model
     use HasFactory;
 
     public const STATUSES = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'flyaway', 'missing'];
+
+    // Birds with these statuses are no longer in the loft: lists and pickers leave them out unless asked for
+    public const GONE_STATUSES = ['deceased', 'flyaway', 'missing'];
+
+    // In stock, racing, breeding and injured: the birds actually in the loft
+    public const IN_LOFT_STATUSES = ['stock', 'racing', 'breeding', 'injured'];
 
     protected $fillable = [
         'user_id',
@@ -89,6 +96,14 @@ class Pigeon extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Only birds still in the loft (not deceased, flown away or missing).
+     */
+    public function scopeInLoft(Builder $query): void
+    {
+        $query->whereNotIn($query->qualifyColumn('status'), self::GONE_STATUSES);
     }
 
     public function pedigree(): HasOne

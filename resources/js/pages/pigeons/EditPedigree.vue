@@ -11,6 +11,7 @@ import {
     normalizeRing,
     slotGridArea,
 } from '@/lib/pedigree';
+import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
     edit as editRoute,
@@ -28,6 +29,7 @@ import type {
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
 import {
+    Contact,
     Copy,
     GitBranch,
     Home,
@@ -196,6 +198,12 @@ const openEditor = (target: AncestorTarget | null) => {
                         <Link :href="editRoute({ pigeon: pigeon.id }).url"
                             >Edit pigeon</Link
                         >
+                    </Button>
+                    <Button variant="outline" as-child>
+                        <Link :href="editPedigreeDetails().url">
+                            <Contact class="size-4" />
+                            Contact details
+                        </Link>
                     </Button>
                     <Button as-child>
                         <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url">

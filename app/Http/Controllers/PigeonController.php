@@ -67,7 +67,13 @@ class PigeonController extends Controller
             ])
             ->where('user_id', $user->id);
 
-        $statuses = array_values(array_intersect($this->arrayInput($request, 'status'), Pigeon::STATUSES));
+        // No status in the URL lists the birds in the loft; "all" lists every bird, gone ones included
+        $statusInput = $this->arrayInput($request, 'status');
+        $statuses = match (true) {
+            $statusInput === [] => Pigeon::IN_LOFT_STATUSES,
+            in_array('all', $statusInput, true) => [],
+            default => array_values(array_intersect($statusInput, Pigeon::STATUSES)),
+        };
         $bloodlineFilter = $this->arrayInput($request, 'bloodline');
         $locationFilter = $this->arrayInput($request, 'location');
         $meritFilter = array_values(array_intersect(
@@ -105,7 +111,9 @@ class PigeonController extends Controller
             });
         }
 
-        if ($statuses) {
+        if ($statuses === Pigeon::IN_LOFT_STATUSES) {
+            $query->inLoft();
+        } elseif ($statuses) {
             $query->whereIn('status', $statuses);
         }
 
@@ -168,6 +176,7 @@ class PigeonController extends Controller
             'sorts' => collect(self::SORTS)->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])->values(),
             'colors' => $colors,
             'parentOptions' => $this->parentOptions($user->id),
+            'inLoftStatuses' => Pigeon::IN_LOFT_STATUSES,
             'filters' => [
                 'search' => $request->input('search'),
                 'gender' => $genders,

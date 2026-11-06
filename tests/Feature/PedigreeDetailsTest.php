@@ -64,6 +64,29 @@ class PedigreeDetailsTest extends TestCase
             );
     }
 
+    public function test_the_pedigree_page_prompts_for_contact_details_until_some_are_entered(): void
+    {
+        $pigeon = $this->pigeon();
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $pigeon))
+            ->assertInertia(fn (Assert $page) => $page->where('hasContactDetails', false));
+
+        // Entered but hidden is a choice, not a gap: no prompt
+        BreederProfile::create(['user_id' => $this->user->id, ...$this->details([
+            'phone' => null,
+            'address' => null,
+            'show_email' => false,
+        ])]);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $pigeon))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('hasContactDetails', true)
+                ->where('meta.contact', ['phone' => null, 'email' => null, 'address' => null])
+            );
+    }
+
     public function test_details_are_saved_and_shown_on_every_pedigree(): void
     {
         $this->actingAs($this->user)

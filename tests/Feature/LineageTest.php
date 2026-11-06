@@ -265,6 +265,83 @@ class LineageTest extends TestCase
             ->assertJsonPath('pigeons.1.ring_number', 'PHA-2024-3');
     }
 
+    public function test_search_can_leave_out_birds_no_longer_in_the_loft(): void
+    {
+        $this->cock('PHA-1', attributes: ['status' => 'racing']);
+        $this->cock('PHA-2', attributes: ['status' => 'deceased']);
+        $this->cock('PHA-3', attributes: ['status' => 'flyaway']);
+        $this->cock('PHA-4', attributes: ['status' => 'missing']);
+        $this->cock('PHA-5', attributes: ['status' => 'injured']);
+
+        // Test Pairing asks for birds in the loft only
+        $this->actingAs($this->user)
+            ->getJson(route('lineage.search', ['q' => 'pha', 'in_loft' => 1]))
+            ->assertOk()
+            ->assertJsonCount(2, 'pigeons')
+            ->assertJsonPath('pigeons.0.ring_number', 'PHA-1')
+            ->assertJsonPath('pigeons.1.ring_number', 'PHA-5');
+
+        // Lineage still finds every bird, gone ones included
+        $this->actingAs($this->user)
+            ->getJson(route('lineage.search', ['q' => 'pha']))
+            ->assertJsonCount(5, 'pigeons');
+    }
+
+    public function test_test_pairing_includes_a_sample_pedigree_of_the_youngster(): void
+    {
+        // The grandsire's outside sire, and that bird's sire: the last column of the youngster's chart
+        $grandsire = $this->cock('GS', attributes: ['bloodline' => 'JANSSEN', 'sire_ring_number' => 'OUTSIDE-1']);
+        PedigreeAncestor::create(['pigeon_id' => $grandsire->id, 'path' => 'SS', 'ring_number' => 'OUTSIDE-2']);
+        $son = $this->cock('SON', $grandsire, $this->hen('M1'), ['bloodline' => 'JANSSEN']);
+        $daughter = $this->hen('DAUGHTER', $grandsire, null, ['bloodline' => 'SION']);
+
+        $this->actingAs($this->user)
+            ->get(route('test-pairing.index', ['sire' => $son->id, 'dam' => $daughter->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('sample.tree.id', null)
+                ->where('sample.tree.name', 'Youngster')
+                ->where('sample.tree.bloodline', 'JANSSEN × SION')
+                ->where('sample.tree.sire.ring_number', 'SON')
+                ->where('sample.tree.sire.sire.ring_number', 'GS')
+                ->where('sample.tree.sire.sire.sire.ring_number', 'OUTSIDE-1')
+                ->where('sample.tree.sire.sire.sire.sire.ring_number', 'OUTSIDE-2')
+                ->where('sample.tree.sire.sire.sire.sire.sire', null)
+                ->where('sample.tree.dam.ring_number', 'DAUGHTER')
+                ->where('sample.tree.dam.sire.ring_number', 'GS')
+                ->where('sample.tree.dam.dam', null)
+                ->where('sample.meta.breeder', $this->user->name)
+                ->where('sample.meta.qr_svg', '')
+            );
+    }
+
+    public function test_sample_pedigree_stops_at_five_generations(): void
+    {
+        // A line six birds deep: the youngster's chart only reaches the sire's great-grandsire (SSSS)
+        $line = $this->cock('G1');
+        foreach (['G2', 'G3', 'G4', 'G5'] as $ring) {
+            $line = $this->cock($ring, $line);
+        }
+        $dam = $this->hen('HEN');
+
+        $this->actingAs($this->user)
+            ->get(route('test-pairing.index', ['sire' => $line->id, 'dam' => $dam->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('sample.tree.sire.ring_number', 'G5')
+                ->where('sample.tree.sire.sire.sire.sire.ring_number', 'G2')
+                ->where('sample.tree.sire.sire.sire.sire.sire', null)
+            );
+    }
+
+    public function test_no_sample_pedigree_until_both_birds_are_picked(): void
+    {
+        $cock = $this->cock('C1');
+
+        $this->actingAs($this->user)
+            ->get(route('test-pairing.index', ['sire' => $cock->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('sample', null));
+    }
+
     public function test_coi_assessment_bands(): void
     {
         $level = fn (float $coi) => \App\Http\Controllers\TestPairingController::assess($coi)['level'];

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Pairing;
+use App\Models\Pigeon;
 use App\Models\PlannedPairing;
 use App\Services\Lineage\LineageService;
 use App\Services\Lineage\LoftGraph;
 use App\Services\Merits\GoldenPairs;
+use App\Services\PedigreeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -18,7 +20,11 @@ use Inertia\Response;
  */
 class TestPairingController extends Controller
 {
-    public function __construct(private LineageService $lineage, private GoldenPairs $goldenPairs) {}
+    public function __construct(
+        private LineageService $lineage,
+        private GoldenPairs $goldenPairs,
+        private PedigreeService $pedigrees,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -36,12 +42,19 @@ class TestPairingController extends Controller
             ->get();
 
         $plan = $sire && $dam ? $plans->first(fn (PlannedPairing $plan) => 'p:'.$plan->sire_id === $sire && 'p:'.$plan->dam_id === $dam) : null;
+        $paired = $sire && $dam && $sire !== $dam;
 
         return Inertia::render('test-pairing/Index', [
             'sire' => $sire ? $parents[$sire] : null,
             'dam' => $dam ? $parents[$dam] : null,
             'generations' => LineageService::PEDIGREE_GENERATIONS + 1,
-            'analysis' => $sire && $dam && $sire !== $dam ? $this->analyse($graph, $sire, $dam, $user->id) : null,
+            'analysis' => $paired ? $this->analyse($graph, $sire, $dam, $user->id) : null,
+            // The pedigree a youngster of this pair would have, for breeders who read pedigrees rather than numbers
+            'sample' => $paired ? $this->pedigrees->sampleChart(
+                $user,
+                Pigeon::where('user_id', $user->id)->findOrFail($graph->node($sire)['pigeon_id']),
+                Pigeon::where('user_id', $user->id)->findOrFail($graph->node($dam)['pigeon_id']),
+            ) : null,
             'plan' => $plan ? ['id' => $plan->id, 'notes' => $plan->notes] : null,
             'plans' => $this->plans($graph, $plans, $user->id),
         ]);

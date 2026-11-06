@@ -87,7 +87,7 @@ class PairingController extends Controller
         // Available sires and dams, in the standard pigeon search format (see CLAUDE.md)
         $breeders = fn (string $gender) => Pigeon::where('user_id', $user->id)
             ->where('gender', $gender)
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->inLoft()
             ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('name')
             ->get(Pigeon::SEARCH_COLUMNS)
@@ -209,18 +209,17 @@ class PairingController extends Controller
 
         $user = $request->user();
 
-        // Get available sires (include current sire even if in this pairing)
+        // Birds in the loft, plus this pair's own sire and dam even if they have since gone
         $sires = Pigeon::where('user_id', $user->id)
             ->where('gender', 'male')
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->where(fn ($q) => $q->inLoft()->orWhere('id', $pairing->sire_id))
             ->select('id', 'name', 'ring_number', 'bloodline')
             ->orderBy('name')
             ->get();
 
-        // Get available dams (include current dam even if in this pairing)
         $dams = Pigeon::where('user_id', $user->id)
             ->where('gender', 'female')
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->where(fn ($q) => $q->inLoft()->orWhere('id', $pairing->dam_id))
             ->select('id', 'name', 'ring_number', 'bloodline')
             ->orderBy('name')
             ->get();

@@ -37,10 +37,11 @@ class ClubSeasonEventController extends Controller
             $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status');
         }]);
 
-        // Team pigeons not yet entered in this event, in the standard pigeon search format (see CLAUDE.md).
-        // Only the user's own birds can be entered, and only the owner may see their private notes.
+        // Team pigeons still in the loft and not yet entered in this event, in the standard pigeon search format
+        // (see CLAUDE.md). Only the user's own birds can be entered, and only the owner may see their private notes.
         $availablePigeons = $season->entries()
             ->where('pigeons.user_id', auth()->id())
+            ->inLoft()
             ->whereNotIn('pigeons.id', $event->entries->pluck('id'))
             ->with(Pigeon::SEARCH_RELATIONS)
             ->get(array_map(fn (string $column) => "pigeons.{$column}", Pigeon::SEARCH_COLUMNS))
