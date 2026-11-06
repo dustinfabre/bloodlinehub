@@ -37,15 +37,14 @@ class ClubSeasonEventController extends Controller
             $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status');
         }]);
 
-        // Get team pigeons not yet entered in this event
-        $season->load(['entries' => function ($query) {
-            $query->select('pigeons.id', 'ring_number', 'personal_number', 'name', 'gender', 'status');
-        }]);
-
-        $enteredPigeonIds = $event->entries->pluck('id')->toArray();
-        $availablePigeons = $season->entries
-            ->filter(fn ($pigeon) => !in_array($pigeon->id, $enteredPigeonIds))
-            ->values();
+        // Team pigeons not yet entered in this event, in the standard pigeon search format (see CLAUDE.md).
+        // Only the user's own birds can be entered, and only the owner may see their private notes.
+        $availablePigeons = $season->entries()
+            ->where('pigeons.user_id', auth()->id())
+            ->whereNotIn('pigeons.id', $event->entries->pluck('id'))
+            ->with(Pigeon::SEARCH_RELATIONS)
+            ->get(array_map(fn (string $column) => "pigeons.{$column}", Pigeon::SEARCH_COLUMNS))
+            ->map->searchSummary();
 
         return Inertia::render('clubs/seasons/events/Show', [
             'club' => $club,
@@ -92,7 +91,7 @@ class ClubSeasonEventController extends Controller
             ->where('pigeons.id', $validated['pigeon_id'])
             ->firstOrFail();
 
-        if (!$event->entries()->where('pigeon_id', $pigeon->id)->exists()) {
+        if (! $event->entries()->where('pigeon_id', $pigeon->id)->exists()) {
             $event->entries()->attach($pigeon->id);
         }
 
@@ -114,12 +113,12 @@ class ClubSeasonEventController extends Controller
             ->pluck('pigeons.id');
 
         foreach ($pigeons as $pigeonId) {
-            if (!$event->entries()->where('pigeon_id', $pigeonId)->exists()) {
+            if (! $event->entries()->where('pigeon_id', $pigeonId)->exists()) {
                 $event->entries()->attach($pigeonId);
             }
         }
 
-        return back()->with('success', count($pigeons) . ' pigeon(s) added to event.');
+        return back()->with('success', count($pigeons).' pigeon(s) added to event.');
     }
 
     public function removeEntry(Club $club, ClubSeason $season, ClubSeasonEvent $event, Pigeon $pigeon): RedirectResponse

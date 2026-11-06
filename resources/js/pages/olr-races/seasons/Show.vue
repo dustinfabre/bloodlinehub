@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 import { Plus, Calendar, Users, Flag, Pencil, Trash2, Bird, Eye, AlertTriangle } from 'lucide-vue-next';
 
 interface Pigeon {
@@ -58,7 +60,7 @@ interface OlrRace {
 const props = defineProps<{
     olrRace: OlrRace;
     season: OlrSeason;
-    availablePigeons: Pigeon[];
+    availablePigeons: PigeonSearchItem[];
     standings: Record<number, SeasonStanding>;
 }>();
 
@@ -290,13 +292,9 @@ const handleDeleteRace = (race: OlrSeasonRace) => {
                                                 }
                                             }"
                                         />
-                                        <Label :for="`pigeon-${pigeon.id}`" class="flex-1 cursor-pointer">
-                                            <div class="font-medium">{{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }}</div>
-                                            <div class="text-sm text-muted-foreground">
-                                                {{ pigeon.name || 'Unnamed' }}
-                                                <span v-if="pigeon.color"> • {{ pigeon.color }}</span>
-                                            </div>
-                                        </Label>
+                                        <label :for="`pigeon-${pigeon.id}`" class="min-w-0 flex-1 cursor-pointer">
+                                            <PigeonSearchResult :pigeon="pigeon" />
+                                        </label>
                                     </div>
                                 </div>
 

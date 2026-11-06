@@ -53,27 +53,50 @@ class PedigreeCopyTest extends TestCase
         return $pigeon->pedigreeAncestors()->orderBy('path')->pluck('path')->all();
     }
 
-    public function test_sources_list_birds_with_the_same_parent_first(): void
+    private function copyParts(Pigeon $target, Pigeon $source, array $copies)
     {
-        $target = $this->pigeon(['sire_ring_number' => 'NL 2019-1234']);
+        return $this->actingAs($this->user)->post(route('pigeons.copyPedigree', $target), [
+            'source_id' => $source->id,
+            'copies' => array_map(fn (string $from, string $to) => ['from' => $from, 'to' => $to], array_keys($copies), $copies),
+        ]);
+    }
+
+    public function test_sources_list_related_birds_first_in_the_standard_search_format(): void
+    {
+        $target = $this->pigeon(['sire_ring_number' => 'NL 2019-1234', 'dam_ring_number' => 'NL-2020-8']);
+        $this->ancestors($target, ['DS']);
+        $target->pedigreeAncestors()->create(['path' => 'DSS', 'ring_number' => 'GB-2010-77']);
+        $this->pigeon(['dam_ring_number' => 'X-1', 'dam_name' => 'SOME HEN']);
         $unrelated = $this->pigeon(['ring_number' => 'BE-2023-1', 'dam_name' => 'SOME HEN']);
-        $sibling = $this->pigeon(['ring_number' => 'BE-2024-2', 'sire_ring_number' => 'nl2019-1234', 'sire_name' => 'OLD COCK']);
+        $sibling = $this->pigeon([
+            'ring_number' => 'BE-2024-2', 'name' => 'BLUE BOY', 'bloodline' => 'Janssen', 'color' => 'BB',
+            'notes' => 'Private', 'remarks' => 'Fast', 'sire_ring_number' => 'nl2019-1234', 'sire_name' => 'OLD COCK',
+        ]);
         $this->ancestors($sibling, ['SS', 'SD', 'SSS', 'DS']);
-        $this->pigeon(['ring_number' => 'BE-2024-3']); // nothing recorded: not offered
+        // Related only through a great-grandsire, who is its own grandsire
+        $cousin = $this->pigeon(['ring_number' => 'BE-2024-3', 'dam_ring_number' => 'BE-2021-9']);
+        $cousin->pedigreeAncestors()->create(['path' => 'DS', 'ring_number' => 'GB 2010 77']);
+        $this->pigeon(['ring_number' => 'BE-2024-4']); // nothing recorded: not offered
         $this->pigeon(['sire_ring_number' => 'NL 2019-1234'], User::factory()->create()); // another loft
 
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySources', $target))
             ->assertOk()
-            ->assertJsonCount(2, 'pigeons')
+            ->assertJsonCount(4, 'pigeons')
             ->assertJsonPath('pigeons.0.id', $sibling->id)
-            ->assertJsonPath('pigeons.0.shared', ['sire'])
-            ->assertJsonPath('pigeons.0.sire.state', 'external')
-            ->assertJsonPath('pigeons.0.sire.name', 'OLD COCK')
-            ->assertJsonPath('pigeons.0.sire.ancestors', 3)
-            ->assertJsonPath('pigeons.0.dam.state', 'empty')
-            ->assertJsonPath('pigeons.1.id', $unrelated->id)
-            ->assertJsonPath('pigeons.1.shared', []);
+            ->assertJsonPath('pigeons.0.name', 'BLUE BOY')
+            ->assertJsonPath('pigeons.0.bloodline', 'Janssen')
+            ->assertJsonPath('pigeons.0.color', 'BB')
+            ->assertJsonPath('pigeons.0.notes', 'Private')
+            ->assertJsonPath('pigeons.0.remarks', 'Fast')
+            ->assertJsonPath('pigeons.0.sire', ['ring_number' => 'nl2019-1234', 'name' => 'OLD COCK'])
+            ->assertJsonPath('pigeons.0.dam', null)
+            // The shared sire, but not his parents, which follow from him
+            ->assertJsonPath('pigeons.0.related', [['from' => 'S', 'to' => 'S']])
+            ->assertJsonPath('pigeons.1.id', $cousin->id)
+            ->assertJsonPath('pigeons.1.related', [['from' => 'DS', 'to' => 'DSS']])
+            ->assertJsonPath('pigeons.2.id', $unrelated->id)
+            ->assertJsonPath('pigeons.2.related', []);
 
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySources', [$target, 'q' => '2023']))
@@ -85,20 +108,155 @@ class PedigreeCopyTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_sources_report_loft_parents_as_linked(): void
+    public function test_sources_match_loft_parents_and_show_them_as_parents(): void
     {
-        $loftSire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2020-500']);
+        $loftSire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2020-500', 'name' => 'KING']);
         $target = $this->pigeon(['sire_id' => $loftSire->id]);
         $halfSibling = $this->pigeon(['sire_id' => $loftSire->id]);
 
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySources', $target))
             ->assertJsonPath('pigeons.0.id', $halfSibling->id)
-            ->assertJsonPath('pigeons.0.shared', ['sire'])
-            ->assertJsonPath('pigeons.0.sire.state', 'linked')
-            ->assertJsonPath('pigeons.0.sire.pigeon_id', $loftSire->id)
-            ->assertJsonPath('pigeons.0.sire.ring_number', 'BE-2020-500')
-            ->assertJsonPath('pigeons.0.sire.ancestors', null);
+            ->assertJsonPath('pigeons.0.related', [['from' => 'S', 'to' => 'S']])
+            ->assertJsonPath('pigeons.0.sire', ['ring_number' => 'BE-2020-500', 'name' => 'KING']);
+    }
+
+    public function test_the_pedigree_of_a_bird_to_copy_from_is_available_to_its_owner_only(): void
+    {
+        $target = $this->pigeon();
+        $source = $this->pigeon(['sire_ring_number' => 'NL-1', 'sire_bloodline' => 'Janssen']);
+        $source->pedigreeAncestors()->create(['path' => 'SD', 'ring_number' => 'NL-2', 'bloodline' => 'Aarden']);
+        $theirs = $this->pigeon(['sire_ring_number' => 'X'], User::factory()->create());
+
+        $this->actingAs($this->user)
+            ->getJson(route('pigeons.pedigreeCopySource', [$target, $source]))
+            ->assertOk()
+            ->assertJsonPath('tree.id', $source->id)
+            ->assertJsonPath('tree.sire.ring_number', 'NL-1')
+            ->assertJsonPath('tree.sire.bloodline', 'Janssen')
+            ->assertJsonPath('tree.sire.dam.bloodline', 'Aarden');
+
+        $this->actingAs($this->user)
+            ->getJson(route('pigeons.pedigreeCopySource', [$target, $theirs]))
+            ->assertNotFound();
+        $this->actingAs(User::factory()->create())
+            ->getJson(route('pigeons.pedigreeCopySource', [$target, $source]))
+            ->assertNotFound();
+    }
+
+    public function test_a_great_grandsire_line_is_copied_from_a_bird_related_only_through_him(): void
+    {
+        // Here the great-grandsire is known, but nothing behind him
+        $target = $this->pigeon(['sire_ring_number' => 'NL-2019-1']);
+        $target->pedigreeAncestors()->create(['path' => 'SS', 'ring_number' => 'NL-2015-2']);
+        $target->pedigreeAncestors()->create(['path' => 'SSS', 'ring_number' => 'GB-2010-77']);
+        $target->pedigreeAncestors()->create(['path' => 'SD', 'ring_number' => 'KEEP-ME']);
+
+        // The other bird has him as its sire, with his parents and grandparents
+        $source = $this->pigeon([
+            'sire_ring_number' => 'gb 2010 77', 'sire_name' => 'KLEINE DIRK', 'sire_bloodline' => 'Janssen',
+            'sire_merits' => [['type' => 'ace_pigeon', 'level' => null, 'year' => 2012, 'detail' => null]],
+        ]);
+        $source->pedigreeAncestors()->create(['path' => 'SS', 'ring_number' => 'GB-2005-1', 'bloodline' => 'Janssen']);
+        $source->pedigreeAncestors()->create(['path' => 'SD', 'ring_number' => 'GB-2006-2', 'remarks' => 'Golden hen']);
+        $source->pedigreeAncestors()->create(['path' => 'SSS', 'ring_number' => 'TOO-FAR']);
+
+        $this->copyParts($target, $source, ['S' => 'SSS'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', "Copied the sire's sire's sire from {$source->ring_number}.");
+
+        $rows = $target->pedigreeAncestors()->get()->keyBy('path');
+        $this->assertSame(['SD', 'SS', 'SSS', 'SSSD', 'SSSS'], $rows->keys()->sort()->values()->all());
+        $this->assertSame('gb 2010 77', $rows['SSS']->ring_number);
+        $this->assertSame('KLEINE DIRK', $rows['SSS']->name);
+        $this->assertSame('Janssen', $rows['SSS']->bloodline);
+        $this->assertSame('ace_pigeon', $rows['SSS']->merits[0]['type']);
+        $this->assertSame('GB-2005-1', $rows['SSSS']->ring_number);
+        $this->assertSame('Golden hen', $rows['SSSD']->remarks);
+        // Only great-great-grandparents fit on the chart; the rest of the other places stay as they were
+        $this->assertSame('KEEP-ME', $rows['SD']->ring_number);
+        $this->assertSame('NL-2019-1', $target->fresh()->sire_ring_number);
+    }
+
+    public function test_a_copy_behind_a_loft_parent_is_saved_on_that_bird(): void
+    {
+        $loftSire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2020-500']);
+        $target = $this->pigeon(['sire_id' => $loftSire->id]);
+        $brother = $this->pigeon(['sire_id' => $loftSire->id]);
+
+        // A bird whose outside dam is the loft sire's dam, with her sire recorded behind her
+        $source = $this->pigeon(['sire_ring_number' => 'NL-2016-1', 'dam_ring_number' => 'BE-2019-7', 'dam_name' => 'QUEEN']);
+        $source->pedigreeAncestors()->create(['path' => 'DS', 'ring_number' => 'NL-2015-3']);
+
+        // A hen's place can't take a cock
+        $this->copyParts($target, $source, ['S' => 'SD'])->assertSessionHasErrors('copies');
+        $this->copyParts($target, $source, ['D' => 'SD'])->assertSessionHasNoErrors();
+
+        // Stored on the loft sire, as his outside dam
+        $loftSire->refresh();
+        $this->assertNull($loftSire->dam_id);
+        $this->assertSame('BE-2019-7', $loftSire->dam_ring_number);
+        $this->assertSame('QUEEN', $loftSire->dam_name);
+        $this->assertSame(['DS'], $this->paths($loftSire));
+        $this->assertSame([], $this->paths($target));
+
+        // ...so every offspring of the loft sire inherits her
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $brother))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('tree.sire.dam.ring_number', 'BE-2019-7')
+                ->where('tree.sire.dam.sire.ring_number', 'NL-2015-3')
+            );
+    }
+
+    public function test_a_loft_bird_is_linked_when_it_becomes_a_loft_birds_parent(): void
+    {
+        $loftSire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2020-500']);
+        $target = $this->pigeon(['sire_id' => $loftSire->id]);
+        $loftHen = $this->pigeon(['gender' => 'female', 'ring_number' => 'BE-2019-7']);
+        $source = $this->pigeon(['dam_id' => $loftHen->id]);
+
+        $this->copyParts($target, $source, ['D' => 'SD'])->assertSessionHasNoErrors();
+
+        // Copying into a loft bird's own parents links the loft bird, as with "D" into "D" elsewhere
+        $this->assertSame($loftHen->id, $loftSire->fresh()->dam_id);
+
+        // Deeper in, a loft bird is stored like an outside one, with its own pedigree behind it
+        $other = $this->pigeon(['dam_ring_number' => 'EXT-DAM']);
+        $this->copyParts($other, $target, ['SD' => 'DD'])->assertSessionHasNoErrors();
+        $this->assertSame('BE-2019-7', $other->pedigreeAncestors()->firstWhere('path', 'DD')?->ring_number);
+    }
+
+    public function test_deeper_copies_are_checked_before_anything_changes(): void
+    {
+        $loftSire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2020-500', 'sire_ring_number' => 'NL-1']);
+        $target = $this->pigeon(['sire_id' => $loftSire->id, 'dam_ring_number' => 'OLD-DAM']);
+        $source = $this->pigeon(['sire_ring_number' => 'NEW-SIRE', 'dam_ring_number' => 'NEW-DAM']);
+        $source->pedigreeAncestors()->create(['path' => 'SS', 'ring_number' => 'NEW-SS']);
+        $loftGrandsire = $this->pigeon(['gender' => 'male']);
+        $loftSire->update(['sire_id' => $loftGrandsire->id]);
+
+        $fails = fn (array $copies) => $this->copyParts($target, $source, $copies)->assertSessionHasErrors('copies');
+
+        $fails(['S' => 'D']); // a sire into a dam's place
+        $fails(['SS' => 'DDS']); // nothing recorded in front of that place yet
+        $fails(['SS' => 'SS']); // a loft bird is there
+        $fails(['D' => 'D', 'S' => 'DS']); // the second is already part of the first
+        $fails(['DD' => 'D']); // nothing recorded there in the other pedigree
+        $this->actingAs($this->user)->post(route('pigeons.copyPedigree', $target), [
+            'source_id' => $source->id,
+            'copies' => [['from' => 'SSSS', 'to' => 'S']],
+        ])->assertSessionHasErrors('copies.0.from');
+
+        $this->assertSame('OLD-DAM', $target->fresh()->dam_ring_number);
+        $this->assertSame($loftGrandsire->id, $loftSire->fresh()->sire_id);
+        $this->assertSame([], $this->paths($target));
+
+        // A bird can't end up in its own pedigree
+        $child = $this->pigeon(['dam_ring_number' => 'HEN', 'sire_id' => $target->id]);
+        $grandchild = $this->pigeon(['sire_id' => $child->id]);
+        $this->copyParts($target, $grandchild, ['SS' => 'DS'])
+            ->assertSessionHasErrors(['copies' => "That part of the pedigree includes this pigeon itself, so it can't be copied here."]);
     }
 
     public function test_copying_the_sire_side_copies_the_parent_and_everything_behind_it(): void

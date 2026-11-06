@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pairing;
-use App\Models\Pigeon;
-use App\Models\Location;
 use App\Http\Requests\StorePairingRequest;
 use App\Http\Requests\UpdatePairingRequest;
+use App\Models\Location;
+use App\Models\Pairing;
+use App\Models\Pigeon;
 use App\Services\Merits\GoldenPairs;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Http\RedirectResponse;
 
 class PairingController extends Controller
 {
@@ -27,7 +27,7 @@ class PairingController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        
+
         $query = Pairing::with(['sire', 'dam', 'offspring'])
             ->where('user_id', $user->id);
 
@@ -38,7 +38,7 @@ class PairingController extends Controller
 
         // Filter by pair name
         if ($request->filled('pair_name')) {
-            $query->where('pair_name', $this->likeOperator(), '%' . $request->pair_name . '%');
+            $query->where('pair_name', $this->likeOperator(), '%'.$request->pair_name.'%');
         }
 
         // Search across sire and dam details
@@ -48,11 +48,11 @@ class PairingController extends Controller
             // Grouped so the OR stays inside the user's own pairings
             $query->where(function ($query) use ($search, $likeOp) {
                 $query->whereHas('sire', function ($q) use ($search, $likeOp) {
-                    $q->where('name', $likeOp, '%' . $search . '%')
-                        ->orWhere('ring_number', $likeOp, '%' . $search . '%');
+                    $q->where('name', $likeOp, '%'.$search.'%')
+                        ->orWhere('ring_number', $likeOp, '%'.$search.'%');
                 })->orWhereHas('dam', function ($q) use ($search, $likeOp) {
-                    $q->where('name', $likeOp, '%' . $search . '%')
-                        ->orWhere('ring_number', $likeOp, '%' . $search . '%');
+                    $q->where('name', $likeOp, '%'.$search.'%')
+                        ->orWhere('ring_number', $likeOp, '%'.$search.'%');
                 });
             });
         }
@@ -84,33 +84,18 @@ class PairingController extends Controller
     {
         $user = $request->user();
 
-        // Get available sires
-        $sires = Pigeon::where('user_id', $user->id)
-            ->where('gender', 'male')
-            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
-            ->with([
-                'sire:id,ring_number,name',
-                'dam:id,ring_number,name'
-            ])
-            ->select('id', 'name', 'ring_number', 'bloodline', 'color', 'sire_id', 'dam_id', 'notes', 'remarks')
+        // Available sires and dams, in the standard pigeon search format (see CLAUDE.md)
+        $breeders = fn (string $gender) => Pigeon::where('user_id', $user->id)
+            ->where('gender', $gender)
+            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('name')
-            ->get();
-
-        // Get available dams
-        $dams = Pigeon::where('user_id', $user->id)
-            ->where('gender', 'female')
-            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
-            ->with([
-                'sire:id,ring_number,name',
-                'dam:id,ring_number,name'
-            ])
-            ->select('id', 'name', 'ring_number', 'bloodline', 'color', 'sire_id', 'dam_id', 'notes', 'remarks')
-            ->orderBy('name')
-            ->get();
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         return Inertia::render('pairings/Create', [
-            'sires' => $sires,
-            'dams' => $dams,
+            'sires' => $breeders('male'),
+            'dams' => $breeders('female'),
             'locations' => Location::where('user_id', $user->id)->orderBy('name')->get(['id', 'name', 'type']),
             // Pre-selected birds, e.g. from Test Pairing
             'prefill' => [
@@ -171,22 +156,22 @@ class PairingController extends Controller
         }
 
         $pairing->load([
-            'sire', 
-            'dam', 
+            'sire',
+            'dam',
             'breedingLocation',
             'offspring' => function ($query) {
                 $query->with('location:id,name,type')
-                      ->orderBy('hatch_date', 'desc')
-                      ->orderBy('created_at', 'desc');
-            }, 
+                    ->orderBy('hatch_date', 'desc')
+                    ->orderBy('created_at', 'desc');
+            },
             'clutches' => function ($query) {
                 $query->with(['biologicalParents.sire', 'biologicalParents.dam', 'successLocation:id,name'])
-                      ->orderBy('clutch_number');
+                    ->orderBy('clutch_number');
             },
             'fosterClutches' => function ($query) {
                 $query->with(['pairing.sire', 'pairing.dam'])
-                      ->orderBy('clutch_number');
-            }
+                    ->orderBy('clutch_number');
+            },
         ]);
 
         // Get all user's active pairings for foster selection
@@ -227,7 +212,7 @@ class PairingController extends Controller
         // Get available sires (include current sire even if in this pairing)
         $sires = Pigeon::where('user_id', $user->id)
             ->where('gender', 'male')
-            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
+            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
             ->select('id', 'name', 'ring_number', 'bloodline')
             ->orderBy('name')
             ->get();
@@ -235,7 +220,7 @@ class PairingController extends Controller
         // Get available dams (include current dam even if in this pairing)
         $dams = Pigeon::where('user_id', $user->id)
             ->where('gender', 'female')
-            ->whereNotIn('status', ['deceased', 'missing','flyaway'])
+            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
             ->select('id', 'name', 'ring_number', 'bloodline')
             ->orderBy('name')
             ->get();
@@ -297,7 +282,7 @@ class PairingController extends Controller
             abort(403);
         }
 
-        if (!$pairing->isActive()) {
+        if (! $pairing->isActive()) {
             return back()->withErrors(['status' => 'This pairing is already inactive.']);
         }
 

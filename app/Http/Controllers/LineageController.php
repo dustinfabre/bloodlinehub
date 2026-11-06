@@ -75,17 +75,13 @@ class LineageController extends Controller
             ->orderByRaw('ring_number IS NULL')
             ->orderBy('ring_number')
             ->limit(20)
-            ->get(['id', 'name', 'ring_number', 'personal_number', 'gender', 'status', 'color', 'bloodline']);
+            ->with(Pigeon::SEARCH_RELATIONS)
+            ->get([...Pigeon::SEARCH_COLUMNS, 'status']);
 
+        // The standard pigeon search format (see CLAUDE.md); only the user's own birds, so notes are fine
         return response()->json(['pigeons' => $pigeons->map(fn (Pigeon $pigeon) => [
-            'id' => $pigeon->id,
-            'name' => $pigeon->name,
-            'ring_number' => $pigeon->ring_number,
-            'personal_number' => $pigeon->personal_number,
-            'gender' => $pigeon->gender,
+            ...$pigeon->searchSummary(),
             'status' => $pigeon->status,
-            'color' => $pigeon->color,
-            'bloodline' => $pigeon->bloodline,
         ])]);
     }
 

@@ -1,4 +1,5 @@
 import type { Merit } from '@/types/lineage';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 
 export interface PedigreeNode {
     // Set for birds in the loft (owner charts only)
@@ -90,25 +91,19 @@ export interface PedigreeSyncReport {
     skipped: string[];
 }
 
-// One side (sire or dam) of a pigeon, as offered by "Copy from another pigeon"
-export interface PedigreeCopySide {
-    // linked: a loft bird (brings its own pedigree); external: recorded on the pigeon; empty: nothing recorded
-    state: 'linked' | 'external' | 'empty';
-    pigeon_id: number | null;
-    ring_number: string | null;
-    name: string | null;
-    // External ancestors recorded behind this parent (null for a loft bird)
-    ancestors: number | null;
+// Where another pigeon's pedigree holds the same bird as this one: its position there ("from") and here ("to")
+export interface PedigreeRelation {
+    from: string;
+    to: string;
 }
 
-export interface PedigreeCopySource {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    gender: string | null;
-    // Sides on which this bird already has the same parent as the pigeon being edited
-    shared: PedigreeSide[];
-    sire: PedigreeCopySide;
-    dam: PedigreeCopySide;
+// A bird offered by "Copy from another pigeon": the standard search details, and where it is related
+export interface PedigreeCopySource extends PigeonSearchItem {
+    related: PedigreeRelation[];
+}
+
+// One bird picked to copy: its position in the other pigeon's pedigree, and where it goes in this one
+export interface PedigreeCopyChoice {
+    from: string;
+    to: string | null;
 }

@@ -23,6 +23,7 @@ final class OutsideBirdSync
         'ring_number' => 'ring_number',
         'name' => 'name',
         'color' => 'color',
+        'bloodline' => 'bloodline',
         'remarks' => 'notes',
         'merits' => 'merits',
     ];

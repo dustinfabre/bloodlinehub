@@ -22,10 +22,8 @@ import { type BreadcrumbItem } from '@/types';
 import type { MeritLevelOption, MeritTypeOption } from '@/types/lineage';
 import type {
     AncestorTarget,
-    PedigreeCopySide,
     PedigreeLinks,
     PedigreeNode,
-    PedigreeSide,
     PedigreeSlot,
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
@@ -49,6 +47,7 @@ const props = defineProps<{
     pigeon: Pigeon;
     tree: PedigreeNode;
     colors: string[];
+    bloodlines: string[];
     meritTypes: MeritTypeOption[];
     meritLevels: MeritLevelOption[];
     links: PedigreeLinks;
@@ -152,43 +151,15 @@ const editorSlots = computed(() =>
     slots.value.map((entry) => ({ entry, target: targetFor(entry) })),
 );
 
-// What this pigeon has on each side now, for "Copy from another pigeon"
-const currentSide = (side: PedigreeSide): PedigreeCopySide => {
-    const node = props.tree[side];
-    const key = side === 'sire' ? 'S' : 'D';
-
-    if (!node) {
-        return {
-            state: 'empty',
-            pigeon_id: null,
-            ring_number: null,
-            name: null,
-            ancestors: 0,
-        };
-    }
-
-    return {
-        state: node.external ? 'external' : 'linked',
-        pigeon_id: node.id,
-        ring_number: node.ring_number,
-        name: node.name,
-        ancestors: node.external
-            ? slots.value.filter(
-                  (entry) =>
-                      entry.node &&
-                      entry.key.length > 1 &&
-                      entry.key.startsWith(key),
-              ).length
-            : null,
-    };
-};
-
-const copyTarget = computed(() => ({
-    sire: currentSide('sire'),
-    dam: currentSide('dam'),
-}));
-
 const copyOpen = ref(false);
+// The place to fill when "Copy from another pigeon" is opened from a box on the chart
+const copyFocus = ref<string | null>(null);
+
+const openCopy = (focus: string | null) => {
+    copyFocus.value = focus;
+    dialogOpen.value = false;
+    copyOpen.value = true;
+};
 
 const dialogOpen = ref(false);
 const activeTarget = ref<AncestorTarget | null>(null);
@@ -217,7 +188,7 @@ const openEditor = (target: AncestorTarget | null) => {
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <Button variant="outline" @click="copyOpen = true">
+                    <Button variant="outline" @click="openCopy(null)">
                         <Copy class="size-4" />
                         Copy from another pigeon
                     </Button>
@@ -277,8 +248,9 @@ const openEditor = (target: AncestorTarget | null) => {
                     <GitBranch class="mt-0.5 size-4 shrink-0 text-gold" />
                     <p>
                         Ancestors behind a loft bird are saved on that bird, so
-                        all of its offspring inherit them. For a related bird
-                        bought in, copy a whole side from its sibling.
+                        all of its offspring inherit them. For a related bird,
+                        copy a parent, grandparent or great-grandparent's line
+                        from another pigeon.
                     </p>
                 </div>
             </div>
@@ -338,7 +310,8 @@ const openEditor = (target: AncestorTarget | null) => {
         <CopyPedigreeDialog
             v-model:open="copyOpen"
             :pigeon-id="pigeon.id"
-            :target="copyTarget"
+            :tree="tree"
+            :focus="copyFocus"
         />
 
         <AncestorDialog
@@ -346,8 +319,10 @@ const openEditor = (target: AncestorTarget | null) => {
             :pigeon-id="pigeon.id"
             :target="activeTarget"
             :colors="colors"
+            :bloodlines="bloodlines"
             :merit-types="meritTypes"
             :merit-levels="meritLevels"
+            @copy="openCopy"
         />
     </AppLayout>
 </template>

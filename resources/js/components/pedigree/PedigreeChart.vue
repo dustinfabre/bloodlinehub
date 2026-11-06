@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
+import PedigreeBirdDialog from '@/components/pedigree/PedigreeBirdDialog.vue';
 import PedigreeCard from '@/components/pedigree/PedigreeCard.vue';
 import { meritChipStyle } from '@/lib/merits';
 import {
@@ -11,14 +12,18 @@ import {
     slotGridArea,
     VISIBILITY_LABELS,
 } from '@/lib/pedigree';
-import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
+import type {
+    PedigreeMeta,
+    PedigreeNode,
+    PedigreeSlot,
+} from '@/types/pedigree';
 import { Mail, MapPin, Phone } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
     tree: PedigreeNode;
     meta: PedigreeMeta;
-    // Ring numbers link to the pigeon pages (owner view only)
+    // The details of loft birds link to their pigeon pages (owner view only)
     linkable?: boolean;
 }>();
 
@@ -34,6 +39,18 @@ const shareLabel = computed(() =>
 const hasContact = computed(() =>
     Object.values(props.meta.contact).some(Boolean),
 );
+
+// Clicking a card shows everything recorded about that bird
+const detailsOpen = ref(false);
+const selected = ref<Pick<PedigreeSlot, 'key' | 'node'>>({
+    key: '',
+    node: null,
+});
+
+const showDetails = (key: string, node: PedigreeNode | null) => {
+    selected.value = { key, node };
+    detailsOpen.value = true;
+};
 </script>
 
 <template>
@@ -79,7 +96,12 @@ const hasContact = computed(() =>
                         alt=""
                         class="pedigree-photo"
                     />
-                    <PedigreeCard :node="tree" :depth="0" :side="null" />
+                    <PedigreeCard
+                        :node="tree"
+                        :depth="0"
+                        :side="null"
+                        @open="showDetails('', tree)"
+                    />
                     <span class="pedigree-stub" />
                     <span class="pedigree-fork" />
                     <div class="pedigree-qr-block">
@@ -109,7 +131,7 @@ const hasContact = computed(() =>
                         :node="position.node"
                         :depth="position.depth"
                         :side="position.side"
-                        :linkable="linkable"
+                        @open="showDetails(position.key, position.node)"
                     />
                     <template
                         v-if="position.node && position.depth < MAX_DEPTH"
@@ -181,6 +203,13 @@ const hasContact = computed(() =>
                 </div>
             </footer>
         </div>
+
+        <PedigreeBirdDialog
+            v-model:open="detailsOpen"
+            :position="selected.key"
+            :node="selected.node"
+            :linkable="linkable"
+        />
     </div>
 </template>
 
@@ -476,6 +505,19 @@ const hasContact = computed(() =>
     box-shadow: inset 3px 0 0 var(--pc-accent);
 }
 
+/* Clicking a card opens the bird's details (screen only; exports never show the hover ring) */
+.pedigree-card.is-clickable {
+    cursor: pointer;
+    outline: 0 solid transparent;
+    transition: outline-color 0.15s ease;
+}
+
+.pedigree-card.is-clickable:hover,
+.pedigree-card.is-clickable:focus-visible {
+    outline: 1.5px solid var(--gold);
+    outline-offset: -1.5px;
+}
+
 .pedigree-card.is-empty {
     display: flex;
     align-items: center;
@@ -531,26 +573,45 @@ const hasContact = computed(() =>
     white-space: nowrap;
 }
 
-a.pc-ring:hover {
-    text-decoration: underline;
-    text-underline-offset: 2px;
+/* Line 1: sex, ring number, color. The ring number keeps its room; the color takes what is left */
+.pc-ring {
+    flex: 0 1 auto;
+}
+
+.pc-color {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Line 2: name, then merits */
+.pc-row {
+    display: flex;
+    align-items: center;
+    gap: 3px 6px;
+    min-width: 0;
+    margin-top: 3px;
 }
 
 .pc-name,
-.pc-meta,
-.pc-line {
+.pc-meta {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .pc-name {
-    margin-top: 3px;
+    flex: 0 1 auto;
+    min-width: 0;
     font-weight: 600;
 }
 
-.pc-meta,
-.pc-line {
+/* Line 3: bloodline */
+.pc-meta {
     margin-top: 1px;
     color: var(--muted);
 }
@@ -576,14 +637,13 @@ a.pc-ring:hover {
 /* Merits: each type has its own fixed color (set inline from MeritType::color()), explained in the footer */
 .pc-merits {
     display: flex;
-    flex-wrap: wrap;
+    flex: 0 100 auto;
     gap: 2px 3px;
-    margin-top: 3px;
+    min-width: 0;
     overflow: hidden;
 }
 
-.pc-merit,
-.pc-code {
+.pc-merit {
     flex-shrink: 0;
     padding: 1px 5px;
     border-radius: 999px;
@@ -599,15 +659,30 @@ a.pc-ring:hover {
     color: var(--muted);
 }
 
-/* Last column: code chips beside the ring number */
-.pc-codes {
-    display: flex;
-    flex-shrink: 0;
-    gap: 2px;
-    margin-left: auto;
+/* Columns with room to spare move a long color onto its own line instead of cutting it short */
+.pedigree-card[data-depth='0'] .pc-top,
+.pedigree-card[data-depth='1'] .pc-top,
+.pedigree-card[data-depth='2'] .pc-top {
+    flex-wrap: wrap;
+    row-gap: 1px;
 }
 
-.pc-code {
+.pedigree-card[data-depth='0'] .pc-color,
+.pedigree-card[data-depth='1'] .pc-color,
+.pedigree-card[data-depth='2'] .pc-color {
+    flex: 0 1 auto;
+}
+
+/* The two front columns have room to wrap the merits under a long name */
+.pedigree-card[data-depth='0'] .pc-row,
+.pedigree-card[data-depth='1'] .pc-row,
+.pedigree-card[data-depth='0'] .pc-merits,
+.pedigree-card[data-depth='1'] .pc-merits {
+    flex-wrap: wrap;
+}
+
+/* Last column: small code chips */
+.pedigree-card[data-depth='4'] .pc-merit {
     padding: 0 4px;
     font-size: 7px;
 }
@@ -620,9 +695,18 @@ a.pc-ring:hover {
     font-size: 7px;
 }
 
+.pedigree-card[data-depth='0'] .pc-row {
+    gap: 6px 8px;
+    margin-top: 6px;
+}
+
 .pedigree-card[data-depth='0'] .pc-merits {
     gap: 4px;
-    margin-top: 8px;
+}
+
+.pedigree-card[data-depth='0'] .pc-color {
+    color: rgba(248, 246, 240, 0.7);
+    font-size: 11px;
 }
 
 /* Dark merit colors would melt into the navy card, so its chips get a faint light ring */
@@ -677,7 +761,6 @@ a.pc-ring:hover {
 }
 
 .pedigree-card[data-depth='0'] .pc-name {
-    margin-top: 6px;
     color: #ffffff;
     font-size: 14px;
     white-space: normal;

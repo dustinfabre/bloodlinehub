@@ -18,13 +18,14 @@ class ClubSeasonController extends Controller
     {
         abort_if($club->user_id !== auth()->id(), 403);
 
-        // Get available pigeons with racing status
+        // Get available pigeons with racing status, in the standard pigeon search format (see CLAUDE.md)
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->where('status', 'racing')
-            ->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'color', 'bloodline')
+            ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('ring_number')
             ->orderBy('personal_number')
-            ->get();
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         return Inertia::render('clubs/seasons/Create', [
             'club' => $club,
@@ -55,7 +56,7 @@ class ClubSeasonController extends Controller
         ]);
 
         // Add pigeons if provided
-        if (!empty($validated['pigeon_ids'])) {
+        if (! empty($validated['pigeon_ids'])) {
             $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
                 ->where('user_id', auth()->id())
                 ->pluck('id');
@@ -89,14 +90,15 @@ class ClubSeasonController extends Controller
             $event->entries_count = $event->entries_count;
         });
 
-        // Get available pigeons (racing status, not already entered in this season)
+        // Get available pigeons (racing status, not already entered in this season), in the standard pigeon search format
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->where('status', 'racing')
             ->whereNotIn('id', $season->entries->pluck('id'))
-            ->select('id', 'ring_number', 'personal_number', 'name', 'gender', 'color', 'bloodline')
+            ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('ring_number')
             ->orderBy('personal_number')
-            ->get();
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         return Inertia::render('clubs/seasons/Show', [
             'standings' => app(MeritSuggester::class)->season('club', $season->id),
@@ -188,12 +190,12 @@ class ClubSeasonController extends Controller
 
         // Attach all pigeons
         foreach ($pigeons as $pigeonId) {
-            if (!$season->entries()->where('pigeon_id', $pigeonId)->exists()) {
+            if (! $season->entries()->where('pigeon_id', $pigeonId)->exists()) {
                 $season->entries()->attach($pigeonId);
             }
         }
 
-        return back()->with('success', count($pigeons) . ' pigeon(s) added to season.');
+        return back()->with('success', count($pigeons).' pigeon(s) added to season.');
     }
 
     public function removeEntry(Club $club, ClubSeason $season, Pigeon $pigeon): RedirectResponse

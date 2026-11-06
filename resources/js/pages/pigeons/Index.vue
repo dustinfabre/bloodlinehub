@@ -11,6 +11,8 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 import MultiSelectFilter, { type FilterOption } from '@/components/MultiSelectFilter.vue';
 import MeritBadge from '@/components/MeritBadge.vue';
 import { byImportance, topMerit } from '@/lib/merits';
@@ -90,19 +92,7 @@ interface PaginatedPigeons {
     links: PaginationLink[];
 }
 
-interface ParentPigeon {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-    bloodline: string | null;
-    sire: { ring_number?: string; name?: string } | null;
-    dam: { ring_number?: string; name?: string } | null;
-    notes: string | null;
-    remarks: string | null;
-    label: string;
-}
+type ParentPigeon = PigeonSearchItem;
 
 interface LocationOption {
     id: number;
@@ -977,18 +967,7 @@ const submitQuickAdd = () => {
                                 @click="selectQuickSire(sire)"
                                 class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
                             >
-                                <div class="font-medium text-sm">{{ sire.name || sire.ring_number || sire.personal_number }}</div>
-                                <div class="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                    <div v-if="sire.ring_number && sire.name">{{ sire.ring_number }}</div>
-                                    <div v-if="sire.bloodline || sire.color">
-                                        {{ [sire.bloodline, sire.color].filter(Boolean).join(' \u2022 ') }}
-                                    </div>
-                                    <div v-if="sire.sire || sire.dam" class="text-muted-foreground/70">
-                                        <span v-if="sire.sire">S: {{ sire.sire.ring_number || sire.sire.name }}</span>
-                                        <span v-if="sire.sire && sire.dam"> | </span>
-                                        <span v-if="sire.dam">D: {{ sire.dam.ring_number || sire.dam.name }}</span>
-                                    </div>
-                                </div>
+                                <PigeonSearchResult :pigeon="sire" />
                             </button>
                         </div>
                         <div v-if="showQuickSireDropdown && filteredQuickSires.length === 0 && quickSireSearch" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground text-sm">
@@ -1031,18 +1010,7 @@ const submitQuickAdd = () => {
                                 @click="selectQuickDam(dam)"
                                 class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
                             >
-                                <div class="font-medium text-sm">{{ dam.name || dam.ring_number || dam.personal_number }}</div>
-                                <div class="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                    <div v-if="dam.ring_number && dam.name">{{ dam.ring_number }}</div>
-                                    <div v-if="dam.bloodline || dam.color">
-                                        {{ [dam.bloodline, dam.color].filter(Boolean).join(' \u2022 ') }}
-                                    </div>
-                                    <div v-if="dam.sire || dam.dam" class="text-muted-foreground/70">
-                                        <span v-if="dam.sire">S: {{ dam.sire.ring_number || dam.sire.name }}</span>
-                                        <span v-if="dam.sire && dam.dam"> | </span>
-                                        <span v-if="dam.dam">D: {{ dam.dam.ring_number || dam.dam.name }}</span>
-                                    </div>
-                                </div>
+                                <PigeonSearchResult :pigeon="dam" />
                             </button>
                         </div>
                         <div v-if="showQuickDamDropdown && filteredQuickDams.length === 0 && quickDamSearch" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground text-sm">

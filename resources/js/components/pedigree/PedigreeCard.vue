@@ -1,23 +1,25 @@
 <script setup lang="ts">
 import { byImportance, meritChipStyle, topMerit } from '@/lib/merits';
-import {
-    formatPedigreeDate,
-    MAX_DEPTH,
-    meritChip,
-    sexSymbol,
-} from '@/lib/pedigree';
-import { show as showRoute } from '@/routes/pigeons';
+import { MAX_DEPTH, meritChip, sexSymbol } from '@/lib/pedigree';
 import type { PedigreeNode, PedigreeSide } from '@/types/pedigree';
-import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
+// One bird on the pedigree chart:
+//   sex  ring  color
+//   name  merits
+//   bloodline
+//   ─────────
+//   remarks
+// Each generation gets less room, so cards further back show fewer merits and fewer lines of remarks.
+// Clicking a card opens everything recorded about the bird.
 const props = defineProps<{
     node: PedigreeNode | null;
     depth: number;
     // null for the subject bird
     side: PedigreeSide | null;
-    linkable?: boolean;
 }>();
+
+const emit = defineEmits<{ open: [] }>();
 
 // Position decides the sex of ancestors; the subject uses its own gender
 const gender = computed(() => {
@@ -38,27 +40,15 @@ const primaryLabel = computed(
     () => props.node?.ring_number || props.node?.name || '—',
 );
 
-// Name gets its own line only when the ring number is the primary label
-const secondaryName = computed(() =>
-    props.node?.ring_number ? props.node.name : null,
-);
-
-const details = computed(() => {
-    if (!props.node) return '';
-    const sex =
-        props.depth !== 0
-            ? null
-            : gender.value === 'male'
-              ? 'Cock'
-              : gender.value === 'female'
-                ? 'Hen'
-                : null;
-    return [sex, props.node.color, props.node.bloodline]
-        .filter(Boolean)
-        .join(' · ');
-});
+// The name gets the second line when the ring number leads
+const name = computed(() => (props.node?.ring_number ? props.node.name : null));
 
 const isLastColumn = computed(() => props.depth === MAX_DEPTH);
+
+// The last column has room for two lines: the bloodline only shows there when there is no name
+const bloodline = computed(() =>
+    isLastColumn.value && name.value ? null : props.node?.bloodline,
+);
 
 // The bird's most significant merit colors the card's accent stripe
 const accent = computed(() => {
@@ -86,10 +76,18 @@ const merits = computed(() => {
     };
 });
 
-const href = computed(() =>
-    props.linkable && props.node?.id
-        ? showRoute({ pigeon: props.node.id }).url
-        : null,
+const label = computed(() =>
+    [
+        gender.value === 'male'
+            ? 'Cock'
+            : gender.value === 'female'
+              ? 'Hen'
+              : null,
+        props.node?.ring_number,
+        props.node?.name,
+    ]
+        .filter(Boolean)
+        .join(' '),
 );
 </script>
 
@@ -101,54 +99,46 @@ const href = computed(() =>
 
     <div
         v-else
-        class="pedigree-card"
+        class="pedigree-card is-clickable"
         :class="{ 'has-merit': accent }"
         :data-depth="depth"
         :style="accent"
+        role="button"
+        tabindex="0"
+        :aria-label="`${label}: show details`"
+        @click="emit('open')"
+        @keydown.enter.prevent="emit('open')"
+        @keydown.space.prevent="emit('open')"
     >
         <div class="pc-top">
             <span class="pc-sex" :class="sexClass">{{
                 sexSymbol(gender)
             }}</span>
-            <Link v-if="href" :href="href" class="pc-ring">{{
-                primaryLabel
-            }}</Link>
-            <span v-else class="pc-ring">{{ primaryLabel }}</span>
-            <span v-if="isLastColumn && merits.shown.length" class="pc-codes">
-                <b
-                    v-for="merit in merits.shown"
-                    :key="merit.key"
-                    class="pc-code"
-                    :style="merit.style"
-                    :title="merit.title"
-                    >{{ merit.text }}</b
-                >
-            </span>
+            <span class="pc-ring">{{ primaryLabel }}</span>
+            <span v-if="node.color" class="pc-color">{{ node.color }}</span>
         </div>
 
-        <div v-if="isLastColumn" class="pc-line">
-            {{ [secondaryName, node.color].filter(Boolean).join(' · ') }}
-        </div>
-        <template v-else>
-            <div v-if="secondaryName" class="pc-name">{{ secondaryName }}</div>
-            <div v-if="merits.shown.length" class="pc-merits">
-                <span
+        <div v-if="name || merits.shown.length" class="pc-row">
+            <span v-if="name" class="pc-name">{{ name }}</span>
+            <span v-if="merits.shown.length" class="pc-merits">
+                <b
                     v-for="merit in merits.shown"
                     :key="merit.key"
                     class="pc-merit"
                     :style="merit.style"
                     :title="merit.title"
-                    >{{ merit.text }}</span
+                    >{{ merit.text }}</b
                 >
                 <span v-if="merits.more" class="pc-merit is-more"
                     >+{{ merits.more }}</span
                 >
-            </div>
-            <div v-if="details" class="pc-meta">{{ details }}</div>
-            <div v-if="depth === 0 && node.hatch_date" class="pc-meta">
-                Hatched {{ formatPedigreeDate(node.hatch_date) }}
-            </div>
-            <p v-if="node.remarks" class="pc-remarks">{{ node.remarks }}</p>
-        </template>
+            </span>
+        </div>
+
+        <div v-if="bloodline" class="pc-meta">{{ bloodline }}</div>
+
+        <p v-if="node.remarks && !isLastColumn" class="pc-remarks">
+            {{ node.remarks }}
+        </p>
     </div>
 </template>

@@ -38,11 +38,13 @@ class Pigeon extends Model
         'sire_name',
         'sire_ring_number',
         'sire_color',
+        'sire_bloodline',
         'sire_notes',
         'sire_merits',
         'dam_name',
         'dam_ring_number',
         'dam_color',
+        'dam_bloodline',
         'dam_notes',
         'dam_merits',
         'clutch_id',
@@ -98,6 +100,46 @@ class Pigeon extends Model
     public function pedigreeAncestors(): HasMany
     {
         return $this->hasMany(PedigreeAncestor::class);
+    }
+
+    // Columns and relations searchSummary() reads; select and eager load these for search results
+    public const SEARCH_COLUMNS = [
+        'id', 'user_id', 'name', 'ring_number', 'personal_number', 'gender', 'color', 'bloodline', 'notes', 'remarks',
+        'sire_id', 'dam_id', 'sire_name', 'sire_ring_number', 'dam_name', 'dam_ring_number',
+    ];
+
+    public const SEARCH_RELATIONS = ['sire:id,name,ring_number', 'dam:id,name,ring_number'];
+
+    /**
+     * The standard details of a pigeon in every pigeon search and picker, shown by PigeonSearchResult.vue
+     * (see "Pigeon search results" in CLAUDE.md). Includes private notes, so only send it to the bird's owner.
+     *
+     * @return array{id: int, name: ?string, ring_number: ?string, personal_number: ?string, gender: ?string, color: ?string, bloodline: ?string, notes: ?string, remarks: ?string, sire: ?array{ring_number: ?string, name: ?string}, dam: ?array{ring_number: ?string, name: ?string}}
+     */
+    public function searchSummary(): array
+    {
+        // A linked loft parent, or else the outside parent recorded on this pigeon
+        $parent = function (string $side): ?array {
+            $linked = $this->{"{$side}_id"} ? $this->{$side} : null;
+            $ring = $linked ? $linked->ring_number : $this->{"{$side}_ring_number"};
+            $name = $linked ? $linked->name : $this->{"{$side}_name"};
+
+            return $ring || $name ? ['ring_number' => $ring, 'name' => $name] : null;
+        };
+
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'ring_number' => $this->ring_number,
+            'personal_number' => $this->personal_number,
+            'gender' => $this->gender,
+            'color' => $this->color,
+            'bloodline' => $this->bloodline,
+            'notes' => $this->notes,
+            'remarks' => $this->remarks,
+            'sire' => $parent('sire'),
+            'dam' => $parent('dam'),
+        ];
     }
 
     // Whether the sire or dam is an external bird recorded on this pigeon (rather than linked or unknown)

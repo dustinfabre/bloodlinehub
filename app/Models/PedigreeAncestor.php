@@ -17,6 +17,7 @@ class PedigreeAncestor extends Model
         'ring_number',
         'name',
         'color',
+        'bloodline',
         'remarks',
         'merits',
     ];

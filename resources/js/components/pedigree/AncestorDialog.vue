@@ -27,6 +27,7 @@ import type { Page } from '@inertiajs/core';
 import { router, useForm } from '@inertiajs/vue3';
 import {
     ChevronRight,
+    Copy,
     Home,
     Link2,
     LoaderCircle,
@@ -38,6 +39,7 @@ const props = defineProps<{
     pigeonId: number;
     target: AncestorTarget | null;
     colors: string[];
+    bloodlines: string[];
     meritTypes: MeritTypeOption[];
     meritLevels: MeritLevelOption[];
 }>();
@@ -45,6 +47,9 @@ const props = defineProps<{
 const meritEditor = ref<InstanceType<typeof MeritListEditor> | null>(null);
 
 const open = defineModel<boolean>('open', { required: true });
+
+// Open "Copy from another pigeon" for this place (a chart key from the pigeon, e.g. "SSS")
+const emit = defineEmits<{ copy: [key: string] }>();
 
 const { success, error, warning } = useToast();
 
@@ -54,6 +59,7 @@ const form = useForm({
     ring_number: '',
     name: '',
     color: '',
+    bloodline: '',
     remarks: '',
     merits: [] as MeritInput[],
     // Also apply the change to this bird's records in other pedigrees
@@ -122,6 +128,7 @@ watch(
             ring_number: current?.ring_number ?? '',
             name: current?.name ?? '',
             color: current?.color ?? '',
+            bloodline: current?.bloodline ?? '',
             remarks: current?.remarks ?? '',
             merits: (current?.merits ?? []).map((merit) => ({
                 type: merit.type,
@@ -252,6 +259,24 @@ const remove = () => {
                         </datalist>
                         <InputError :message="form.errors.color" />
                     </div>
+                    <div class="grid gap-2">
+                        <Label for="ancestor_bloodline">Bloodline</Label>
+                        <Input
+                            id="ancestor_bloodline"
+                            v-model="form.bloodline"
+                            autocomplete="off"
+                            list="ancestor-bloodlines"
+                            placeholder="e.g. Janssen"
+                        />
+                        <datalist id="ancestor-bloodlines">
+                            <option
+                                v-for="bloodline in bloodlines"
+                                :key="bloodline"
+                                :value="bloodline"
+                            />
+                        </datalist>
+                        <InputError :message="form.errors.bloodline" />
+                    </div>
                 </div>
                 <div class="grid gap-2">
                     <Label for="ancestor_remarks"
@@ -365,6 +390,19 @@ const remove = () => {
                 >
                     <Trash2 class="size-4" />
                     Remove
+                </Button>
+                <Button
+                    v-else-if="
+                        isNew &&
+                        target &&
+                        target.entry.key.length <= 3 &&
+                        !confirmingRemove
+                    "
+                    variant="ghost"
+                    @click="emit('copy', target.entry.key)"
+                >
+                    <Copy class="size-4" />
+                    Copy from another pigeon
                 </Button>
                 <span v-else />
                 <div class="flex gap-2">

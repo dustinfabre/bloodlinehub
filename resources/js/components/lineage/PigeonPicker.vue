@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
 import {
     Popover,
     PopoverAnchor,
@@ -167,36 +168,22 @@ const onKeydown = (event: KeyboardEvent) => {
                     type="button"
                     role="option"
                     :aria-selected="index === highlighted"
-                    class="flex w-full items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-sm"
+                    class="block w-full rounded-sm px-2 py-2 text-left"
                     :class="
                         index === highlighted ? 'bg-accent' : 'hover:bg-accent'
                     "
                     @mouseenter="highlighted = index"
                     @click="choose(pigeon)"
                 >
-                    <span class="min-w-0">
-                        <span class="block truncate font-medium">{{
-                            birdLabel(pigeon)
-                        }}</span>
-                        <span
-                            class="block truncate text-xs text-muted-foreground"
-                        >
-                            {{
-                                [
-                                    pigeon.name ? pigeon.ring_number : null,
-                                    pigeon.color,
-                                    pigeon.bloodline,
-                                ]
-                                    .filter(Boolean)
-                                    .join(' · ')
-                            }}
-                        </span>
-                    </span>
-                    <span
-                        v-if="genderName(pigeon.gender)"
-                        class="shrink-0 text-xs text-muted-foreground"
-                        >{{ genderName(pigeon.gender) }}</span
-                    >
+                    <PigeonSearchResult :pigeon="pigeon">
+                        <template #aside>
+                            <span
+                                v-if="genderName(pigeon.gender)"
+                                class="ml-auto shrink-0 text-xs text-muted-foreground"
+                                >{{ genderName(pigeon.gender) }}</span
+                            >
+                        </template>
+                    </PigeonSearchResult>
                 </button>
                 <p
                     v-if="!loading && results.length === 0"

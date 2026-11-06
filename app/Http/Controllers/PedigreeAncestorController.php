@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\MeritLevel;
 use App\Enums\MeritType;
+use App\Models\Bloodline;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
 use App\Services\Pedigree\OutsideBirdSync;
@@ -31,6 +32,7 @@ class PedigreeAncestorController extends Controller
         'name' => 'name',
         'ring_number' => 'ring_number',
         'color' => 'color',
+        'bloodline' => 'bloodline',
         'remarks' => 'notes',
         'merits' => 'merits',
     ];
@@ -64,6 +66,8 @@ class PedigreeAncestorController extends Controller
                 ->distinct()
                 ->orderBy('color')
                 ->pluck('color'),
+            // The loft's bloodlines, as suggestions
+            'bloodlines' => Bloodline::where('user_id', $request->user()->id)->orderBy('name')->pluck('name'),
             'meritTypes' => MeritType::options(),
             'meritLevels' => MeritLevel::options(),
         ]);
@@ -78,6 +82,7 @@ class PedigreeAncestorController extends Controller
             'ring_number' => ['nullable', 'required_without:name', 'string', 'max:255'],
             'name' => ['nullable', 'string', 'max:255'],
             'color' => ['nullable', 'string', 'max:255'],
+            'bloodline' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string', 'max:2000'],
             ...PigeonMerit::listRules('merits'),
             'sync' => ['sometimes', 'boolean'],

@@ -140,6 +140,7 @@ class PedigreeService
             'name' => $name,
             'ring_number' => $ringNumber,
             'color' => $color,
+            'bloodline' => $child->{"{$side}_bloodline"},
             'remarks' => $remarks,
             'merits' => PigeonMerit::summarizeList($child->{"{$side}_merits"}),
         ], $remaining, $public);
@@ -160,6 +161,7 @@ class PedigreeService
             'name' => $ancestor->name,
             'ring_number' => $ancestor->ring_number,
             'color' => $ancestor->color,
+            'bloodline' => $ancestor->bloodline,
             'remarks' => $ancestor->remarks,
             'merits' => PigeonMerit::summarizeList($ancestor->merits),
         ], $remaining, $public);
@@ -178,7 +180,6 @@ class PedigreeService
             ...$details,
             'gender' => str_ends_with($path, 'S') ? 'male' : 'female',
             'hatch_date' => null,
-            'bloodline' => null,
             'sire' => $remaining > 0 ? $this->ancestor($anchor, $path.'S', $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->ancestor($anchor, $path.'D', $remaining - 1, $public) : null,
         ];

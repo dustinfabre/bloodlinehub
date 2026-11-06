@@ -9,18 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { index as pairingsIndex, store as pairingsStore } from '@/routes/pairings';
 import { useToast } from '@/composables/useToast';
 import { type BreadcrumbItem } from '@/types';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 
-interface Pigeon {
-    id: number;
-    name: string;
-    ring_number: string;
-    bloodline?: string;
-    color?: string;
-    sire?: { ring_number?: string; name?: string; };
-    dam?: { ring_number?: string; name?: string; };
-    notes?: string;
-    remarks?: string;
-}
+type Pigeon = PigeonSearchItem;
 
 interface LocationOption {
     id: number;
@@ -162,31 +154,19 @@ const submit = () => {
                             />
                             <div
                                 v-if="showSireDropdown && filteredSires.length > 0"
-                                class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto"
+                                class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-auto"
                             >
                                 <button
                                     v-for="sire in filteredSires"
                                     :key="sire.id"
                                     type="button"
                                     @click="selectSire(sire)"
-                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
+                                    class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
                                 >
-                                    <div class="font-medium text-sm">{{ sire.name }} - {{ sire.ring_number }}</div>
-                                    <div class="text-xs text-gray-600 mt-1 space-y-0.5">
-                                        <div v-if="sire.bloodline || sire.color">
-                                            {{ [sire.bloodline, sire.color].filter(Boolean).join(' • ') }}
-                                        </div>
-                                        <div v-if="sire.sire || sire.dam" class="text-gray-500">
-                                            <span v-if="sire.sire">S: {{ sire.sire.ring_number || sire.sire.name }}</span>
-                                            <span v-if="sire.sire && sire.dam"> | </span>
-                                            <span v-if="sire.dam">D: {{ sire.dam.ring_number || sire.dam.name }}</span>
-                                        </div>
-                                        <div v-if="sire.notes" class="text-gray-500 italic truncate">{{ sire.notes }}</div>
-                                        <div v-if="sire.remarks" class="text-gray-500 italic truncate">{{ sire.remarks }}</div>
-                                    </div>
+                                    <PigeonSearchResult :pigeon="sire" />
                                 </button>
                             </div>
-                            <div v-if="showSireDropdown && filteredSires.length === 0" class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg p-4 text-center text-gray-500">
+                            <div v-if="showSireDropdown && filteredSires.length === 0" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground">
                                 No sires found
                             </div>
                             <p v-if="form.errors.sire_id" class="text-sm text-destructive">
@@ -207,31 +187,19 @@ const submit = () => {
                             />
                             <div
                                 v-if="showDamDropdown && filteredDams.length > 0"
-                                class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto"
+                                class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-auto"
                             >
                                 <button
                                     v-for="dam in filteredDams"
                                     :key="dam.id"
                                     type="button"
                                     @click="selectDam(dam)"
-                                    class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
+                                    class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
                                 >
-                                    <div class="font-medium text-sm">{{ dam.name }} - {{ dam.ring_number }}</div>
-                                    <div class="text-xs text-gray-600 mt-1 space-y-0.5">
-                                        <div v-if="dam.bloodline || dam.color">
-                                            {{ [dam.bloodline, dam.color].filter(Boolean).join(' • ') }}
-                                        </div>
-                                        <div v-if="dam.sire || dam.dam" class="text-gray-500">
-                                            <span v-if="dam.sire">S: {{ dam.sire.ring_number || dam.sire.name }}</span>
-                                            <span v-if="dam.sire && dam.dam"> | </span>
-                                            <span v-if="dam.dam">D: {{ dam.dam.ring_number || dam.dam.name }}</span>
-                                        </div>
-                                        <div v-if="dam.notes" class="text-gray-500 italic truncate">{{ dam.notes }}</div>
-                                        <div v-if="dam.remarks" class="text-gray-500 italic truncate">{{ dam.remarks }}</div>
-                                    </div>
+                                    <PigeonSearchResult :pigeon="dam" />
                                 </button>
                             </div>
-                            <div v-if="showDamDropdown && filteredDams.length === 0" class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg p-4 text-center text-gray-500">
+                            <div v-if="showDamDropdown && filteredDams.length === 0" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground">
                                 No dams found
                             </div>
                             <p v-if="form.errors.dam_id" class="text-sm text-destructive">

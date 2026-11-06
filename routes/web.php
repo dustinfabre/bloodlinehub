@@ -75,6 +75,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.removeAncestor');
     Route::get('pigeons/{pigeon}/pedigree/copy-sources', [PedigreeCopyController::class, 'sources'])
         ->name('pigeons.pedigreeCopySources');
+    Route::get('pigeons/{pigeon}/pedigree/copy-sources/{source}', [PedigreeCopyController::class, 'source'])
+        ->name('pigeons.pedigreeCopySource');
     Route::post('pigeons/{pigeon}/pedigree/copy', [PedigreeCopyController::class, 'store'])
         ->name('pigeons.copyPedigree');
     Route::post('pigeons/{pigeon}/merits', [PigeonMeritController::class, 'store'])

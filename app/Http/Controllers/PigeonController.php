@@ -621,89 +621,22 @@ class PigeonController extends Controller
         ];
     }
 
+    // The user's cocks and hens for the sire/dam searches, in the standard pigeon search format (see CLAUDE.md)
     private function parentOptions(int $userId, ?int $excludeId = null)
     {
-        $sires = Pigeon::query()
+        $options = fn (string $gender) => Pigeon::query()
             ->where('user_id', $userId)
-            ->where('gender', 'male')
+            ->where('gender', $gender)
             ->when($excludeId, fn ($query) => $query->where('id', '<>', $excludeId))
-            ->with([
-                'sire:id,ring_number,name',
-                'dam:id,ring_number,name'
-            ])
+            ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('name')
             ->orderBy('ring_number')
-            ->get(['id', 'name', 'ring_number', 'personal_number', 'color', 'bloodline', 'sire_id', 'dam_id', 'notes', 'remarks'])
-            ->map(fn (Pigeon $pigeon) => [
-                'id' => $pigeon->id,
-                'name' => $pigeon->name,
-                'ring_number' => $pigeon->ring_number,
-                'personal_number' => $pigeon->personal_number,
-                'color' => $pigeon->color,
-                'bloodline' => $pigeon->bloodline,
-                'sire' => $pigeon->sire ? [
-                    'ring_number' => $pigeon->sire->ring_number,
-                    'name' => $pigeon->sire->name,
-                ] : null,
-                'dam' => $pigeon->dam ? [
-                    'ring_number' => $pigeon->dam->ring_number,
-                    'name' => $pigeon->dam->name,
-                ] : null,
-                'notes' => $pigeon->notes,
-                'remarks' => $pigeon->remarks,
-                'label' => trim(implode(' ', array_filter([
-                    $pigeon->name,
-                    $pigeon->ring_number,
-                    $pigeon->personal_number,
-                    $pigeon->color,
-                    $pigeon->bloodline,
-                    $pigeon->sire ? "S:{$pigeon->sire->ring_number}" : null,
-                    $pigeon->dam ? "D:{$pigeon->dam->ring_number}" : null,
-                ]))),
-            ]);
-
-        $dams = Pigeon::query()
-            ->where('user_id', $userId)
-            ->where('gender', 'female')
-            ->when($excludeId, fn ($query) => $query->where('id', '<>', $excludeId))
-            ->with([
-                'sire:id,ring_number,name',
-                'dam:id,ring_number,name'
-            ])
-            ->orderBy('name')
-            ->orderBy('ring_number')
-            ->get(['id', 'name', 'ring_number', 'personal_number', 'color', 'bloodline', 'sire_id', 'dam_id', 'notes', 'remarks'])
-            ->map(fn (Pigeon $pigeon) => [
-                'id' => $pigeon->id,
-                'name' => $pigeon->name,
-                'ring_number' => $pigeon->ring_number,
-                'personal_number' => $pigeon->personal_number,
-                'color' => $pigeon->color,
-                'bloodline' => $pigeon->bloodline,
-                'sire' => $pigeon->sire ? [
-                    'ring_number' => $pigeon->sire->ring_number,
-                    'name' => $pigeon->sire->name,
-                ] : null,
-                'dam' => $pigeon->dam ? [
-                    'ring_number' => $pigeon->dam->ring_number,
-                    'name' => $pigeon->dam->name,
-                ] : null,
-                'notes' => $pigeon->notes,
-                'remarks' => $pigeon->remarks,
-                'label' => trim(implode(' ', array_filter([
-                    $pigeon->name,
-                    $pigeon->ring_number,
-                    $pigeon->personal_number,
-                    $pigeon->color,
-                    $pigeon->bloodline,
-                    $pigeon->sire ? "S:{$pigeon->sire->ring_number}" : null,
-                    $pigeon->dam ? "D:{$pigeon->dam->ring_number}" : null,
-                ]))),
-            ]);
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         return [
-            'sires' => $sires,
-            'dams' => $dams,
+            'sires' => $options('male'),
+            'dams' => $options('female'),
         ];
     }
 

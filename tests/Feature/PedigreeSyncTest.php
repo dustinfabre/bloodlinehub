@@ -95,6 +95,27 @@ class PedigreeSyncTest extends TestCase
         $this->assertSame('super_breeder', $this->ancestor($c, 'SS')->merits[0]['type']);
     }
 
+    public function test_an_outside_birds_bloodline_is_saved_shown_and_kept_in_step(): void
+    {
+        [$a, $b, $c] = $this->family();
+
+        $this->save($a, 'S', ['ring_number' => 'NL-2019-1234', 'name' => 'OLD COCK', 'bloodline' => 'Janssen', 'remarks' => 'Remark on A'])
+            ->assertSessionHasNoErrors();
+        $this->save($a, 'SD', ['ring_number' => 'NL-2015-9', 'bloodline' => 'Aarden'])->assertSessionHasNoErrors();
+
+        $this->assertSame('Janssen', $a->fresh()->sire_bloodline);
+        $this->assertSame('Janssen', $b->fresh()->sire_bloodline);
+        $this->assertSame('Janssen', $this->ancestor($c, 'SS')->bloodline);
+        $this->assertSame('Aarden', $this->ancestor($c, 'SSD')->bloodline);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $c))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('tree.sire.sire.bloodline', 'Janssen')
+                ->where('tree.sire.sire.dam.bloodline', 'Aarden')
+            );
+    }
+
     public function test_correcting_the_ring_number_updates_the_other_records(): void
     {
         [$a, $b, $c] = $this->family();

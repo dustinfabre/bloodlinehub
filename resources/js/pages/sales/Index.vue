@@ -12,25 +12,11 @@ import { useToast } from '@/composables/useToast';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 import { Plus, X, DollarSign, ExternalLink } from 'lucide-vue-next';
 
-interface ParentSummary {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-}
-
-interface Pigeon {
-    id: number;
-    name: string | null;
-    gender: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-    photo_url: string | null;
-    sire: ParentSummary | null;
-    dam: ParentSummary | null;
-}
+type Pigeon = PigeonSearchItem;
 
 interface Sale {
     id: number;
@@ -231,11 +217,11 @@ const formatPrice = (price: string | null) => {
                             @click="selectPigeon(pigeon.id)"
                         >
                             <CardHeader class="p-4">
-                                <CardTitle class="truncate text-base">{{ pigeonLabel(pigeon) }}</CardTitle>
-                                <CardDescription>
-                                    <Badge variant="outline" class="text-xs">{{ pigeon.gender || 'Unknown' }}</Badge>
-                                    <span v-if="pigeon.color" class="ml-2 text-xs">{{ pigeon.color }}</span>
-                                </CardDescription>
+                                <PigeonSearchResult :pigeon="pigeon">
+                                    <template #aside>
+                                        <Badge variant="outline" class="ml-auto shrink-0 text-xs">{{ pigeon.gender || 'Unknown' }}</Badge>
+                                    </template>
+                                </PigeonSearchResult>
                             </CardHeader>
                             <CardContent class="p-4 pt-0">
                                 <Button variant="outline" size="sm" class="w-full">

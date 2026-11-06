@@ -15,7 +15,7 @@ class SalesController extends Controller
     {
         $userId = $request->user()->id;
 
-        // Get user's pigeons that are not already in active sales
+        // Get user's pigeons that are not already in active sales, in the standard pigeon search format (see CLAUDE.md)
         $availablePigeons = Pigeon::query()
             ->where('user_id', $userId)
             ->whereNotIn('id', function ($query) use ($userId) {
@@ -24,27 +24,9 @@ class SalesController extends Controller
                     ->where('user_id', $userId)
                     ->where('status', 'active');
             })
-            ->with(['sire:id,name,ring_number', 'dam:id,name,ring_number'])
-            ->get()
-            ->map(fn (Pigeon $pigeon) => [
-                'id' => $pigeon->id,
-                'name' => $pigeon->name,
-                'gender' => $pigeon->gender,
-                'ring_number' => $pigeon->ring_number,
-                'personal_number' => $pigeon->personal_number,
-                'color' => $pigeon->color,
-                'photo_url' => $pigeon->photo_url,
-                'sire' => $pigeon->sire ? [
-                    'id' => $pigeon->sire->id,
-                    'name' => $pigeon->sire->name,
-                    'ring_number' => $pigeon->sire->ring_number,
-                ] : null,
-                'dam' => $pigeon->dam ? [
-                    'id' => $pigeon->dam->id,
-                    'name' => $pigeon->dam->name,
-                    'ring_number' => $pigeon->dam->ring_number,
-                ] : null,
-            ]);
+            ->with(Pigeon::SEARCH_RELATIONS)
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         // Get user's active sales
         $activeSales = Sale::query()
@@ -103,7 +85,7 @@ class SalesController extends Controller
         ]);
 
         $validated['user_id'] = $userId;
-        
+
         // Explicitly cast boolean field for PostgreSQL
         $validated['hide_price'] = (bool) ($validated['hide_price'] ?? false);
 

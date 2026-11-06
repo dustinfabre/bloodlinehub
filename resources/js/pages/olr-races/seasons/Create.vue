@@ -9,15 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 import { ref, computed } from 'vue';
 
-interface Pigeon {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-}
+type Pigeon = PigeonSearchItem;
 
 interface OlrRace {
     id: number;
@@ -221,13 +217,9 @@ const submit = () => {
                                             }
                                         }"
                                     />
-                                    <Label :for="`pigeon-${pigeon.id}`" class="flex-1 cursor-pointer">
-                                        <div class="font-medium text-sm">{{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }}</div>
-                                        <div class="text-xs text-muted-foreground">
-                                            {{ pigeon.name || 'Unnamed' }}
-                                            <span v-if="pigeon.color"> • {{ pigeon.color }}</span>
-                                        </div>
-                                    </Label>
+                                    <label :for="`pigeon-${pigeon.id}`" class="min-w-0 flex-1 cursor-pointer">
+                                        <PigeonSearchResult :pigeon="pigeon" />
+                                    </label>
                                 </div>
                             </div>
 

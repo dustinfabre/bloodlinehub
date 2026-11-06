@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 import { Plus, Calendar, Trash2, Bird, AlertTriangle } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
@@ -43,7 +45,7 @@ const props = defineProps<{
     club: Club;
     season: ClubSeason;
     event: ClubSeasonEvent;
-    availablePigeons: Pigeon[];
+    availablePigeons: PigeonSearchItem[];
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -219,12 +221,9 @@ const removeEntry = (pigeon: Pigeon) => {
                                                 }
                                             }"
                                         />
-                                        <Label :for="`pigeon-${pigeon.id}`" class="flex-1 cursor-pointer">
-                                            <div class="font-medium">{{ pigeon.ring_number || pigeon.personal_number || 'No Ring' }}</div>
-                                            <div class="text-sm text-muted-foreground">
-                                                {{ pigeon.name || 'Unnamed' }}
-                                            </div>
-                                        </Label>
+                                        <label :for="`pigeon-${pigeon.id}`" class="min-w-0 flex-1 cursor-pointer">
+                                            <PigeonSearchResult :pigeon="pigeon" />
+                                        </label>
                                     </div>
                                 </div>
 

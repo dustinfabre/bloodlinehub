@@ -98,6 +98,11 @@ return [
             'sslmode' => env('DB_SSLMODE', 'require'),
             'options' => extension_loaded('pdo_pgsql') ? array_filter([
                 \PDO::ATTR_EMULATE_PREPARES => false,
+                // Send each query and its parameters in one call instead of as a named prepared statement. PDO frees
+                // named statements with an SQL "DEALLOCATE", which Neon's pooler (PgBouncer, transaction mode) can't
+                // match to its own statement names: the DEALLOCATE fails, and inside a DB::transaction that aborts the
+                // transaction, so the next query fails with "current transaction is aborted" (SQLSTATE 25P02).
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Pgsql::ATTR_DISABLE_PREPARES : \PDO::PGSQL_ATTR_DISABLE_PREPARES) => true,
             ]) : [],
         ],
 

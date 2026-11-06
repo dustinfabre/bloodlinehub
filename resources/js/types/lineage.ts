@@ -1,3 +1,5 @@
+import type { PigeonSearchItem } from '@/types/pigeon-search';
+
 export interface Merit {
     // null for merits that are not stored rows: external ancestors' merits, suggestions, public pedigrees
     id: number | null;
@@ -89,10 +91,8 @@ export interface SharedReport {
     birds: SharedDescendant[];
 }
 
-export interface PickerPigeon {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
+// A bird found by the lineage / test pairing picker: the standard search details (see CLAUDE.md) plus its status
+export interface PickerPigeon extends PigeonSearchItem {
     personal_number: string | null;
     gender: string | null;
     status: string | null;

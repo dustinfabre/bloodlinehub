@@ -21,6 +21,8 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { Link2, Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
 import axios from 'axios';
 
 interface ParentSummary {
@@ -31,19 +33,7 @@ interface ParentSummary {
     color: string | null;
 }
 
-interface ParentOption {
-    id: number;
-    name: string | null;
-    ring_number: string | null;
-    personal_number: string | null;
-    color: string | null;
-    bloodline: string | null;
-    sire?: { ring_number?: string; name?: string; };
-    dam?: { ring_number?: string; name?: string; };
-    notes?: string;
-    remarks?: string;
-    label: string;
-}
+type ParentOption = PigeonSearchItem;
 
 interface DuplicateMatch {
     pigeon: {
@@ -622,12 +612,12 @@ const submit = (event?: SubmitEvent) => {
                                         />
                                         <div
                                             v-if="showSireDropdown && filteredSires.length > 0"
-                                            class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto"
+                                            class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-auto"
                                         >
                                             <button
                                                 type="button"
                                                 @click="() => { sireId = ''; sireSearch = ''; showSireDropdown = false; }"
-                                                class="w-full px-4 py-2 text-left hover:bg-gray-50 border-b focus:outline-none focus:bg-gray-50 text-sm text-gray-600"
+                                                class="w-full px-4 py-2 text-left hover:bg-accent border-b focus:outline-none focus:bg-accent text-sm text-muted-foreground"
                                             >
                                                 Unlinked / External
                                             </button>
@@ -636,24 +626,12 @@ const submit = (event?: SubmitEvent) => {
                                                 :key="sire.id"
                                                 type="button"
                                                 @click="selectSire(sire)"
-                                                class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
+                                                class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
                                             >
-                                                <div class="font-medium text-sm">{{ sire.name || 'Unnamed' }} - {{ sire.ring_number || sire.personal_number }}</div>
-                                                <div class="text-xs text-gray-600 mt-1 space-y-0.5">
-                                                    <div v-if="sire.bloodline || sire.color">
-                                                        {{ [sire.bloodline, sire.color].filter(Boolean).join(' • ') }}
-                                                    </div>
-                                                    <div v-if="sire.sire || sire.dam" class="text-gray-500">
-                                                        <span v-if="sire.sire">S: {{ sire.sire.ring_number || sire.sire.name }}</span>
-                                                        <span v-if="sire.sire && sire.dam"> | </span>
-                                                        <span v-if="sire.dam">D: {{ sire.dam.ring_number || sire.dam.name }}</span>
-                                                    </div>
-                                                    <div v-if="sire.notes" class="text-gray-500 italic truncate">{{ sire.notes }}</div>
-                                                    <div v-if="sire.remarks" class="text-gray-500 italic truncate">{{ sire.remarks }}</div>
-                                                </div>
+                                                <PigeonSearchResult :pigeon="sire" />
                                             </button>
                                         </div>
-                                        <div v-if="showSireDropdown && filteredSires.length === 0" class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg p-4 text-center text-gray-500">
+                                        <div v-if="showSireDropdown && filteredSires.length === 0" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground">
                                             No sires found
                                         </div>
                                         <InputError :message="form.errors.sire_id" />
@@ -699,12 +677,12 @@ const submit = (event?: SubmitEvent) => {
                                         />
                                         <div
                                             v-if="showDamDropdown && filteredDams.length > 0"
-                                            class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto"
+                                            class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-auto"
                                         >
                                             <button
                                                 type="button"
                                                 @click="() => { damId = ''; damSearch = ''; showDamDropdown = false; }"
-                                                class="w-full px-4 py-2 text-left hover:bg-gray-50 border-b focus:outline-none focus:bg-gray-50 text-sm text-gray-600"
+                                                class="w-full px-4 py-2 text-left hover:bg-accent border-b focus:outline-none focus:bg-accent text-sm text-muted-foreground"
                                             >
                                                 Unlinked / External
                                             </button>
@@ -713,24 +691,12 @@ const submit = (event?: SubmitEvent) => {
                                                 :key="dam.id"
                                                 type="button"
                                                 @click="selectDam(dam)"
-                                                class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 focus:outline-none focus:bg-gray-50"
+                                                class="w-full px-4 py-3 text-left hover:bg-accent border-b last:border-b-0 focus:outline-none focus:bg-accent"
                                             >
-                                                <div class="font-medium text-sm">{{ dam.name || 'Unnamed' }} - {{ dam.ring_number || dam.personal_number }}</div>
-                                                <div class="text-xs text-gray-600 mt-1 space-y-0.5">
-                                                    <div v-if="dam.bloodline || dam.color">
-                                                        {{ [dam.bloodline, dam.color].filter(Boolean).join(' • ') }}
-                                                    </div>
-                                                    <div v-if="dam.sire || dam.dam" class="text-gray-500">
-                                                        <span v-if="dam.sire">S: {{ dam.sire.ring_number || dam.sire.name }}</span>
-                                                        <span v-if="dam.sire && dam.dam"> | </span>
-                                                        <span v-if="dam.dam">D: {{ dam.dam.ring_number || dam.dam.name }}</span>
-                                                    </div>
-                                                    <div v-if="dam.notes" class="text-gray-500 italic truncate">{{ dam.notes }}</div>
-                                                    <div v-if="dam.remarks" class="text-gray-500 italic truncate">{{ dam.remarks }}</div>
-                                                </div>
+                                                <PigeonSearchResult :pigeon="dam" />
                                             </button>
                                         </div>
-                                        <div v-if="showDamDropdown && filteredDams.length === 0" class="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg p-4 text-center text-gray-500">
+                                        <div v-if="showDamDropdown && filteredDams.length === 0" class="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg p-4 text-center text-muted-foreground">
                                             No dams found
                                         </div>
                                         <InputError :message="form.errors.dam_id" />

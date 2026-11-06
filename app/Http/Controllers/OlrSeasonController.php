@@ -19,13 +19,14 @@ class OlrSeasonController extends Controller
     {
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
-        // Get available pigeons (not deceased, missing, or flyaway)
+        // Get available pigeons (not deceased, missing, or flyaway), in the standard pigeon search format (see CLAUDE.md)
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
-            ->select('id', 'ring_number', 'personal_number', 'name', 'color')
+            ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('ring_number')
             ->orderBy('personal_number')
-            ->get();
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         return Inertia::render('olr-races/seasons/Create', [
             'olrRace' => $olrRace,
@@ -56,7 +57,7 @@ class OlrSeasonController extends Controller
         ]);
 
         // Add pigeons if provided
-        if (!empty($validated['pigeon_ids'])) {
+        if (! empty($validated['pigeon_ids'])) {
             $pigeons = Pigeon::whereIn('id', $validated['pigeon_ids'])
                 ->where('user_id', auth()->id())
                 ->pluck('id');
@@ -83,13 +84,15 @@ class OlrSeasonController extends Controller
             $race->total_entries = $race->total_entries;
         });
 
-        // Get available pigeons (not already entered in this season)
+        // Get available pigeons (not already entered in this season), in the standard pigeon search format
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
             ->whereNotIn('id', $season->entries->pluck('id'))
+            ->with(Pigeon::SEARCH_RELATIONS)
             ->orderBy('ring_number')
             ->orderBy('personal_number')
-            ->get();
+            ->get(Pigeon::SEARCH_COLUMNS)
+            ->map->searchSummary();
 
         return Inertia::render('olr-races/seasons/Show', [
             'olrRace' => $olrRace,
@@ -164,7 +167,7 @@ class OlrSeasonController extends Controller
 
         if ($olrLocation) {
             $currentLocation = $pigeon->location;
-            if (!$currentLocation || $currentLocation->type !== 'olr') {
+            if (! $currentLocation || $currentLocation->type !== 'olr') {
                 $pigeon->update(['location_id' => $olrLocation->id]);
             }
         }
@@ -192,7 +195,7 @@ class OlrSeasonController extends Controller
 
         // Attach all pigeons
         foreach ($pigeons as $pigeonId) {
-            if (!$season->entries()->where('pigeon_id', $pigeonId)->exists()) {
+            if (! $season->entries()->where('pigeon_id', $pigeonId)->exists()) {
                 $season->entries()->attach($pigeonId);
             }
         }
@@ -206,12 +209,12 @@ class OlrSeasonController extends Controller
             Pigeon::whereIn('id', $pigeons->toArray())
                 ->where(function ($q) {
                     $q->whereNull('location_id')
-                      ->orWhereHas('location', fn ($lq) => $lq->where('type', '!=', 'olr'));
+                        ->orWhereHas('location', fn ($lq) => $lq->where('type', '!=', 'olr'));
                 })
                 ->update(['location_id' => $olrLocation->id]);
         }
 
-        return back()->with('success', count($pigeons) . ' pigeon(s) added to season.');
+        return back()->with('success', count($pigeons).' pigeon(s) added to season.');
     }
 
     public function removeEntry(OlrRace $olrRace, OlrSeason $season, Pigeon $pigeon): RedirectResponse
