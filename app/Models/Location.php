@@ -12,8 +12,13 @@ class Location extends Model
         'user_id',
         'name',
         'type',
+        'is_breeding',
         'olr_race_id',
         'description',
+    ];
+
+    protected $casts = [
+        'is_breeding' => 'boolean',
     ];
 
     public function user(): BelongsTo

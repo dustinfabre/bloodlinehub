@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { show as pairingsShow, update as pairingsUpdate, index as pairingsIndex } from '@/routes/pairings';
 import { useToast } from '@/composables/useToast';
 import { type BreadcrumbItem } from '@/types';
+import BreedingLocationSelect, { type BreedingLocationOption } from '@/components/BreedingLocationSelect.vue';
 
 interface Pigeon {
     id: number;
@@ -27,17 +28,11 @@ interface Pairing {
     breeding_location_id: number | null;
 }
 
-interface LocationOption {
-    id: number;
-    name: string;
-    type: string;
-}
-
 interface Props {
     pairing: Pairing;
     sires: Pigeon[];
     dams: Pigeon[];
-    locations: LocationOption[];
+    locations: BreedingLocationOption[];
 }
 
 const props = defineProps<Props>();
@@ -127,12 +122,8 @@ const submit = () => {
                         <!-- Breeding Location (Editable) -->
                         <div class="space-y-2">
                             <Label for="breeding_location_id">Breeding Location</Label>
-                            <select id="breeding_location_id" v-model="form.breeding_location_id" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                <option value="">— No location —</option>
-                                <option v-for="loc in locations" :key="loc.id" :value="String(loc.id)">
-                                    {{ loc.name }}{{ loc.type === 'olr' ? ' (OLR)' : '' }}
-                                </option>
-                            </select>
+                            <BreedingLocationSelect id="breeding_location_id" v-model="form.breeding_location_id" :locations="locations" />
+                            <p v-if="pairing.status === 'active'" class="text-sm text-muted-foreground">Changing the location moves the sire and dam there.</p>
                             <p v-if="form.errors.breeding_location_id" class="text-sm text-destructive">{{ form.errors.breeding_location_id }}</p>
                         </div>
                     </CardContent>

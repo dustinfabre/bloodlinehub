@@ -28,33 +28,52 @@ class PairingController extends Controller
     {
         $user = $request->user();
 
-        $query = Pairing::with(['sire', 'dam', 'offspring'])
-            ->where('user_id', $user->id);
+        // The status, pair name and search filters; shared by the list and the counts on the location tabs
+        $applyFilters = function ($query) use ($request) {
+            // Filter by status
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
 
-        // Filter by status
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
+            // Filter by pair name
+            if ($request->filled('pair_name')) {
+                $query->where('pair_name', $this->likeOperator(), '%'.$request->pair_name.'%');
+            }
 
-        // Filter by pair name
-        if ($request->filled('pair_name')) {
-            $query->where('pair_name', $this->likeOperator(), '%'.$request->pair_name.'%');
-        }
-
-        // Search across sire and dam details
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $likeOp = $this->likeOperator();
-            // Grouped so the OR stays inside the user's own pairings
-            $query->where(function ($query) use ($search, $likeOp) {
-                $query->whereHas('sire', function ($q) use ($search, $likeOp) {
-                    $q->where('name', $likeOp, '%'.$search.'%')
-                        ->orWhere('ring_number', $likeOp, '%'.$search.'%');
-                })->orWhereHas('dam', function ($q) use ($search, $likeOp) {
-                    $q->where('name', $likeOp, '%'.$search.'%')
-                        ->orWhere('ring_number', $likeOp, '%'.$search.'%');
+            // Search across sire and dam details
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $likeOp = $this->likeOperator();
+                // Grouped so the OR stays inside the user's own pairings
+                $query->where(function ($query) use ($search, $likeOp) {
+                    $query->whereHas('sire', function ($q) use ($search, $likeOp) {
+                        $q->where('name', $likeOp, '%'.$search.'%')
+                            ->orWhere('ring_number', $likeOp, '%'.$search.'%');
+                    })->orWhereHas('dam', function ($q) use ($search, $likeOp) {
+                        $q->where('name', $likeOp, '%'.$search.'%')
+                            ->orWhere('ring_number', $likeOp, '%'.$search.'%');
+                    });
                 });
-            });
+            }
+        };
+
+        $query = Pairing::with(['sire', 'dam', 'offspring', 'breedingLocation:id,name'])
+            ->where('user_id', $user->id);
+        $applyFilters($query);
+
+        // One tab per breeding location, each with its number of pairs under the current filters
+        $breedingLocations = Location::where('user_id', $user->id)
+            ->where('is_breeding', true)
+            ->select('id', 'name')
+            ->withCount(['pairings' => $applyFilters])
+            ->orderBy('name')
+            ->get();
+        $allCount = (clone $query)->count();
+
+        // The tab: pairs bred at one location
+        $location = ctype_digit((string) $request->query('location')) ? (int) $request->query('location') : null;
+        if ($location) {
+            $query->where('breeding_location_id', $location);
         }
 
         // Sort by pair name
@@ -73,7 +92,9 @@ class PairingController extends Controller
 
         return Inertia::render('pairings/Index', [
             'pairings' => $pairings,
-            'filters' => $request->only(['status', 'pair_name', 'search', 'per_page']),
+            'breedingLocations' => $breedingLocations,
+            'allCount' => $allCount,
+            'filters' => [...$request->only(['status', 'pair_name', 'search', 'per_page']), 'location' => $location],
         ]);
     }
 
@@ -93,14 +114,25 @@ class PairingController extends Controller
             ->get(Pigeon::SEARCH_COLUMNS)
             ->map->searchSummary();
 
+        $locations = Location::where('user_id', $user->id)
+            ->orderByDesc('is_breeding')
+            ->orderBy('name')
+            ->get(['id', 'name', 'type', 'is_breeding']);
+
+        // The breeding location tab the pair is added from; with no tab, the only breeding location if there is one
+        $breedingLocations = $locations->where('is_breeding', true);
+        $locationId = $locations->firstWhere('id', $request->integer('location'))?->id
+            ?? ($breedingLocations->count() === 1 ? $breedingLocations->first()->id : null);
+
         return Inertia::render('pairings/Create', [
             'sires' => $breeders('male'),
             'dams' => $breeders('female'),
-            'locations' => Location::where('user_id', $user->id)->orderBy('name')->get(['id', 'name', 'type']),
-            // Pre-selected birds, e.g. from Test Pairing
+            'locations' => $locations,
+            // Pre-selected birds, e.g. from Test Pairing, and location
             'prefill' => [
                 'sire_id' => $request->integer('sire_id') ?: null,
                 'dam_id' => $request->integer('dam_id') ?: null,
+                'breeding_location_id' => $locationId,
             ],
         ]);
     }
@@ -228,7 +260,10 @@ class PairingController extends Controller
             'pairing' => $pairing,
             'sires' => $sires,
             'dams' => $dams,
-            'locations' => Location::where('user_id', $user->id)->orderBy('name')->get(['id', 'name', 'type']),
+            'locations' => Location::where('user_id', $user->id)
+                ->orderByDesc('is_breeding')
+                ->orderBy('name')
+                ->get(['id', 'name', 'type', 'is_breeding']),
         ]);
     }
 
@@ -243,6 +278,13 @@ class PairingController extends Controller
         }
 
         $pairing->update($request->validated());
+
+        // An active pair moved to another breeding location takes its sire and dam with it
+        if ($pairing->isActive() && $pairing->breeding_location_id && $pairing->wasChanged('breeding_location_id')) {
+            Pigeon::where('user_id', $pairing->user_id)
+                ->whereIn('id', [$pairing->sire_id, $pairing->dam_id])
+                ->update(['location_id' => $pairing->breeding_location_id]);
+        }
 
         return redirect()->route('pairings.show', $pairing)
             ->with('success', 'Pairing updated successfully.');

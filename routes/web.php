@@ -142,6 +142,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('locations.index');
     Route::post('locations', [LocationController::class, 'store'])
         ->name('locations.store');
+    Route::get('locations/{location}', [LocationController::class, 'show'])
+        ->name('locations.show');
+    // Add birds to a location (moving them from wherever they are) or take them off it
+    Route::post('locations/{location}/pigeons', [LocationController::class, 'addPigeons'])
+        ->name('locations.pigeons.store');
+    Route::delete('locations/{location}/pigeons', [LocationController::class, 'removePigeons'])
+        ->name('locations.pigeons.destroy');
     Route::patch('locations/{location}', [LocationController::class, 'update'])
         ->name('locations.update');
     Route::delete('locations/{location}', [LocationController::class, 'destroy'])

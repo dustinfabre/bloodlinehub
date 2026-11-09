@@ -14,6 +14,8 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { index as pairingsIndex, create as pairingsCreate, show as pairingsShow, edit as pairingsEdit, destroy as pairingsDestroy } from '@/routes/pairings';
 import { show as pigeonsShow } from '@/routes/pigeons';
+import { index as locationsIndex } from '@/routes/locations';
+import { MapPin } from 'lucide-vue-next';
 import { useToast } from '@/composables/useToast';
 import { type BreadcrumbItem } from '@/types';
 
@@ -35,6 +37,13 @@ interface Pairing {
     dam: Pigeon;
     offspring: Pigeon[];
     golden_pair: GoldenPairInfo | null;
+    breeding_location: { id: number; name: string } | null;
+}
+
+interface BreedingLocationTab {
+    id: number;
+    name: string;
+    pairings_count: number;
 }
 
 interface PaginatedPairings {
@@ -47,11 +56,16 @@ interface PaginatedPairings {
 
 interface Props {
     pairings: PaginatedPairings;
+    // Locations marked as breeding locations, one tab each
+    breedingLocations: BreedingLocationTab[];
+    // Pairs under the current filters across every location
+    allCount: number;
     filters: {
         status?: string;
         pair_name?: string;
         search?: string;
         per_page?: number;
+        location?: number | null;
     };
 }
 
@@ -67,6 +81,7 @@ const search = ref(props.filters.search || '');
 const pairName = ref(props.filters.pair_name || '');
 const status = ref(props.filters.status || '');
 const perPage = ref(props.filters.per_page || 20);
+const location = ref<number | null>(props.filters.location ?? null);
 const showFilters = ref(false);
 const pairingToDelete = ref<Pairing | null>(null);
 
@@ -83,6 +98,7 @@ const applyFilters = () => {
         pair_name: pairName.value || undefined,
         status: status.value || undefined,
         per_page: perPage.value,
+        location: location.value || undefined,
     }, {
         preserveState: true,
         preserveScroll: true,
@@ -95,6 +111,17 @@ const clearFilters = () => {
     status.value = '';
     applyFilters();
 };
+
+// Show the pairs bred at one breeding location, or every pair
+const selectLocation = (id: number | null) => {
+    location.value = id;
+    applyFilters();
+};
+
+const activeLocation = computed(() => props.breedingLocations.find(loc => loc.id === location.value) ?? null);
+
+// A pair created from a location tab is bred there, and its sire and dam are moved there
+const createHref = computed(() => pairingsCreate({ query: { location: location.value } }).url);
 
 const handleSearch = (event: Event) => {
     const target = event.target as HTMLInputElement;
@@ -137,11 +164,47 @@ const formatDate = (date: string) => {
                     <p class="text-muted-foreground mt-1">Manage your breeding pairs and track offspring</p>
                 </div>
                 <Button asChild>
-                    <Link :href="pairingsCreate().url">
-                        Create Pairing
+                    <Link :href="createHref">
+                        {{ activeLocation ? `Create Pairing in ${activeLocation.name}` : 'Create Pairing' }}
                     </Link>
                 </Button>
             </div>
+
+            <!-- Breeding location tabs -->
+            <div v-if="breedingLocations.length > 0" class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <div class="flex min-w-max gap-1 border-b" role="tablist" aria-label="Breeding locations">
+                    <button
+                        type="button"
+                        role="tab"
+                        :aria-selected="location === null"
+                        class="-mb-px flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+                        :class="location === null ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                        @click="selectLocation(null)"
+                    >
+                        All
+                        <Badge variant="secondary" class="px-1.5 text-xs">{{ allCount }}</Badge>
+                    </button>
+                    <button
+                        v-for="loc in breedingLocations"
+                        :key="loc.id"
+                        type="button"
+                        role="tab"
+                        :aria-selected="location === loc.id"
+                        class="-mb-px flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+                        :class="location === loc.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
+                        @click="selectLocation(loc.id)"
+                    >
+                        <MapPin class="h-3.5 w-3.5" />
+                        {{ loc.name }}
+                        <Badge variant="secondary" class="px-1.5 text-xs">{{ loc.pairings_count }}</Badge>
+                    </button>
+                </div>
+            </div>
+            <p v-else class="text-sm text-muted-foreground">
+                Tip: mark a location as a breeding location on the
+                <Link :href="locationsIndex().url" class="underline underline-offset-2 hover:text-foreground">Locations</Link>
+                page to give it its own tab here.
+            </p>
 
             <!-- Search and Filters -->
             <div class="space-y-4">
@@ -266,6 +329,9 @@ const formatDate = (date: string) => {
 
                         <!-- Info -->
                         <div class="space-y-1 text-sm">
+                            <p v-if="pairing.breeding_location && !activeLocation">
+                                <span class="font-medium">Location:</span> {{ pairing.breeding_location.name }}
+                            </p>
                             <p><span class="font-medium">Started:</span> {{ formatDate(pairing.started_at) }}</p>
                             <p v-if="pairing.ended_at">
                                 <span class="font-medium">Ended:</span> {{ formatDate(pairing.ended_at) }}
@@ -311,9 +377,13 @@ const formatDate = (date: string) => {
             <!-- Empty State -->
             <Card v-else>
                 <CardContent class="flex flex-col items-center justify-center py-12">
-                    <p class="text-muted-foreground mb-4">No pairings found.</p>
+                    <p class="text-muted-foreground mb-4">
+                        {{ activeLocation ? `No pairings in ${activeLocation.name}.` : 'No pairings found.' }}
+                    </p>
                     <Button asChild>
-                        <Link :href="pairingsCreate().url">Create Your First Pairing</Link>
+                        <Link :href="createHref">
+                            {{ activeLocation ? `Create a Pairing in ${activeLocation.name}` : 'Create Your First Pairing' }}
+                        </Link>
                     </Button>
                 </CardContent>
             </Card>

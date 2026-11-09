@@ -7,17 +7,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { index as locationsIndex, store as locationsStore, update as locationsUpdate, destroy as locationsDestroy } from '@/routes/locations';
+import { Checkbox } from '@/components/ui/checkbox';
+import { index as locationsIndex, show as locationsShow, store as locationsStore, update as locationsUpdate, destroy as locationsDestroy } from '@/routes/locations';
 import { useToast } from '@/composables/useToast';
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import { MapPin, Plus, Pencil, Trash2, Lock } from 'lucide-vue-next';
+import { MapPin, Plus, Pencil, Trash2, Lock, ChevronRight, Egg } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 
 interface Location {
     id: number;
     name: string;
     type: 'manual' | 'olr';
+    is_breeding: boolean;
     description: string | null;
     olr_race_id: number | null;
     pigeons_count: number;
@@ -43,11 +45,13 @@ const selectedLocation = ref<Location | null>(null);
 const createForm = useForm({
     name: '',
     description: '',
+    is_breeding: false,
 });
 
 const editForm = useForm({
     name: '',
     description: '',
+    is_breeding: false,
 });
 
 const openCreate = () => {
@@ -70,6 +74,7 @@ const openEdit = (loc: Location) => {
     selectedLocation.value = loc;
     editForm.name = loc.name;
     editForm.description = loc.description ?? '';
+    editForm.is_breeding = loc.is_breeding;
     showEdit.value = true;
 };
 
@@ -143,12 +148,16 @@ const isInUse = (loc: Location) => loc.pigeons_count + loc.pairings_count + loc.
                     <Card v-for="loc in locations" :key="loc.id">
                         <CardHeader class="pb-2">
                             <div class="flex items-start justify-between gap-2">
-                                <div class="flex items-center gap-2">
+                                <Link :href="locationsShow({ location: loc.id }).url" class="flex min-w-0 items-center gap-2 hover:underline underline-offset-2">
                                     <MapPin class="h-4 w-4 shrink-0 text-muted-foreground" />
-                                    <CardTitle class="text-base">{{ loc.name }}</CardTitle>
-                                </div>
+                                    <CardTitle class="truncate text-base">{{ loc.name }}</CardTitle>
+                                </Link>
                                 <div class="flex items-center gap-1">
                                     <Badge v-if="loc.type === 'olr'" variant="secondary" class="text-xs">OLR</Badge>
+                                    <Badge v-if="loc.is_breeding" variant="secondary" class="gap-1 text-xs">
+                                        <Egg class="h-3 w-3" />
+                                        Breeding
+                                    </Badge>
                                     <Button
                                         v-if="loc.type === 'manual'"
                                         size="icon"
@@ -173,9 +182,17 @@ const isInUse = (loc: Location) => loc.pigeons_count + loc.pairings_count + loc.
                         </CardHeader>
                         <CardContent>
                             <p v-if="loc.description" class="text-sm text-muted-foreground mb-2">{{ loc.description }}</p>
-                            <div class="flex gap-3 text-xs text-muted-foreground">
-                                <span>{{ loc.pigeons_count }} pigeon{{ loc.pigeons_count !== 1 ? 's' : '' }}</span>
-                                <span>{{ loc.pairings_count }} pairing{{ loc.pairings_count !== 1 ? 's' : '' }}</span>
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex gap-3 text-xs text-muted-foreground">
+                                    <span>{{ loc.pigeons_count }} pigeon{{ loc.pigeons_count !== 1 ? 's' : '' }}</span>
+                                    <span>{{ loc.pairings_count }} pairing{{ loc.pairings_count !== 1 ? 's' : '' }}</span>
+                                </div>
+                                <Button asChild size="sm" variant="outline" class="h-7 px-2 text-xs">
+                                    <Link :href="locationsShow({ location: loc.id }).url">
+                                        Manage pigeons
+                                        <ChevronRight class="ml-1 h-3.5 w-3.5" />
+                                    </Link>
+                                </Button>
                             </div>
                             <p v-if="isInUse(loc)" class="text-xs text-amber-600 dark:text-amber-400 mt-1">In use — reassign pigeons before deleting</p>
                         </CardContent>
@@ -201,6 +218,13 @@ const isInUse = (loc: Location) => loc.pigeons_count + loc.pairings_count + loc.
                         <Label for="create-desc">Description (optional)</Label>
                         <Textarea id="create-desc" v-model="createForm.description" placeholder="Additional notes about this location..." rows="2" />
                     </div>
+                    <div class="flex items-start gap-3">
+                        <Checkbox id="create-breeding" v-model="createForm.is_breeding" class="mt-0.5" />
+                        <div class="space-y-1">
+                            <Label for="create-breeding" class="cursor-pointer">Breeding location</Label>
+                            <p class="text-xs text-muted-foreground">Gets its own tab on the Breeding page. Pairs created there are moved here.</p>
+                        </div>
+                    </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" @click="showCreate = false">Cancel</Button>
                         <Button type="submit" :disabled="createForm.processing">Create</Button>
@@ -214,7 +238,7 @@ const isInUse = (loc: Location) => loc.pigeons_count + loc.pairings_count + loc.
             <DialogContent class="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Edit Location</DialogTitle>
-                    <DialogDescription>Update this location's name or description.</DialogDescription>
+                    <DialogDescription>Update this location's name, description or breeding use.</DialogDescription>
                 </DialogHeader>
                 <form @submit.prevent="submitEdit" class="space-y-4">
                     <div class="space-y-2">
@@ -225,6 +249,13 @@ const isInUse = (loc: Location) => loc.pigeons_count + loc.pairings_count + loc.
                     <div class="space-y-2">
                         <Label for="edit-desc">Description (optional)</Label>
                         <Textarea id="edit-desc" v-model="editForm.description" rows="2" />
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <Checkbox id="edit-breeding" v-model="editForm.is_breeding" class="mt-0.5" />
+                        <div class="space-y-1">
+                            <Label for="edit-breeding" class="cursor-pointer">Breeding location</Label>
+                            <p class="text-xs text-muted-foreground">Gets its own tab on the Breeding page. Pairs created there are moved here.</p>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" @click="showEdit = false">Cancel</Button>
