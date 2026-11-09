@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * Pickers for breeding, sales and race entries only offer birds still in the loft:
- * deceased, flyaway and missing birds are left out.
+ * deceased and missing birds are left out.
  */
 class InLoftPickersTest extends TestCase
 {
@@ -85,7 +85,7 @@ class InLoftPickersTest extends TestCase
     {
         $sire = $this->pigeon('OLD-COCK', 'deceased', 'male');
         $dam = $this->pigeon('OLD-HEN', 'missing', 'female');
-        $this->pigeon('OTHER-GONE', 'flyaway', 'male');
+        $this->pigeon('OTHER-GONE', 'missing', 'male');
         $this->pigeon('OTHER-HERE', 'stock', 'male');
         $pairing = Pairing::create([
             'user_id' => $this->user->id,

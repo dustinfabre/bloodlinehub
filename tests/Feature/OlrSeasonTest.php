@@ -123,7 +123,7 @@ class OlrSeasonTest extends TestCase
 
         // This query should not use race_type column
         $availablePigeons = Pigeon::where('user_id', $this->user->id)
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->whereNotIn('status', Pigeon::GONE_STATUSES)
             ->get();
 
         $this->assertCount(2, $availablePigeons);
@@ -160,7 +160,7 @@ class OlrSeasonTest extends TestCase
         }]);
 
         $availablePigeons = Pigeon::where('user_id', $this->user->id)
-            ->whereNotIn('status', ['deceased', 'missing', 'flyaway'])
+            ->whereNotIn('status', Pigeon::GONE_STATUSES)
             ->whereNotIn('id', $this->season->entries->pluck('id'))
             ->get();
 

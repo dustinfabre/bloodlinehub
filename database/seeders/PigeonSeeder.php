@@ -22,7 +22,7 @@ class PigeonSeeder extends Seeder
             return;
         }
 
-        $statuses = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'missing', 'flyaway'];
+        $statuses = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'missing'];
         $genders = ['male', 'female'];
         $colors = [
             'Blue Bar', 'Blue Check', 'Red Check', 'Red Bar', 'Black', 

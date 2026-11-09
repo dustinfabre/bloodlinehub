@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteRequestController;
 use App\Http\Controllers\LineageController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\LoftCheckController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\MeritSuggestionController;
 use App\Http\Controllers\OlrRaceController;
@@ -61,6 +62,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.suggest-ring-number');
     
     Route::resource('pigeons', PigeonController::class);
+    Route::patch('pigeons/{pigeon}/status', [PigeonController::class, 'updateStatus'])
+        ->name('pigeons.status');
     Route::get('pigeons/{pigeon}/pedigree', [PedigreeController::class, 'show'])
         ->name('pigeons.pedigree');
     Route::get('pigeons/{pigeon}/print-pedigree', [PedigreeController::class, 'print'])
@@ -121,6 +124,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('bloodlines.update');
     Route::delete('bloodlines/{bloodline}', [BloodlineController::class, 'destroy'])
         ->name('bloodlines.destroy');
+
+    // Loft checks: count the birds after a training toss, find the missing ones, keep the history
+    Route::get('loft-checks', [LoftCheckController::class, 'index'])
+        ->name('loft-checks.index');
+    Route::get('loft-checks/create', [LoftCheckController::class, 'create'])
+        ->name('loft-checks.create');
+    Route::post('loft-checks', [LoftCheckController::class, 'store'])
+        ->name('loft-checks.store');
+    Route::get('loft-checks/{loftCheck}', [LoftCheckController::class, 'show'])
+        ->name('loft-checks.show');
+    Route::delete('loft-checks/{loftCheck}', [LoftCheckController::class, 'destroy'])
+        ->name('loft-checks.destroy');
 
     // Locations management
     Route::get('locations', [LocationController::class, 'index'])

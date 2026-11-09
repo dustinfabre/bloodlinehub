@@ -21,7 +21,7 @@ class PigeonTest extends TestCase
 
     public function test_pigeon_can_be_created_with_all_status_values(): void
     {
-        $statuses = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'missing', 'flyaway'];
+        $statuses = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'missing'];
 
         foreach ($statuses as $status) {
             $pigeon = Pigeon::create([

@@ -36,7 +36,7 @@ const { success } = useToast();
 const removing = ref<number | null>(null);
 
 // Birds that can't breed this season
-const UNAVAILABLE = ['deceased', 'missing', 'flyaway'];
+const UNAVAILABLE = ['deceased', 'missing'];
 
 const warnings = (plan: PlannedPair) =>
     [

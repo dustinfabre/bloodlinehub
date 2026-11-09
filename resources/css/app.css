@@ -191,10 +191,17 @@
     body {
         @apply bg-background text-foreground;
     }
+    /* Keep checkboxes square when a long label wraps beside them in a flex row. */
+    input[type='checkbox'],
+    input[type='radio'] {
+        flex-shrink: 0;
+    }
 }
 
 @media (max-width: 767px) {
-    button,
+    /* Tap-target floor. Checkbox/switch/radio primitives render as <button>,
+       so they're excluded or a 16px box gets stretched to 44px tall. */
+    button:not([data-slot='checkbox']):not([data-slot='switch']):not([data-slot='radio-group-item']),
     [data-slot='button'],
     input:not([type='checkbox']):not([type='radio']),
     select {

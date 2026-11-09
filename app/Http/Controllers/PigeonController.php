@@ -10,6 +10,7 @@ use App\Models\Bloodline;
 use App\Models\GoogleDriveConnection;
 use App\Models\Location;
 use App\Models\Pigeon;
+use App\Models\PigeonStatusChange;
 use App\Services\GoogleDrive\GoogleDriveException;
 use App\Services\ImageUploadService;
 use App\Services\Merits\GoldenPairs;
@@ -18,6 +19,7 @@ use App\Services\Pedigree\OutsideBirdSync;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -64,6 +66,8 @@ class PigeonController extends Controller
                 'bloodlines',
                 'location:id,name,type',
                 'merits',
+                // For "Missing since …" on the cards
+                'latestStatusChange',
             ])
             ->where('user_id', $user->id);
 
@@ -282,6 +286,7 @@ class PigeonController extends Controller
             'pedigree',
             'merits',
             'location:id,name,type',
+            'latestStatusChange',
         ]);
 
         // Offspring are birds in the loft that have this pigeon linked as their sire or dam
@@ -297,6 +302,18 @@ class PigeonController extends Controller
 
         return Inertia::render('pigeons/Show', [
             'pigeon' => $this->transformPigeon($pigeon),
+            // When the bird went missing, came back, etc., most recent first
+            'statusHistory' => $pigeon->statusChanges()
+                ->with('loftCheck:id,label')
+                ->limit(50)
+                ->get()
+                ->map(fn (PigeonStatusChange $change) => [
+                    'id' => $change->id,
+                    'from_status' => $change->from_status,
+                    'to_status' => $change->to_status,
+                    'changed_at' => $change->changed_at->toIso8601String(),
+                    'loft_check' => $change->loftCheck ? ['id' => $change->loftCheck->id, 'label' => $change->loftCheck->label] : null,
+                ]),
             'children' => $children,
             'meritTypes' => MeritType::options(),
             'meritLevels' => MeritLevel::options(),
@@ -424,6 +441,22 @@ class PigeonController extends Controller
         return $redirect->with('success', 'Pigeon updated successfully.');
     }
 
+    /**
+     * Change only the status, e.g. from the status menu on a pigeon card, without going through the edit form.
+     */
+    public function updateStatus(Request $request, Pigeon $pigeon): RedirectResponse
+    {
+        $this->ensureOwner($request, $pigeon);
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(Pigeon::STATUSES)],
+        ]);
+
+        $pigeon->update(['status' => $validated['status']]);
+
+        return back();
+    }
+
     public function destroy(Request $request, Pigeon $pigeon, ImageUploadService $imageService): RedirectResponse
     {
         $this->ensureOwner($request, $pigeon);
@@ -534,6 +567,8 @@ class PigeonController extends Controller
             'gender' => $pigeon->gender,
             'hatch_date' => $pigeon->hatch_date?->format('Y-m-d'),
             'status' => $pigeon->status,
+            // When the bird got its current status, if recorded (e.g. "Missing since …")
+            'status_since' => $pigeon->relationLoaded('latestStatusChange') ? $pigeon->statusSince()?->toIso8601String() : null,
             'color' => $pigeon->color,
             'ring_number' => $pigeon->ring_number,
             'personal_number' => $pigeon->personal_number,

@@ -163,7 +163,7 @@ const availablePigeons = computed(() => {
     const resultPigeonIds = props.race.results.map(r => r.pigeon_id);
     return props.season.entries
         .filter(entry => !resultPigeonIds.includes(entry.pigeon_id))
-        .filter(entry => entry.pigeon.status !== 'deceased' && entry.pigeon.status !== 'missing' && entry.pigeon.status !== 'flyaway')
+        .filter(entry => entry.pigeon.status !== 'deceased' && entry.pigeon.status !== 'missing')
         .map(entry => entry.pigeon);
 });
 
@@ -375,7 +375,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                             v-for="result in sortedResults"
                             :key="result.id"
                             class="rounded-lg border p-3"
-                            :class="{ 'opacity-50 bg-muted/50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status === 'deceased' || result.pigeon.status === 'missing' || result.pigeon.status === 'flyaway' }"
+                            :class="{ 'opacity-50 bg-muted/50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status === 'deceased' || result.pigeon.status === 'missing' }"
                         >
                             <div class="flex items-start justify-between">
                                 <div class="flex-1 min-w-0">
@@ -435,7 +435,7 @@ const toggleDNA = (result: ClubRaceResult) => {
                             <TableRow
                                 v-for="result in sortedResults"
                                 :key="result.id"
-                                :class="{ 'opacity-50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status === 'deceased' || result.pigeon.status === 'missing' || result.pigeon.status === 'flyaway' }"
+                                :class="{ 'opacity-50': result.did_not_arrive, 'bg-destructive/5': result.pigeon.status === 'deceased' || result.pigeon.status === 'missing' }"
                             >
                                 <TableCell class="font-bold">
                                     {{ result.position || '-' }}

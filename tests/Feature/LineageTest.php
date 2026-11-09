@@ -269,7 +269,7 @@ class LineageTest extends TestCase
     {
         $this->cock('PHA-1', attributes: ['status' => 'racing']);
         $this->cock('PHA-2', attributes: ['status' => 'deceased']);
-        $this->cock('PHA-3', attributes: ['status' => 'flyaway']);
+        $this->cock('PHA-3', attributes: ['status' => 'missing']);
         $this->cock('PHA-4', attributes: ['status' => 'missing']);
         $this->cock('PHA-5', attributes: ['status' => 'injured']);
 

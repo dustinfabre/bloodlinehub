@@ -56,7 +56,7 @@ class LineageController extends Controller
 
     /**
      * Bird picker search (JSON). Optional gender narrows to that gender plus birds with no gender recorded;
-     * in_loft leaves out deceased, flyaway and missing birds (e.g. when choosing birds to pair).
+     * in_loft leaves out deceased and missing birds (e.g. when choosing birds to pair).
      */
     public function search(Request $request): JsonResponse
     {

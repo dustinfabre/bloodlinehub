@@ -79,7 +79,7 @@ onBeforeUnmount(() => {
         aria-label="Primary navigation"
         class="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,20,0.08)] backdrop-blur md:hidden"
     >
-        <div class="grid h-16 grid-cols-4 px-2">
+        <div class="grid h-16 grid-cols-5 px-1">
             <Link
                 v-for="item in primaryMobileNavItems"
                 :key="item.title"

@@ -19,7 +19,7 @@ class OlrSeasonController extends Controller
     {
         abort_if($olrRace->user_id !== auth()->id(), 403);
 
-        // Get available pigeons (not deceased, missing, or flyaway), in the standard pigeon search format (see CLAUDE.md)
+        // Get available pigeons (not deceased or missing), in the standard pigeon search format (see CLAUDE.md)
         $availablePigeons = Pigeon::where('user_id', auth()->id())
             ->inLoft()
             ->with(Pigeon::SEARCH_RELATIONS)
@@ -241,7 +241,7 @@ class OlrSeasonController extends Controller
         $validated = $request->validate([
             'notes' => ['nullable', 'string'],
             'overall_position' => ['nullable', 'integer', 'min:1', 'max:1000000'],
-            'status' => ['nullable', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
+            'status' => ['nullable', Rule::in(Pigeon::STATUSES)],
         ]);
 
         // Only change the fields sent, so changing the status doesn't clear the notes

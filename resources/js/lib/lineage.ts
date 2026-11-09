@@ -64,43 +64,4 @@ export const positionWords = (position: string) =>
         .map((letter) => (letter === 'S' ? 'sire' : 'dam'))
         .join("'s ");
 
-export const statusStyles: Record<
-    string,
-    { className: string; label: string }
-> = {
-    stock: {
-        className:
-            'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-        label: 'In Stock',
-    },
-    racing: {
-        className:
-            'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300',
-        label: 'Racing',
-    },
-    breeding: {
-        className:
-            'bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300',
-        label: 'Breeding',
-    },
-    injured: {
-        className:
-            'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
-        label: 'Injured',
-    },
-    deceased: {
-        className:
-            'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
-        label: 'Deceased',
-    },
-    flyaway: {
-        className:
-            'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-        label: 'Flyaway',
-    },
-    missing: {
-        className:
-            'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
-        label: 'Missing',
-    },
-};
+export { statusStyles } from '@/lib/pigeon-status';

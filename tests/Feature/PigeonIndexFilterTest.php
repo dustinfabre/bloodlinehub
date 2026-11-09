@@ -83,10 +83,10 @@ class PigeonIndexFilterTest extends TestCase
         $this->pigeon('R-1', ['status' => 'racing']);
         $this->pigeon('R-2', ['status' => 'deceased']);
         $this->pigeon('R-3', ['status' => 'missing']);
-        $this->pigeon('R-4', ['status' => 'flyaway']);
+        $this->pigeon('R-4', ['status' => 'injured']);
 
         $this->assertSame(['R-1', 'R-2', 'R-3', 'R-4'], $this->ringsFor(['status' => 'all']));
-        $this->assertSame(['R-2', 'R-4'], $this->ringsFor(['status' => ['deceased', 'flyaway']]));
+        $this->assertSame(['R-2', 'R-4'], $this->ringsFor(['status' => ['deceased', 'injured']]));
 
         $this->actingAs($this->user)
             ->get(route('pigeons.index', ['status' => 'all']))

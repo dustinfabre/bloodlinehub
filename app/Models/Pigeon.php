@@ -14,13 +14,22 @@ class Pigeon extends Model
 {
     use HasFactory;
 
-    public const STATUSES = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'flyaway', 'missing'];
+    public const STATUSES = ['stock', 'racing', 'breeding', 'injured', 'deceased', 'missing'];
 
     // Birds with these statuses are no longer in the loft: lists and pickers leave them out unless asked for
-    public const GONE_STATUSES = ['deceased', 'flyaway', 'missing'];
+    public const GONE_STATUSES = ['deceased', 'missing'];
 
     // In stock, racing, breeding and injured: the birds actually in the loft
     public const IN_LOFT_STATUSES = ['stock', 'racing', 'breeding', 'injured'];
+
+    public const STATUS_LABELS = [
+        'stock' => 'In Stock',
+        'racing' => 'Racing',
+        'breeding' => 'Breeding',
+        'injured' => 'Injured',
+        'deceased' => 'Deceased',
+        'missing' => 'Missing',
+    ];
 
     protected $fillable = [
         'user_id',
@@ -69,6 +78,17 @@ class Pigeon extends Model
 
     protected static function booted(): void
     {
+        // Keep a history of status changes, so the app knows when a bird went missing or came back. Loft checks
+        // change many birds with one query and record their own changes.
+        static::updated(function (Pigeon $pigeon) {
+            if ($pigeon->wasChanged('status')) {
+                $pigeon->statusChanges()->create([
+                    'from_status' => $pigeon->getOriginal('status'),
+                    'to_status' => $pigeon->status,
+                ]);
+            }
+        });
+
         // While a parent is linked, {side}_notes on its offspring are private notes about it. Once the parent is
         // gone those fields would be read as the remarks of an external parent and shown on the pedigree, so move
         // them into each offspring's private notes first.
@@ -99,7 +119,7 @@ class Pigeon extends Model
     }
 
     /**
-     * Only birds still in the loft (not deceased, flown away or missing).
+     * Only birds still in the loft (not deceased or missing).
      */
     public function scopeInLoft(Builder $query): void
     {
@@ -183,6 +203,28 @@ class Pigeon extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    // Status changes, most recent first
+    public function statusChanges(): HasMany
+    {
+        return $this->hasMany(PigeonStatusChange::class)->orderByDesc('id');
+    }
+
+    public function latestStatusChange(): HasOne
+    {
+        return $this->hasOne(PigeonStatusChange::class)->latestOfMany();
+    }
+
+    /**
+     * When the bird got its current status, if that change was recorded (e.g. when it went missing). Needs
+     * latestStatusChange loaded or loads it.
+     */
+    public function statusSince(): ?\Illuminate\Support\Carbon
+    {
+        $latest = $this->latestStatusChange;
+
+        return $latest && $latest->to_status === $this->status ? $latest->changed_at : null;
     }
 
     // Standard merits (fixed vocabulary), most recent first; merits without a year last

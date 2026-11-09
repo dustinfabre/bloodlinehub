@@ -5,6 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GoldenPairBadge from '@/components/GoldenPairBadge.vue';
 import PigeonMerits from '@/components/PigeonMerits.vue';
+import PigeonStatusMenu from '@/components/PigeonStatusMenu.vue';
+import { statusStyle } from '@/lib/pigeon-status';
+import { show as loftCheckShow } from '@/routes/loft-checks';
+import { formatCheckDate, formatDay } from '@/types/loft-check';
 import { edit, editPedigree, index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
 import { index as lineageIndex } from '@/routes/lineage';
 import { index as testPairingIndex } from '@/routes/test-pairing';
@@ -42,6 +46,8 @@ interface Pigeon {
     gender: string | null;
     hatch_date: string | null;
     status: string;
+    // When the bird got its current status, if recorded
+    status_since: string | null;
     ring_number: string | null;
     personal_number: string | null;
     color: string | null;
@@ -61,6 +67,15 @@ interface Pigeon {
     dam_notes: string | null;
     pedigree: { serial: string; is_public: boolean; visibility: 'private' | 'password' | 'public' } | null;
     merits: Merit[];
+}
+
+interface StatusChange {
+    id: number;
+    from_status: string | null;
+    to_status: string;
+    changed_at: string;
+    // The loft check that made the change
+    loft_check: { id: number; label: string } | null;
 }
 
 interface Child {
@@ -84,6 +99,8 @@ const props = defineProps<{
     meritSuggestions: MeritSuggestion[];
     // Golden Pair status of this bird's parents (null unless both are in the loft)
     parentPair: GoldenPairInfo | null;
+    // Status changes, most recent first: when the bird went missing, came back, etc.
+    statusHistory: StatusChange[];
 }>();
 
 // Test Pairing pre-filled with this bird on its side of the pair
@@ -99,20 +116,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pigeons', href: indexRoute().url },
     { title: pigeonLabel.value, href: showRoute({ pigeon: props.pigeon.id }).url },
 ];
-
-// Status badge styles with new color scheme
-const getStatusBadgeStyle = (status: string) => {
-    const styles: Record<string, { bg: string; text: string; label: string }> = {
-        stock: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Stock' },
-        racing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Racing' },
-        breeding: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Breeding' },
-        injured: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Injured' },
-        deceased: { bg: 'bg-red-100', text: 'text-red-700', label: 'Deceased' },
-        flyaway: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Flyaway' },
-        missing: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Missing' },
-    };
-    return styles[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status };
-};
 
 const genderName = (gender: string | null) => {
     if (gender === 'male') return 'Cock';
@@ -244,11 +247,10 @@ const childDetails = (child: Child) => {
                         </div>
                         <div>
                             <p class="text-sm text-muted-foreground">Status</p>
-                            <span 
-                                :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
-                            >
-                                {{ getStatusBadgeStyle(pigeon.status).label }}
-                            </span>
+                            <PigeonStatusMenu :pigeon="pigeon" :label="pigeonLabel" />
+                            <p v-if="pigeon.status_since" class="mt-1 text-xs text-muted-foreground">
+                                since {{ formatDay(pigeon.status_since) }}
+                            </p>
                         </div>
                         <div v-if="pigeon.ring_number">
                             <p class="text-sm text-muted-foreground">Ring Number</p>
@@ -356,9 +358,9 @@ const childDetails = (child: Child) => {
                                 <div class="flex shrink-0 flex-wrap items-center gap-2">
                                     <Badge v-if="genderName(child.gender)" variant="outline">{{ genderName(child.gender) }}</Badge>
                                     <span
-                                        :class="[getStatusBadgeStyle(child.status).bg, getStatusBadgeStyle(child.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
+                                        :class="[statusStyle(child.status).className, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
                                     >
-                                        {{ getStatusBadgeStyle(child.status).label }}
+                                        {{ statusStyle(child.status).label }}
                                     </span>
                                 </div>
                             </div>
@@ -381,6 +383,37 @@ const childDetails = (child: Child) => {
                             <p class="text-sm text-muted-foreground">Notes · private</p>
                             <p class="whitespace-pre-wrap">{{ pigeon.notes }}</p>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <!-- Status history -->
+                <Card v-if="statusHistory.length" class="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Status history</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ol class="space-y-3">
+                            <li v-for="change in statusHistory" :key="change.id" class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                                <span class="w-full text-muted-foreground sm:w-48">{{ formatCheckDate(change.changed_at) }}</span>
+                                <span
+                                    v-if="change.from_status"
+                                    :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', statusStyle(change.from_status).className]"
+                                >
+                                    {{ statusStyle(change.from_status).label }}
+                                </span>
+                                <span v-if="change.from_status" class="text-muted-foreground" aria-label="to">→</span>
+                                <span :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', statusStyle(change.to_status).className]">
+                                    {{ statusStyle(change.to_status).label }}
+                                </span>
+                                <Link
+                                    v-if="change.loft_check"
+                                    :href="loftCheckShow({ loftCheck: change.loft_check.id }).url"
+                                    class="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                                >
+                                    Loft check: {{ change.loft_check.label }}
+                                </Link>
+                            </li>
+                        </ol>
                     </CardContent>
                 </Card>
 

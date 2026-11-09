@@ -223,7 +223,7 @@ class ClubSeasonController extends Controller
             'entry_number' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'overall_position' => ['nullable', 'integer', 'min:1', 'max:1000000'],
-            'status' => ['nullable', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
+            'status' => ['nullable', Rule::in(Pigeon::STATUSES)],
         ]);
 
         // Only change the fields sent, so changing the status doesn't clear the entry number or notes

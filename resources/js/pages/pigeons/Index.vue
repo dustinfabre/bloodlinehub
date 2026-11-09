@@ -12,6 +12,8 @@ import { ref, watch, computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import PigeonStatusMenu from '@/components/PigeonStatusMenu.vue';
+import { PIGEON_STATUSES, statusStyle } from '@/lib/pigeon-status';
 import type { PigeonSearchItem } from '@/types/pigeon-search';
 import MultiSelectFilter, { type FilterOption, type FilterPreset } from '@/components/MultiSelectFilter.vue';
 import MeritBadge from '@/components/MeritBadge.vue';
@@ -56,6 +58,8 @@ interface Pigeon {
     personal_number: string | null;
     gender: string | null;
     status: string;
+    // When the bird got its current status, if recorded ("Missing since …")
+    status_since: string | null;
     color: string | null;
     hatch_date: string | null;
     remarks: string | null;
@@ -127,15 +131,10 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Pigeons', href: '/pigeons' },
 ];
 
-const statusOptions: FilterOption[] = [
-    { value: 'stock', label: 'In Stock', dotClass: 'bg-blue-500' },
-    { value: 'racing', label: 'Racing', dotClass: 'bg-green-500' },
-    { value: 'breeding', label: 'Breeding', dotClass: 'bg-pink-500' },
-    { value: 'injured', label: 'Injured', dotClass: 'bg-orange-500' },
-    { value: 'deceased', label: 'Deceased', dotClass: 'bg-red-500' },
-    { value: 'flyaway', label: 'Flyaway', dotClass: 'bg-amber-500' },
-    { value: 'missing', label: 'Missing', dotClass: 'bg-purple-500' },
-];
+const statusOptions: FilterOption[] = PIGEON_STATUSES.map(({ value, label, dotClass }) => ({ value, label, dotClass }));
+
+// Deceased and missing: their cards say since when
+const GONE = PIGEON_STATUSES.filter((status) => status.gone).map((status) => status.value);
 
 const statusPresets = computed<FilterPreset[]>(() => [
     { label: 'In the loft', values: props.inLoftStatuses },
@@ -182,7 +181,7 @@ const perPage = ref(String(props.filters.per_page));
 const sort = ref(props.filters.sort || 'recent');
 const isFiltering = ref(false);
 
-// The default view: birds in the loft (deceased, flyaway and missing birds are left out)
+// The default view: birds in the loft (deceased and missing birds are left out)
 const showingInLoft = computed(
     () =>
         statuses.value.length === props.inLoftStatuses.length &&
@@ -254,24 +253,10 @@ const formatDate = (date: string | null) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-// Status badge styles with new color scheme
 // A bird with merits gets a left border in the color of its most significant one, as on its pedigree
 const meritAccent = (pigeon: Pigeon) => {
     const best = topMerit(pigeon.merits);
     return best ? { borderLeftWidth: '4px', borderLeftColor: best.color } : {};
-};
-
-const getStatusBadgeStyle = (status: string) => {
-    const styles: Record<string, { bg: string; text: string; label: string }> = {
-        stock: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Stock' },
-        racing: { bg: 'bg-green-100', text: 'text-green-700', label: 'Racing' },
-        breeding: { bg: 'bg-pink-100', text: 'text-pink-700', label: 'Breeding' },
-        injured: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Injured' },
-        deceased: { bg: 'bg-red-100', text: 'text-red-700', label: 'Deceased' },
-        flyaway: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'Flyaway' },
-        missing: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Missing' },
-    };
-    return styles[status] || { bg: 'bg-gray-100', text: 'text-gray-700', label: status };
 };
 
 const { success } = useToast();
@@ -675,7 +660,7 @@ const submitQuickAdd = () => {
                         class="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                         @click="statuses = []"
                     >
-                        Include deceased, flyaway and missing
+                        Include deceased and missing
                     </button>
                 </div>
                 
@@ -722,11 +707,7 @@ const submitQuickAdd = () => {
                             class="h-full w-full object-cover"
                         />
                         <div class="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
-                            <span 
-                                :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shadow-sm']"
-                            >
-                                {{ getStatusBadgeStyle(pigeon.status).label }}
-                            </span>
+                            <PigeonStatusMenu :pigeon="pigeon" :label="pigeonLabel(pigeon)" class="shadow-sm" />
                         </div>
                     </div>
                     <CardHeader class="pb-3">
@@ -740,19 +721,19 @@ const submitQuickAdd = () => {
                                 </CardDescription>
                             </div>
                         </div>
-                        <!-- Show status badges if no photo -->
+                        <!-- Status (a menu to change it) goes here when there is no photo to sit on -->
                         <div v-if="!pigeon.photo_url" class="flex flex-wrap gap-1 mt-2">
-                            <span 
-                                :class="[getStatusBadgeStyle(pigeon.status).bg, getStatusBadgeStyle(pigeon.status).text, 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium']"
-                            >
-                                {{ getStatusBadgeStyle(pigeon.status).label }}
-                            </span>
+                            <PigeonStatusMenu :pigeon="pigeon" :label="pigeonLabel(pigeon)" />
                         </div>
                         <div v-if="pigeon.merits.length" class="mt-2 flex flex-wrap gap-1">
                             <MeritBadge v-for="(merit, index) in byImportance(pigeon.merits)" :key="`${merit.type}-${index}`" :merit="merit" />
                         </div>
                     </CardHeader>
                     <CardContent class="space-y-2 text-sm">
+                        <div v-if="pigeon.status_since && GONE.includes(pigeon.status)" class="flex justify-between">
+                            <span class="text-muted-foreground">{{ statusStyle(pigeon.status).label }} since:</span>
+                            <span>{{ formatDate(pigeon.status_since) }}</span>
+                        </div>
                         <div v-if="pigeon.ring_number" class="flex justify-between">
                             <span class="text-muted-foreground">Ring Number:</span>
                             <span class="font-mono">{{ pigeon.ring_number }}</span>

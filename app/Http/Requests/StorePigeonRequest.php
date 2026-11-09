@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\RequiresGoogleDriveForImages;
+use App\Models\Pigeon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -49,7 +50,7 @@ class StorePigeonRequest extends FormRequest
             'name' => ['nullable', 'string', 'max:255'],
             'gender' => ['nullable', 'in:male,female'],
             'hatch_date' => ['nullable', 'date'],
-            'status' => ['required', 'in:stock,racing,breeding,injured,deceased,flyaway,missing'],
+            'status' => ['required', Rule::in(Pigeon::STATUSES)],
             'bloodline' => ['nullable', 'string', 'max:255'],
             'color' => ['nullable', 'string', 'max:255'],
             'ring_number' => ['required', 'string', 'max:255'],

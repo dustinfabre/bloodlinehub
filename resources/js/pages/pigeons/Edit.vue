@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
+import { PIGEON_STATUSES } from '@/lib/pigeon-status';
 import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import FormActionBar from '@/components/FormActionBar.vue';
@@ -507,13 +508,7 @@ const submit = (event?: SubmitEvent) => {
                                 <div class="grid gap-2">
                                     <Label for="status">Status *</Label>
                                     <select id="status" v-model="form.status" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                        <option value="stock">In Stock</option>
-                                        <option value="racing">Racing</option>
-                                        <option value="breeding">Breeding</option>
-                                        <option value="injured">Injured</option>
-                                        <option value="deceased">Deceased</option>
-                                        <option value="flyaway">Flyaway</option>
-                                        <option value="missing">Missing</option>
+                                        <option v-for="option in PIGEON_STATUSES" :key="option.value" :value="option.value">{{ option.label }}</option>
                                     </select>
                                     <InputError :message="form.errors.status" />
                                 </div>

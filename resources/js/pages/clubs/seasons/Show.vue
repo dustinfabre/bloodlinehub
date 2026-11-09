@@ -133,7 +133,7 @@ const getPigeonStatusBadge = (pigeon: Pigeon) => {
 };
 
 const activeEntriesCount = computed(() => {
-    return props.season.entries.filter(e => e.status !== 'deceased' && e.status !== 'missing' && e.status !== 'flyaway').length;
+    return props.season.entries.filter(e => e.status !== 'deceased' && e.status !== 'missing').length;
 });
 
 const filteredPigeons = computed(() => {
@@ -387,7 +387,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             v-for="entry in season.entries"
                             :key="entry.id"
                             class="flex items-center justify-between rounded-lg border p-3"
-                            :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' || entry.status === 'flyaway' }"
+                            :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' }"
                         >
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
@@ -420,7 +420,7 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                             <TableRow
                                 v-for="entry in season.entries"
                                 :key="entry.id"
-                                :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' || entry.status === 'flyaway' }"
+                                :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' }"
                             >
                                 <TableCell class="font-medium">{{ entry.ring_number || entry.personal_number }}</TableCell>
                                 <TableCell>{{ entry.name || '-' }}</TableCell>
@@ -438,7 +438,6 @@ const handleDeleteRace = (race: ClubSeasonRace) => {
                                             <SelectItem value="breeding">Breeding</SelectItem>
                                             <SelectItem value="injured">Injured</SelectItem>
                                             <SelectItem value="deceased">Deceased</SelectItem>
-                                            <SelectItem value="flyaway">Flyaway</SelectItem>
                                             <SelectItem value="missing">Missing</SelectItem>
                                         </SelectContent>
                                     </Select>

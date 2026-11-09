@@ -24,7 +24,7 @@ const props = defineProps<{
     selected: Selected | null;
     gender?: 'male' | 'female';
     placeholder?: string;
-    // Only offer birds in the loft (not deceased, flyaway or missing)
+    // Only offer birds in the loft (not deceased or missing)
     inLoft?: boolean;
 }>();
 

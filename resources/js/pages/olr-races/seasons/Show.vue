@@ -399,7 +399,6 @@ const handleDeleteRace = (race: OlrSeasonRace) => {
                                             <SelectItem value="breeding">Breeding</SelectItem>
                                             <SelectItem value="injured">Injured</SelectItem>
                                             <SelectItem value="deceased">Deceased</SelectItem>
-                                            <SelectItem value="flyaway">Flyaway</SelectItem>
                                             <SelectItem value="missing">Missing</SelectItem>
                                         </SelectContent>
                                     </Select>

@@ -68,7 +68,6 @@ const formatDate = (date: string | null) => {
 const getPigeonStatusBadge = (pigeon: Pigeon) => {
     if (pigeon.status === 'missing') return { label: 'Missing', variant: 'destructive' as const };
     if (pigeon.status === 'deceased') return { label: 'Deceased', variant: 'destructive' as const };
-    if (pigeon.status === 'flyaway') return { label: 'Flyaway', variant: 'destructive' as const };
     return null;
 };
 
@@ -255,7 +254,7 @@ const removeEntry = (pigeon: Pigeon) => {
                             v-for="entry in event.entries"
                             :key="entry.id"
                             class="flex items-center justify-between rounded-lg border p-3"
-                            :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' || entry.status === 'flyaway' }"
+                            :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' }"
                         >
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
@@ -287,7 +286,7 @@ const removeEntry = (pigeon: Pigeon) => {
                             <TableRow
                                 v-for="entry in event.entries"
                                 :key="entry.id"
-                                :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' || entry.status === 'flyaway' }"
+                                :class="{ 'bg-destructive/5': entry.status === 'deceased' || entry.status === 'missing' }"
                             >
                                 <TableCell class="font-medium">{{ entry.ring_number || entry.personal_number }}</TableCell>
                                 <TableCell>{{ entry.name || '-' }}</TableCell>
