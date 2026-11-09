@@ -80,7 +80,8 @@ defineProps<{
 
                 <div class="flex items-center justify-between">
                     <Label for="remember" class="flex items-center space-x-3">
-                        <Checkbox id="remember" name="remember" :tabindex="3" />
+                        <!-- Ticked by default, so the app and the PWA stay logged in -->
+                        <Checkbox id="remember" name="remember" :default-value="true" :tabindex="3" />
                         <span>Remember me</span>
                     </Label>
                 </div>

@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
@@ -30,6 +31,27 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_remember_me_keeps_users_logged_in_after_the_session_ends()
+    {
+        $user = User::factory()->withoutTwoFactor()->create();
+
+        // The login form's checkbox, ticked by default, sends "on"
+        $response = $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+            'remember' => 'on',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertCookie(Auth::guard()->getRecallerName());
+        $this->assertNotNull($user->fresh()->remember_token);
+    }
+
+    public function test_sessions_last_thirty_days_by_default()
+    {
+        $this->assertSame(43200, config('session.lifetime'));
     }
 
     public function test_users_with_two_factor_enabled_are_redirected_to_two_factor_challenge()

@@ -1,6 +1,7 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
+import { toast } from 'vue-sonner';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { registerSW } from 'virtual:pwa-register';
 import type { DefineComponent } from 'vue';
@@ -28,6 +29,17 @@ if (import.meta.env.PROD) {
 
 // Before the app mounts: the install prompt event can fire early
 listenForPwaInstall();
+
+// A page left open longer than the session gets "Page Expired" (419) on its next save. Instead of Laravel's error
+// page, reload the page: that picks up a fresh CSRF token and logs back in through "Remember me" (or goes to the
+// login page). The page keeps what was typed, so the user can save again.
+router.on('invalid', (event) => {
+    if (event.detail.response.status !== 419) return;
+
+    event.preventDefault();
+    toast.error('Your session had expired, so that wasn’t saved. Please try again.');
+    router.reload();
+});
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
