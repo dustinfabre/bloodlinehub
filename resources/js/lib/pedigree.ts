@@ -61,12 +61,14 @@ export const familyPath = (key: string): string => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-// Relatives outside the bird's own line, for photos of relatives (ancestors use their chart position instead).
-// Half-siblings belong to the side of the family they share.
+// Relatives outside the bird's own line, for photos of relatives and notable relatives (ancestors use their chart
+// position instead). Half-siblings, aunts and uncles belong to the side of the family they share.
 export const OTHER_RELATIVES: Record<
     string,
     {
         title: string;
+        // When the bird's sex is known (notable relatives): [cock, hen]
+        gendered?: [string, string];
         hint: string | null;
         option: string;
         side: 'S' | 'D' | null;
@@ -74,27 +76,45 @@ export const OTHER_RELATIVES: Record<
 > = {
     sibling: {
         title: 'Full sibling',
+        gendered: ['Full brother', 'Full sister'],
         hint: 'Same father and mother',
         option: 'Full sibling (same father and mother)',
         side: null,
     },
     half_sibling_sire: {
         title: 'Half-sibling',
+        gendered: ['Half-brother', 'Half-sister'],
         hint: "Sire's side, same father",
         option: "Half-sibling, sire's side (same father)",
         side: 'S',
     },
     half_sibling_dam: {
         title: 'Half-sibling',
+        gendered: ['Half-brother', 'Half-sister'],
         hint: "Dam's side, same mother",
         option: "Half-sibling, dam's side (same mother)",
         side: 'D',
     },
     offspring: {
         title: 'Son or daughter',
+        gendered: ['Son', 'Daughter'],
         hint: null,
         option: 'Son or daughter',
         side: null,
+    },
+    aunt_uncle_sire: {
+        title: 'Aunt or uncle',
+        gendered: ['Uncle', 'Aunt'],
+        hint: "Father's side, the sire's brother or sister",
+        option: "Aunt or uncle, sire's side (father's brother or sister)",
+        side: 'S',
+    },
+    aunt_uncle_dam: {
+        title: 'Aunt or uncle',
+        gendered: ['Uncle', 'Aunt'],
+        hint: "Mother's side, the dam's brother or sister",
+        option: "Aunt or uncle, dam's side (mother's brother or sister)",
+        side: 'D',
     },
     relative: {
         title: 'Relative',
@@ -114,11 +134,18 @@ export const relationSide = (relation: string): 'S' | 'D' | null =>
         ? (relation[0] as 'S' | 'D')
         : (OTHER_RELATIVES[relation]?.side ?? null);
 
-// "Grandmother", "Full sibling"
-export const relationTitle = (relation: string): string =>
-    isAncestorRelation(relation)
-        ? familyName(relation)
-        : (OTHER_RELATIVES[relation]?.title ?? 'Relative');
+// "Grandmother", "Full sibling", or "Full sister" when the bird's sex is known
+export const relationTitle = (
+    relation: string,
+    gender?: string | null,
+): string => {
+    if (isAncestorRelation(relation)) return familyName(relation);
+    const relative = OTHER_RELATIVES[relation];
+    if (!relative) return 'Relative';
+    if (relative.gendered && gender === 'male') return relative.gendered[0];
+    if (relative.gendered && gender === 'female') return relative.gendered[1];
+    return relative.title;
+};
 
 // "Father's mother" for ancestors beyond the parents, "Same father and mother" for a full sibling, ...
 export const relationHint = (relation: string): string | null =>

@@ -316,7 +316,7 @@ class PedigreeTest extends TestCase
                     ['url' => '/media/sister.webp', 'relation' => 'sibling'],
                     ['url' => '/media/half.webp', 'relation' => 'half_sibling_dam'],
                 ])
-                ->where('meta.documents', ['/media/shown-certificate.webp'])
+                ->where('meta.documents', [['url' => '/media/shown-certificate.webp', 'of' => '']])
             );
     }
 

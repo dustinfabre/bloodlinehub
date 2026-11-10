@@ -83,6 +83,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.editPedigree');
     Route::put('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'update'])
         ->name('pigeons.saveAncestor');
+    Route::put('pigeons/{pigeon}/pedigree/notable-relatives', [PedigreeAncestorController::class, 'featureRelatives'])
+        ->name('pigeons.featureRelatives');
     Route::delete('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'destroy'])
         ->name('pigeons.removeAncestor');
     Route::get('pigeons/{pigeon}/pedigree/copy-sources', [PedigreeCopyController::class, 'sources'])

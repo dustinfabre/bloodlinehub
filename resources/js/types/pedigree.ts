@@ -48,12 +48,27 @@ export interface PedigreeMeta {
     photos: string[];
     // Photos of relatives uploaded on the bird: an ancestor's chart position ('S', 'SD', ...) or e.g. 'sibling'
     relative_photos: { url: string; relation: string }[];
-    // Certificates and documents the owner chose to show on the pedigree
-    documents: string[];
+    // Certificates and documents the owner chose to show, of the bird ('') or of a loft parent ('S' or 'D')
+    documents: { url: string; of: '' | 'S' | 'D' }[];
+    // Related loft birds off the chart the owner features below it
+    notable_relatives: NotableRelative[];
     generated_at: string;
 }
 
 export type PedigreeSide = 'sire' | 'dam';
+
+// A related loft bird shown below a pedigree (id is null on public pedigrees)
+export interface NotableRelative {
+    id: number | null;
+    name: string | null;
+    ring_number: string | null;
+    gender: string | null;
+    color: string | null;
+    // 'sibling', 'half_sibling_sire', 'offspring', 'aunt_uncle_dam', ... (see OTHER_RELATIVES)
+    relation: string;
+    photo_url: string | null;
+    merits: Merit[];
+}
 
 export interface PedigreeSharing {
     visibility: PedigreeVisibility;

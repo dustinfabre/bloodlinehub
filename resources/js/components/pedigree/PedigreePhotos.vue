@@ -37,8 +37,8 @@ const props = defineProps<{
     photos?: string[];
     // Photos of relatives uploaded on the bird: an ancestor's chart position, or e.g. 'sibling'
     relativePhotos?: { url: string; relation: string }[];
-    // Certificates and documents the owner chose to show
-    documents?: string[];
+    // Certificates and documents the owner chose to show, of the bird ('') or of a loft parent ('S' or 'D')
+    documents?: { url: string; of: '' | 'S' | 'D' }[];
     // Owner only: where to add photos of the bird, for the note shown when there are none
     addPhotosHref?: string;
 }>();
@@ -60,6 +60,12 @@ interface Photo {
     document?: boolean;
 }
 
+const DOCUMENT_TITLES = {
+    '': 'Certificate',
+    S: "Father's certificate",
+    D: "Mother's certificate",
+};
+
 // Photos that failed to load (e.g. the owner disconnected their Drive) are dropped rather than shown broken
 const failed = ref(new Set<string>());
 
@@ -70,7 +76,7 @@ const photoUrls = computed(() => [
         slot.node?.photo_url ? [slot.node.photo_url] : [],
     ),
     ...(props.relativePhotos ?? []).map((photo) => photo.url),
-    ...(props.documents ?? []),
+    ...(props.documents ?? []).map((document) => document.url),
 ]);
 
 // The bird at each chart position, to name a relative's photo by its ring number
@@ -197,12 +203,12 @@ const sides = computed(() =>
             term: null,
             photos: uniqueByUrl(
                 (props.documents ?? [])
-                    .filter((url) => !failed.value.has(url))
-                    .map((url, index) => ({
+                    .filter((document) => !failed.value.has(document.url))
+                    .map((document, index) => ({
                         id: `document:${index}`,
-                        url,
+                        url: document.url,
                         position: '',
-                        title: 'Certificate',
+                        title: DOCUMENT_TITLES[document.of],
                         hint: null,
                         ringNumber: null,
                         name: null,
@@ -247,6 +253,7 @@ const altText = (photo: Photo) =>
 
 <template>
     <section v-if="shown.length" class="rounded-xl border bg-card p-4 sm:p-5">
+        <h2 class="mb-4 text-lg font-semibold">Photos &amp; certificates</h2>
         <div class="flex flex-col gap-5 md:flex-row">
             <!-- The bird itself -->
             <div v-if="subject" class="shrink-0 md:w-60">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import NotableRelatives from '@/components/pedigree/NotableRelatives.vue';
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
 import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeSharingPanel from '@/components/pedigree/PedigreeSharingPanel.vue';
@@ -136,14 +137,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                 </Button>
             </div>
 
-            <PedigreePhotos
-                :tree="tree"
-                :photos="meta.photos"
-                :relative-photos="meta.relative_photos"
-                :documents="meta.documents"
-                :add-photos-href="editPigeon({ pigeon: pigeon.id }).url"
-            />
-
+            <!-- The pedigree first, then the photos, certificates and notable relatives that go with it -->
             <PedigreeViewer>
                 <PedigreeChart :tree="tree" :meta="meta" linkable />
             </PedigreeViewer>
@@ -152,6 +146,20 @@ const breadcrumbs: BreadcrumbItem[] = [
                 pedigree; notes stay private. Use Edit pedigree to fill in
                 missing ancestors.
             </p>
+
+            <PedigreePhotos
+                :tree="tree"
+                :photos="meta.photos"
+                :relative-photos="meta.relative_photos"
+                :documents="meta.documents"
+                :add-photos-href="editPigeon({ pigeon: pigeon.id }).url"
+            />
+
+            <NotableRelatives
+                :relatives="meta.notable_relatives"
+                linkable
+                :choose-href="`${editPedigree({ pigeon: pigeon.id }).url}#notable-relatives`"
+            />
         </div>
     </AppLayout>
 </template>

@@ -8,6 +8,7 @@ use App\Models\Bloodline;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
 use App\Services\Pedigree\OutsideBirdSync;
+use App\Services\Pedigree\PedigreeShowcase;
 use App\Services\PedigreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ class PedigreeAncestorController extends Controller
     public function __construct(
         private PedigreeService $pedigrees,
         private OutsideBirdSync $sync,
+        private PedigreeShowcase $showcase,
     ) {}
 
     public function edit(Request $request, Pigeon $pigeon): Response
@@ -70,7 +72,39 @@ class PedigreeAncestorController extends Controller
             'bloodlines' => Bloodline::where('user_id', $request->user()->id)->orderBy('name')->pluck('name'),
             'meritTypes' => MeritType::options(),
             'meritLevels' => MeritLevel::options(),
+            // Related loft birds not on the chart that can be shown below it as notable relatives
+            'notableRelatives' => $this->showcase->candidates($pigeon)
+                ->map(fn (array $candidate) => [
+                    ...$candidate['pigeon']->searchSummary(),
+                    ...$this->showcase->notable($candidate['pigeon'], $candidate['relation'], public: false),
+                    'featured' => in_array($candidate['pigeon']->id, $pigeon->featured_relatives ?? [], true),
+                ])
+                ->values(),
         ]);
+    }
+
+    /**
+     * Choose which related loft birds are shown below the pedigree as notable relatives.
+     */
+    public function featureRelatives(Request $request, Pigeon $pigeon): RedirectResponse
+    {
+        $this->ensureOwner($request, $pigeon);
+
+        $validated = $request->validate([
+            'pigeon_ids' => ['present', 'array', 'max:500'],
+            'pigeon_ids.*' => ['integer'],
+        ]);
+
+        // Only birds that are related and off the chart, in the order they are listed
+        $featured = $this->showcase->candidates($pigeon)
+            ->map(fn (array $candidate) => $candidate['pigeon']->id)
+            ->intersect($validated['pigeon_ids'])
+            ->values()
+            ->all();
+
+        $pigeon->update(['featured_relatives' => $featured ?: null]);
+
+        return back()->with('success', 'Notable relatives saved.');
     }
 
     public function update(Request $request, Pigeon $pigeon): RedirectResponse

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
 use App\Models\User;
+use App\Services\Pedigree\PedigreeShowcase;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -12,6 +13,8 @@ use BaconQrCode\Writer;
 
 class PedigreeService
 {
+    public function __construct(private PedigreeShowcase $showcase) {}
+
     /**
      * Generations on the chart, counting the subject (1 + 2 + 4 + 8 + 16 = 31 birds).
      */
@@ -33,7 +36,6 @@ class PedigreeService
     {
         $pedigree = $pigeon->pedigreeRecord();
         $shareUrl = route('pedigrees.shared', $pedigree->serial);
-        $shown = $pigeon->publicPedigreeImages();
 
         return [
             'tree' => $this->tree($pigeon, $public),
@@ -46,11 +48,8 @@ class PedigreeService
                 ...$this->breeder($pigeon->user),
                 ...$this->breeding($pigeon),
                 'photo_url' => $pigeon->photo_url,
-                // Every photo of the bird, the main one first, for the photo showcase
-                'photos' => $pigeon->allPhotos(),
-                // Photos of relatives and certificates uploaded on the bird that the owner shows on the pedigree
-                'relative_photos' => $shown['relatives'],
-                'documents' => $shown['documents'],
+                // Below the chart: photos and certificates of the bird and its loft parents, and notable relatives
+                ...$this->showcase->for($pigeon, $public),
                 'generated_at' => now()->toDateString(),
             ],
         ];
@@ -101,6 +100,7 @@ class PedigreeService
                 'photos' => [],
                 'relative_photos' => [],
                 'documents' => [],
+                'notable_relatives' => [],
                 'generated_at' => now()->toDateString(),
             ],
         ];

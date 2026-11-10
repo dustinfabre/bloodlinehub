@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import InputError from '@/components/InputError.vue';
+import NotableRelatives from '@/components/pedigree/NotableRelatives.vue';
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
 import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
@@ -11,6 +12,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { home, login } from '@/routes';
 import { unlock } from '@/routes/pedigrees';
 import {
+    editPedigree,
     edit as editPigeon,
     pedigree as pedigreeRoute,
 } from '@/routes/pigeons';
@@ -133,6 +135,11 @@ const accessUntil = computed(() =>
                     </p>
                 </div>
 
+                <!-- The pedigree first, then the photos, certificates and notable relatives that go with it -->
+                <PedigreeViewer>
+                    <PedigreeChart :tree="tree" :meta="meta" />
+                </PedigreeViewer>
+
                 <PedigreePhotos
                     :tree="tree"
                     :photos="meta.photos"
@@ -145,9 +152,14 @@ const accessUntil = computed(() =>
                     "
                 />
 
-                <PedigreeViewer>
-                    <PedigreeChart :tree="tree" :meta="meta" />
-                </PedigreeViewer>
+                <NotableRelatives
+                    :relatives="meta.notable_relatives"
+                    :choose-href="
+                        isOwner && pigeonId
+                            ? `${editPedigree({ pigeon: pigeonId }).url}#notable-relatives`
+                            : undefined
+                    "
+                />
             </template>
 
             <form

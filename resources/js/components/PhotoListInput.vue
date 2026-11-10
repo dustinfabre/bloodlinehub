@@ -17,6 +17,7 @@ import {
     Crop,
     Eye,
     ImagePlus,
+    Info,
     Lock,
     Star,
     X,
@@ -32,6 +33,8 @@ const props = defineProps<{
     main?: boolean;
     // Ask what each image shows: a certificate or document, or which relative
     relations?: boolean;
+    // A tip shown above the photos
+    note?: string;
     error?: string;
 }>();
 
@@ -143,6 +146,13 @@ watch(cropOpen, (open) => {
         <p v-if="description" class="text-xs text-muted-foreground">
             {{ description }}
         </p>
+        <div
+            v-if="note"
+            class="flex gap-2 rounded-md border border-gold/40 bg-secondary/50 p-2.5 text-xs"
+        >
+            <Info class="mt-0.5 size-4 shrink-0 text-gold" />
+            <p>{{ note }}</p>
+        </div>
 
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <div

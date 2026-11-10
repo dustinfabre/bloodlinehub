@@ -23,8 +23,11 @@ class Pigeon extends Model
     public const IN_LOFT_STATUSES = ['stock', 'racing', 'breeding', 'injured'];
 
     // Who a photo of a relative can show besides an ancestor (which is named by its chart position: 'S', 'SD', ...):
-    // a full sibling, a half-sibling through the sire or the dam, a son or daughter, or any other relative
-    public const OTHER_RELATIVES = ['sibling', 'half_sibling_sire', 'half_sibling_dam', 'offspring', 'relative'];
+    // a full sibling, a half-sibling through the sire or the dam, a son or daughter, an aunt or uncle on the sire's or
+    // the dam's side, or any other relative
+    public const OTHER_RELATIVES = [
+        'sibling', 'half_sibling_sire', 'half_sibling_dam', 'offspring', 'aunt_uncle_sire', 'aunt_uncle_dam', 'relative',
+    ];
 
     public const STATUS_LABELS = [
         'stock' => 'In Stock',
@@ -53,6 +56,7 @@ class Pigeon extends Model
         'pedigree_images',
         'pedigree_image_relations',
         'pedigree_images_public',
+        'featured_relatives',
         'for_sale',
         'sale_price',
         'hide_price',
@@ -80,6 +84,7 @@ class Pigeon extends Model
         'pedigree_images' => 'array',
         'pedigree_image_relations' => 'array',
         'pedigree_images_public' => 'array',
+        'featured_relatives' => 'array',
         'hatch_date' => 'date',
         'for_sale' => 'boolean',
         'hide_price' => 'boolean',

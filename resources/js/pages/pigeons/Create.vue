@@ -638,6 +638,7 @@ const submit = (event?: SubmitEvent) => {
                                     v-model="form.certificate_items"
                                     label="Certificates & relatives' photos"
                                     description="Say who each photo shows, and tick Show on pedigree for the ones you want on the pedigree, certificates included. The rest only you see. Pedigrees are never listed by search engines."
+                                    note="Is the relative already in your pigeon list? Add its photos on its own page instead, then tick it under Notable relatives in Edit pedigree, so it isn't shown twice. Photos and certificates you show on a parent from your loft already appear on this bird's pedigree."
                                     relations
                                     :error="fieldError('pedigree_images')"
                                 />

@@ -1,20 +1,28 @@
 <script setup lang="ts">
+import MeritBadge from '@/components/MeritBadge.vue';
 import AncestorDialog from '@/components/pedigree/AncestorDialog.vue';
 import CopyPedigreeDialog from '@/components/pedigree/CopyPedigreeDialog.vue';
 import PedigreeEditorSlot from '@/components/pedigree/PedigreeEditorSlot.vue';
+import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/composables/useToast';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { byImportance } from '@/lib/merits';
 import {
     flattenPedigree,
     GENERATION_LABELS,
     MAX_DEPTH,
     normalizeRing,
+    relationHint,
+    relationTitle,
     slotGridArea,
 } from '@/lib/pedigree';
 import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
     edit as editRoute,
+    featureRelatives,
     index as indexRoute,
     pedigree as pedigreeRoute,
     show as showRoute,
@@ -23,12 +31,15 @@ import { type BreadcrumbItem } from '@/types';
 import type { MeritLevelOption, MeritTypeOption } from '@/types/lineage';
 import type {
     AncestorTarget,
+    NotableRelative,
     PedigreeLinks,
     PedigreeNode,
     PedigreeSlot,
 } from '@/types/pedigree';
-import { Head, Link } from '@inertiajs/vue3';
+import type { PigeonSearchItem } from '@/types/pigeon-search';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
+    Bird,
     Contact,
     Copy,
     GitBranch,
@@ -36,7 +47,7 @@ import {
     MousePointerClick,
     Network,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface Pigeon {
     id: number;
@@ -53,7 +64,55 @@ const props = defineProps<{
     meritTypes: MeritTypeOption[];
     meritLevels: MeritLevelOption[];
     links: PedigreeLinks;
+    // Related loft birds off the chart, with whether each is shown below the pedigree
+    notableRelatives: (PigeonSearchItem &
+        NotableRelative & { id: number; featured: boolean })[];
 }>();
+
+// Ticking a related bird shows it below the pedigree as a notable relative; saved straight away
+const { success, error } = useToast();
+const featuredIds = ref<number[]>([]);
+const savingFeatured = ref(false);
+
+watch(
+    () => props.notableRelatives,
+    (relatives) => {
+        featuredIds.value = relatives
+            .filter((relative) => relative.featured)
+            .map((relative) => relative.id);
+    },
+    { immediate: true },
+);
+
+const toggleFeatured = (id: number, show: boolean) => {
+    const previous = featuredIds.value;
+    featuredIds.value = show
+        ? [...previous, id]
+        : previous.filter((other) => other !== id);
+    savingFeatured.value = true;
+
+    router.put(
+        featureRelatives({ pigeon: props.pigeon.id }).url,
+        { pigeon_ids: featuredIds.value },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () =>
+                success(
+                    show
+                        ? 'Shown below the pedigree'
+                        : 'Removed from the pedigree',
+                ),
+            onError: () => {
+                featuredIds.value = previous;
+                error('Could not save. Please try again.');
+            },
+            onFinish: () => {
+                savingFeatured.value = false;
+            },
+        },
+    );
+};
 
 const pigeonLabel = computed(
     () =>
@@ -313,6 +372,91 @@ const openEditor = (target: AncestorTarget | null) => {
                     </div>
                 </div>
             </div>
+
+            <!-- Related birds off the chart to show below the pedigree -->
+            <section
+                id="notable-relatives"
+                class="scroll-mt-20 rounded-xl border bg-card p-4 sm:p-5"
+            >
+                <h2 class="text-lg font-semibold">Notable relatives</h2>
+                <p class="text-sm text-muted-foreground">
+                    Tick related birds from your loft to show them below the
+                    pedigree with their photo and merits. Birds already on the
+                    chart aren't listed, so nothing shows twice. To add a photo
+                    of one, add it on that bird's own page.
+                </p>
+
+                <ul v-if="notableRelatives.length" class="mt-2 divide-y">
+                    <li v-for="relative in notableRelatives" :key="relative.id">
+                        <label
+                            class="flex cursor-pointer items-center gap-3 py-3"
+                        >
+                            <Checkbox
+                                :model-value="featuredIds.includes(relative.id)"
+                                :disabled="savingFeatured"
+                                :aria-label="`Show ${relative.ring_number || relative.name || 'this bird'} below the pedigree`"
+                                @update:model-value="
+                                    toggleFeatured(relative.id, $event === true)
+                                "
+                            />
+                            <div
+                                class="size-12 shrink-0 overflow-hidden rounded-md border bg-muted"
+                            >
+                                <img
+                                    v-if="relative.photo_url"
+                                    :src="relative.photo_url"
+                                    alt=""
+                                    loading="lazy"
+                                    class="size-full object-cover"
+                                />
+                                <div
+                                    v-else
+                                    class="flex size-full items-center justify-center text-muted-foreground"
+                                >
+                                    <Bird class="size-5" />
+                                </div>
+                            </div>
+                            <PigeonSearchResult
+                                :pigeon="relative"
+                                class="flex-1"
+                            >
+                                <template #aside>
+                                    <span
+                                        class="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium"
+                                        :title="
+                                            relationHint(relative.relation) ??
+                                            undefined
+                                        "
+                                        >{{
+                                            relationTitle(
+                                                relative.relation,
+                                                relative.gender,
+                                            )
+                                        }}</span
+                                    >
+                                </template>
+                                <div
+                                    v-if="relative.merits.length"
+                                    class="flex flex-wrap gap-1 pt-1"
+                                >
+                                    <MeritBadge
+                                        v-for="(merit, index) in byImportance(
+                                            relative.merits,
+                                        )"
+                                        :key="index"
+                                        :merit="merit"
+                                    />
+                                </div>
+                            </PigeonSearchResult>
+                        </label>
+                    </li>
+                </ul>
+                <p v-else class="mt-3 text-sm text-muted-foreground">
+                    No related birds to show yet. Brothers, sisters, sons,
+                    daughters, aunts and uncles from your loft appear here once
+                    they have merits or a photo.
+                </p>
+            </section>
         </div>
 
         <CopyPedigreeDialog
