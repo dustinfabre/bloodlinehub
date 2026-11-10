@@ -90,7 +90,7 @@ const chapters = computed<Chapter[]>(() => [
             },
             {
                 term: 'Photo showcase and print',
-                text: "The bird's photo leads, with photos of its loft ancestors grouped by father's and mother's side. Print the chart on A4, or save a PDF from the print view.",
+                text: "The bird's photo leads, with photos of its loft ancestors grouped by father's and mother's side. Save the chart as an image, print it on A4, or save a PDF from the print view.",
             },
             {
                 term: 'Serial and QR code',

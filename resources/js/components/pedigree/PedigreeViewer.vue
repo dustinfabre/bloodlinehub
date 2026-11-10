@@ -23,9 +23,15 @@ const scale = computed(() =>
 <template>
     <div class="space-y-2">
         <div v-if="canZoom" class="flex justify-end">
-            <Button variant="ghost" size="sm" @click="fit = !fit">
-                <Maximize v-if="fit" class="mr-2 h-4 w-4" />
-                <Minimize v-else class="mr-2 h-4 w-4" />
+            <!-- Full-width and large on phones, where the scaled-down sheet is hard to read; compact from sm up -->
+            <Button
+                variant="outline"
+                class="h-12 w-full gap-2 text-base font-semibold sm:h-8 sm:w-auto sm:text-sm sm:font-medium"
+                :aria-pressed="!fit"
+                @click="fit = !fit"
+            >
+                <Maximize v-if="fit" class="size-5 sm:size-4" />
+                <Minimize v-else class="size-5 sm:size-4" />
                 {{ fit ? 'Actual size' : 'Fit to screen' }}
             </Button>
         </div>

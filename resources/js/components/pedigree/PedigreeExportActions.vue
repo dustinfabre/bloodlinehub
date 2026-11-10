@@ -5,11 +5,16 @@ import { usePedigreeExport } from '@/composables/usePedigreeExport';
 import { useToast } from '@/composables/useToast';
 import { FileDown, ImageDown } from 'lucide-vue-next';
 
-const props = defineProps<{
-    // The PedigreeChart sheet to export
-    target: HTMLElement | null | undefined;
-    filename: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        // The PedigreeChart sheet to export
+        target: HTMLElement | null | undefined;
+        filename: string;
+        // Offer a PDF download as well as the image
+        pdf?: boolean;
+    }>(),
+    { pdf: true },
+);
 
 const { exporting, saveImage, savePdf } = usePedigreeExport();
 const { error } = useToast();
@@ -27,6 +32,7 @@ const run = async (action: typeof saveImage) => {
 
 <template>
     <Button
+        v-if="pdf"
         variant="outline"
         :disabled="!target || !!exporting"
         @click="run(savePdf)"

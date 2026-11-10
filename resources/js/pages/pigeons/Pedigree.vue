@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import NotableRelatives from '@/components/pedigree/NotableRelatives.vue';
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
+import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.vue';
 import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeSharingPanel from '@/components/pedigree/PedigreeSharingPanel.vue';
 import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { pedigreeFilename } from '@/lib/pedigree';
 import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
@@ -23,7 +25,7 @@ import type {
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
 import { Contact, Mail, MapPin, Pencil, Phone, Printer } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 interface Pigeon {
     id: number;
@@ -57,6 +59,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     { title: 'Pedigree', href: pedigreeRoute({ pigeon: props.pigeon.id }).url },
 ];
+
+// The sheet to export for Save image
+const chart = ref<InstanceType<typeof PedigreeChart> | null>(null);
+const filename = computed(() =>
+    pedigreeFilename(props.pigeon.ring_number, props.meta.serial),
+);
 </script>
 
 <template>
@@ -96,6 +104,12 @@ const breadcrumbs: BreadcrumbItem[] = [
                             Print
                         </a>
                     </Button>
+                    <!-- Save image only: the PDF download was taken off; Print can still save a PDF -->
+                    <PedigreeExportActions
+                        :target="chart?.paper"
+                        :filename="filename"
+                        :pdf="false"
+                    />
                 </div>
             </div>
 
@@ -139,7 +153,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
             <!-- The pedigree first, then the photos, certificates and notable relatives that go with it -->
             <PedigreeViewer>
-                <PedigreeChart :tree="tree" :meta="meta" linkable />
+                <PedigreeChart ref="chart" :tree="tree" :meta="meta" linkable />
             </PedigreeViewer>
             <p class="text-xs text-muted-foreground">
                 Click a ring number to open that pigeon. Remarks appear on the
