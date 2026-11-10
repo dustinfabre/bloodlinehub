@@ -195,6 +195,44 @@ class PedigreeTest extends TestCase
             );
     }
 
+    public function test_loft_birds_carry_their_photos_for_the_showcase(): void
+    {
+        $grandsire = $this->pigeon(['gender' => 'male', 'photo_url' => 'https://example.test/media/grandsire.webp']);
+        $sire = $this->pigeon([
+            'gender' => 'male',
+            'sire_id' => $grandsire->id,
+            'photo_url' => 'https://example.test/media/sire.webp',
+        ]);
+        $subject = $this->pigeon([
+            'sire_id' => $sire->id,
+            'dam_ring_number' => 'NL-2019-654321',
+            'photo_url' => 'https://example.test/media/subject.webp',
+        ]);
+        $subject->pedigreeAncestors()->create(['path' => 'DS', 'ring_number' => 'NL-2015-1']);
+
+        $assertPhotos = fn (Assert $page) => $page
+            ->where('tree.photo_url', 'https://example.test/media/subject.webp')
+            ->where('tree.sire.photo_url', 'https://example.test/media/sire.webp')
+            ->where('tree.sire.sire.photo_url', 'https://example.test/media/grandsire.webp')
+            // Outside ancestors have no photos
+            ->where('tree.dam.external', true)
+            ->where('tree.dam.photo_url', null)
+            ->where('tree.dam.sire.photo_url', null);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $subject))
+            ->assertOk()
+            ->assertInertia($assertPhotos);
+
+        $this->actingAs($this->user)
+            ->patch(route('pigeons.pedigreeVisibility', $subject), ['visibility' => 'public']);
+        auth()->logout();
+
+        $this->get(route('pedigrees.shared', $subject->fresh()->pedigree->serial))
+            ->assertOk()
+            ->assertInertia($assertPhotos);
+    }
+
     public function test_unknown_serial_returns_not_found(): void
     {
         $this->get(route('pedigrees.shared', 'BLH-0000-0000'))->assertNotFound();

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
-import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.vue';
+import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeSharingPanel from '@/components/pedigree/PedigreeSharingPanel.vue';
 import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { pedigreeFilename } from '@/lib/pedigree';
 import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
@@ -22,7 +21,7 @@ import type {
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
 import { Contact, Mail, MapPin, Pencil, Phone, Printer } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 interface Pigeon {
     id: number;
@@ -56,11 +55,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     { title: 'Pedigree', href: pedigreeRoute({ pigeon: props.pigeon.id }).url },
 ];
-
-const chart = ref<InstanceType<typeof PedigreeChart> | null>(null);
-const filename = computed(() =>
-    pedigreeFilename(props.pigeon.ring_number, props.meta.serial),
-);
 </script>
 
 <template>
@@ -90,10 +84,6 @@ const filename = computed(() =>
                             Contact details
                         </Link>
                     </Button>
-                    <PedigreeExportActions
-                        :target="chart?.paper"
-                        :filename="filename"
-                    />
                     <Button variant="outline" as-child>
                         <a
                             :href="printPedigree({ pigeon: pigeon.id }).url"
@@ -145,8 +135,10 @@ const filename = computed(() =>
                 </Button>
             </div>
 
+            <PedigreePhotos :tree="tree" />
+
             <PedigreeViewer>
-                <PedigreeChart ref="chart" :tree="tree" :meta="meta" linkable />
+                <PedigreeChart :tree="tree" :meta="meta" linkable />
             </PedigreeViewer>
             <p class="text-xs text-muted-foreground">
                 Click a ring number to open that pigeon. Remarks appear on the

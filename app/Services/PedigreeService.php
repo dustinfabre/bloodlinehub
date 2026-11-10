@@ -68,6 +68,7 @@ class PedigreeService
             'hatch_date' => null,
             'bloodline' => null,
             'remarks' => null,
+            'photo_url' => null,
             'merits' => [],
             'sire' => $this->tree($sire, generations: self::GENERATIONS - 1),
             'dam' => $this->tree($dam, generations: self::GENERATIONS - 1),
@@ -166,6 +167,7 @@ class PedigreeService
             'hatch_date' => $pigeon->hatch_date?->format('Y-m-d'),
             'bloodline' => $pigeon->bloodlines->firstWhere('pivot.is_primary', true)?->name ?? $pigeon->bloodline,
             'remarks' => $pigeon->remarks,
+            'photo_url' => $pigeon->photo_url,
             'merits' => $this->merits($pigeon->merits->map->summary()->values()->all(), $public),
             'sire' => $remaining > 0 ? $this->parent($pigeon, 'sire', $loaded, $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->parent($pigeon, 'dam', $loaded, $remaining - 1, $public) : null,
@@ -239,6 +241,8 @@ class PedigreeService
             ...$details,
             'gender' => str_ends_with($path, 'S') ? 'male' : 'female',
             'hatch_date' => null,
+            // Photos belong to loft birds; bought-in ancestors have none
+            'photo_url' => null,
             'sire' => $remaining > 0 ? $this->ancestor($anchor, $path.'S', $remaining - 1, $public) : null,
             'dam' => $remaining > 0 ? $this->ancestor($anchor, $path.'D', $remaining - 1, $public) : null,
         ];

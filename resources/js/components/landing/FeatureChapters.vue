@@ -89,8 +89,8 @@ const chapters = computed<Chapter[]>(() => [
                 text: "Codes such as OA, HS and SB print on each card in their own colors, and a bird's best merit colors the edge of its card. The key explains every code used.",
             },
             {
-                term: 'PDF, image and print',
-                text: 'Download an A4 PDF or an image, or print it from the print view.',
+                term: 'Photo showcase and print',
+                text: "The bird's photo leads, with photos of its loft ancestors grouped by father's and mother's side. Print the chart on A4, or save a PDF from the print view.",
             },
             {
                 term: 'Serial and QR code',

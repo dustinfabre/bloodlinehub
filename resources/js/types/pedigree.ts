@@ -15,6 +15,8 @@ export interface PedigreeNode {
     hatch_date: string | null;
     bloodline: string | null;
     remarks: string | null;
+    // Loft birds only (null for outside ancestors and sample youngsters)
+    photo_url: string | null;
     merits: Merit[];
     sire: PedigreeNode | null;
     dam: PedigreeNode | null;

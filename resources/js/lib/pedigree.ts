@@ -39,6 +39,28 @@ export const relationName = (key: string): string => {
 export const lineageSteps = (key: string): string[] =>
     [...key].map((step) => (step === 'S' ? 'Sire' : 'Dam'));
 
+// The same positions in everyday family words, for the photo showcase
+const FAMILY_NAMES: Record<number, [string, string]> = {
+    1: ['Father', 'Mother'],
+    2: ['Grandfather', 'Grandmother'],
+    3: ['Great-grandfather', 'Great-grandmother'],
+    4: ['Great-great-grandfather', 'Great-great-grandmother'],
+};
+
+// e.g. "SD" -> "Grandmother"
+export const familyName = (key: string): string => {
+    const [father, mother] = FAMILY_NAMES[key.length] ?? ['Pigeon', 'Pigeon'];
+    return key.endsWith('S') ? father : mother;
+};
+
+// e.g. "SDS" -> "Father's mother's father"
+export const familyPath = (key: string): string => {
+    const text = [...key]
+        .map((step) => (step === 'S' ? 'father' : 'mother'))
+        .join("'s ");
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 export const VISIBILITY_LABELS: Record<PedigreeVisibility, string> = {
     public: 'Public pedigree',
     password: 'Password protected',

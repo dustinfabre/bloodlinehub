@@ -2,13 +2,12 @@
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import InputError from '@/components/InputError.vue';
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
-import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.vue';
+import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Toaster } from '@/components/ui/sonner';
-import { pedigreeFilename } from '@/lib/pedigree';
 import { home, login } from '@/routes';
 import { unlock } from '@/routes/pedigrees';
 import { pedigree as pedigreeRoute } from '@/routes/pigeons';
@@ -16,7 +15,7 @@ import { type AppPageProps } from '@/types';
 import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { Clock, KeyRound, LoaderCircle, Lock } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 // tree/meta are null while the pedigree is locked: 'private' (owner only) or 'password' (needs the share password)
 const props = defineProps<{
@@ -32,10 +31,6 @@ const props = defineProps<{
 const page = usePage<AppPageProps>();
 const isGuest = computed(() => !page.props.auth?.user);
 
-const chart = ref<InstanceType<typeof PedigreeChart> | null>(null);
-const filename = computed(() =>
-    pedigreeFilename(props.tree?.ring_number ?? null, props.serial),
-);
 const subjectLabel = computed(
     () => props.tree?.ring_number || props.tree?.name || props.serial,
 );
@@ -115,27 +110,19 @@ const accessUntil = computed(() =>
                     {{ accessUntil }}.
                 </div>
 
-                <div
-                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                    <div>
-                        <h1 class="text-2xl font-bold">
-                            Pedigree {{ subjectLabel }}
-                        </h1>
-                        <p class="text-muted-foreground">
-                            Bred by {{ meta.breeder }}
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <PedigreeExportActions
-                            :target="chart?.paper"
-                            :filename="filename"
-                        />
-                    </div>
+                <div>
+                    <h1 class="text-2xl font-bold">
+                        Pedigree {{ subjectLabel }}
+                    </h1>
+                    <p class="text-muted-foreground">
+                        Bred by {{ meta.breeder }}
+                    </p>
                 </div>
 
+                <PedigreePhotos :tree="tree" />
+
                 <PedigreeViewer>
-                    <PedigreeChart ref="chart" :tree="tree" :meta="meta" />
+                    <PedigreeChart :tree="tree" :meta="meta" />
                 </PedigreeViewer>
             </template>
 
