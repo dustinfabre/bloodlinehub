@@ -48,6 +48,8 @@ export interface PedigreeMeta {
     photos: string[];
     // Photos of relatives uploaded on the bird: an ancestor's chart position ('S', 'SD', ...) or e.g. 'sibling'
     relative_photos: { url: string; relation: string }[];
+    // Certificates and documents the owner chose to show on the pedigree
+    documents: string[];
     generated_at: string;
 }
 

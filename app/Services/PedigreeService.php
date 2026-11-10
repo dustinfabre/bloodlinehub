@@ -33,6 +33,7 @@ class PedigreeService
     {
         $pedigree = $pigeon->pedigreeRecord();
         $shareUrl = route('pedigrees.shared', $pedigree->serial);
+        $shown = $pigeon->publicPedigreeImages();
 
         return [
             'tree' => $this->tree($pigeon, $public),
@@ -47,8 +48,9 @@ class PedigreeService
                 'photo_url' => $pigeon->photo_url,
                 // Every photo of the bird, the main one first, for the photo showcase
                 'photos' => $pigeon->allPhotos(),
-                // Photos of relatives uploaded on the bird, each saying who it shows (never certificates)
-                'relative_photos' => $pigeon->relativePhotos(),
+                // Photos of relatives and certificates uploaded on the bird that the owner shows on the pedigree
+                'relative_photos' => $shown['relatives'],
+                'documents' => $shown['documents'],
                 'generated_at' => now()->toDateString(),
             ],
         ];
@@ -98,6 +100,7 @@ class PedigreeService
                 'photo_url' => null,
                 'photos' => [],
                 'relative_photos' => [],
+                'documents' => [],
                 'generated_at' => now()->toDateString(),
             ],
         ];

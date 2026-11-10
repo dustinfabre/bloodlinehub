@@ -140,6 +140,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                 :tree="tree"
                 :photos="meta.photos"
                 :relative-photos="meta.relative_photos"
+                :documents="meta.documents"
                 :add-photos-href="editPigeon({ pigeon: pigeon.id }).url"
             />
 

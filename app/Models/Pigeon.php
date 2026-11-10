@@ -22,8 +22,9 @@ class Pigeon extends Model
     // In stock, racing, breeding and injured: the birds actually in the loft
     public const IN_LOFT_STATUSES = ['stock', 'racing', 'breeding', 'injured'];
 
-    // Who a photo of a relative can show besides an ancestor (which is named by its chart position: 'S', 'SD', ...)
-    public const OTHER_RELATIVES = ['sibling', 'half_sibling', 'offspring', 'relative'];
+    // Who a photo of a relative can show besides an ancestor (which is named by its chart position: 'S', 'SD', ...):
+    // a full sibling, a half-sibling through the sire or the dam, a son or daughter, or any other relative
+    public const OTHER_RELATIVES = ['sibling', 'half_sibling_sire', 'half_sibling_dam', 'offspring', 'relative'];
 
     public const STATUS_LABELS = [
         'stock' => 'In Stock',
@@ -51,6 +52,7 @@ class Pigeon extends Model
         'extra_photos',
         'pedigree_images',
         'pedigree_image_relations',
+        'pedigree_images_public',
         'for_sale',
         'sale_price',
         'hide_price',
@@ -77,6 +79,7 @@ class Pigeon extends Model
         'extra_photos' => 'array',
         'pedigree_images' => 'array',
         'pedigree_image_relations' => 'array',
+        'pedigree_images_public' => 'array',
         'hatch_date' => 'date',
         'for_sale' => 'boolean',
         'hide_price' => 'boolean',
@@ -104,20 +107,28 @@ class Pigeon extends Model
     }
 
     /**
-     * Photos of relatives among the certificates and relatives' photos, each saying who it shows: an ancestor's
-     * chart position ('S' its sire, 'SD' its sire's dam, ...) or one of OTHER_RELATIVES. These are shown on the
-     * pedigree; the other images are certificates and documents and stay private.
+     * The certificates and relatives' photos the owner chose to show on the pedigree: photos of relatives, each
+     * saying who it shows (an ancestor's chart position such as 'S' or 'SD', or one of OTHER_RELATIVES), and
+     * certificates and other documents. The rest stay private.
      *
-     * @return list<array{url: string, relation: string}>
+     * @return array{relatives: list<array{url: string, relation: string}>, documents: list<string>}
      */
-    public function relativePhotos(): array
+    public function publicPedigreeImages(): array
     {
         $relations = $this->pedigree_image_relations ?? [];
-
-        return array_values(array_map(
-            fn (string $url) => ['url' => $url, 'relation' => $relations[$url]],
-            array_filter($this->pedigree_images ?? [], fn ($url) => is_string($url) && isset($relations[$url])),
+        $public = $this->pedigree_images_public ?? [];
+        $shown = array_values(array_filter(
+            $this->pedigree_images ?? [],
+            fn ($url) => is_string($url) && in_array($url, $public, true),
         ));
+
+        return [
+            'relatives' => array_values(array_map(
+                fn (string $url) => ['url' => $url, 'relation' => $relations[$url]],
+                array_filter($shown, fn (string $url) => isset($relations[$url])),
+            )),
+            'documents' => array_values(array_filter($shown, fn (string $url) => ! isset($relations[$url]))),
+        ];
     }
 
     protected static function booted(): void

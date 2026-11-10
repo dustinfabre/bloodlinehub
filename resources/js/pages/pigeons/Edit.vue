@@ -5,7 +5,7 @@ import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import FormActionBar from '@/components/FormActionBar.vue';
 import PhotoListInput from '@/components/PhotoListInput.vue';
-import { photoFiles, photoOrder, photoRelations, savedPhotoItems, type PhotoItem } from '@/lib/images';
+import { photoDetails, photoFiles, photoOrder, savedPhotoItems, type PhotoItem } from '@/lib/images';
 import DriveConnectNotice from '@/components/DriveConnectNotice.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +81,8 @@ interface Pigeon {
     pedigree_images: string[] | null;
     // Image URL => chart position of the relative it shows; the rest are certificates
     pedigree_image_relations: Record<string, string>;
+    // The ones shown on the pedigree
+    pedigree_images_public: string[];
     bred_by: string | null;
     sire: ParentSummary | null;
     dam: ParentSummary | null;
@@ -143,7 +145,7 @@ const form = useForm({
     notes: props.pigeon.notes ?? '',
     // Sent as photos[] + photo_order (the first is the main photo) and pedigree_images[] + remove_pedigree[]
     photo_items: savedPhotoItems(props.pigeon.photos) as PhotoItem[],
-    certificate_items: savedPhotoItems(props.pigeon.pedigree_images, props.pigeon.pedigree_image_relations) as PhotoItem[],
+    certificate_items: savedPhotoItems(props.pigeon.pedigree_images, props.pigeon.pedigree_image_relations, props.pigeon.pedigree_images_public) as PhotoItem[],
     bred_by: props.pigeon.bred_by ?? '',
     sire_id: props.pigeon.sire?.id ?? null,
     dam_id: props.pigeon.dam?.id ?? null,
@@ -351,7 +353,7 @@ const submit = (event?: SubmitEvent) => {
         photos,
         photo_order: photoOrder(photo_items),
         pedigree_images: pedigreeImages,
-        pedigree_image_relations: photoRelations(certificate_items),
+        pedigree_image_details: photoDetails(certificate_items),
         remove_pedigree: (props.pigeon.pedigree_images ?? []).filter((url) => !keptCertificates.has(url)),
         upload_count: photos.length + pedigreeImages.length,
         for_sale: data.for_sale ? 1 : 0,
@@ -705,7 +707,7 @@ const submit = (event?: SubmitEvent) => {
                                     id="pedigree_images"
                                     v-model="form.certificate_items"
                                     label="Certificates & relatives' photos"
-                                    description="Certificates and documents stay private. For a photo of a relative, choose who it shows (an ancestor, a brother or sister, ...): it then appears on the pigeon's page and its pedigree, which search engines never list."
+                                    description="Say who each photo shows, and tick Show on pedigree for the ones you want on the pedigree, certificates included. The rest only you see. Pedigrees are never listed by search engines."
                                     relations
                                     :error="fieldError('pedigree_images') ?? fieldError('remove_pedigree')"
                                 />

@@ -278,21 +278,61 @@ class PedigreeTest extends TestCase
             );
     }
 
-    public function test_tagged_relatives_photos_reach_the_pedigree_and_certificates_do_not(): void
+    public function test_only_the_images_the_owner_shows_reach_the_pedigree(): void
     {
         $subject = $this->pigeon([
-            'pedigree_images' => ['/media/certificate.webp', '/media/sire.webp', '/media/grandam.webp', '/media/sister.webp'],
-            'pedigree_image_relations' => ['/media/sire.webp' => 'S', '/media/grandam.webp' => 'DD', '/media/sister.webp' => 'sibling'],
+            'pedigree_images' => [
+                '/media/certificate.webp',
+                '/media/shown-certificate.webp',
+                '/media/sire.webp',
+                '/media/grandam.webp',
+                '/media/sister.webp',
+                '/media/half.webp',
+                '/media/private-relative.webp',
+            ],
+            'pedigree_image_relations' => [
+                '/media/sire.webp' => 'S',
+                '/media/grandam.webp' => 'DD',
+                '/media/sister.webp' => 'sibling',
+                '/media/half.webp' => 'half_sibling_dam',
+                '/media/private-relative.webp' => 'relative',
+            ],
+            'pedigree_images_public' => [
+                '/media/shown-certificate.webp',
+                '/media/sire.webp',
+                '/media/grandam.webp',
+                '/media/sister.webp',
+                '/media/half.webp',
+            ],
         ]);
         $subject->pedigreeRecord()->update(['is_public' => true]);
 
         $this->get(route('pedigrees.shared', $subject->pedigreeRecord()->serial))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('meta.relative_photos', [
-                ['url' => '/media/sire.webp', 'relation' => 'S'],
-                ['url' => '/media/grandam.webp', 'relation' => 'DD'],
-                ['url' => '/media/sister.webp', 'relation' => 'sibling'],
-            ]));
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('meta.relative_photos', [
+                    ['url' => '/media/sire.webp', 'relation' => 'S'],
+                    ['url' => '/media/grandam.webp', 'relation' => 'DD'],
+                    ['url' => '/media/sister.webp', 'relation' => 'sibling'],
+                    ['url' => '/media/half.webp', 'relation' => 'half_sibling_dam'],
+                ])
+                ->where('meta.documents', ['/media/shown-certificate.webp'])
+            );
+    }
+
+    public function test_upgrading_keeps_photos_of_relatives_on_the_pedigree(): void
+    {
+        $subject = $this->pigeon([
+            'pedigree_images' => ['/media/certificate.webp', '/media/sire.webp'],
+            'pedigree_image_relations' => ['/media/sire.webp' => 'S'],
+        ]);
+        $migration = require database_path('migrations/2026_11_10_000004_add_pedigree_images_public_to_pigeons.php');
+
+        // Before this change, photos of relatives were always shown and certificates never
+        $migration->down();
+        $migration->up();
+
+        $this->assertSame(['/media/sire.webp'], $subject->fresh()->pedigree_images_public);
     }
 
     public function test_unknown_serial_returns_not_found(): void

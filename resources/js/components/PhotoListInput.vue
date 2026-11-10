@@ -2,6 +2,7 @@
 import ImageCropper from '@/components/ImageCropper.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -11,7 +12,15 @@ import {
     shrinkImage,
     type PhotoItem,
 } from '@/lib/images';
-import { Crop, ImagePlus, Star, X } from 'lucide-vue-next';
+import {
+    ChevronDown,
+    Crop,
+    Eye,
+    ImagePlus,
+    Lock,
+    Star,
+    X,
+} from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 // A list of photos on the pigeon form: add as many as needed, remove any, and optionally crop new ones.
@@ -68,8 +77,18 @@ const remove = (index: number) => {
 };
 
 const setRelation = (index: number, relation: string) => {
+    items.value = items.value.map((item, i) => {
+        if (i !== index) return item;
+        const next = relation || null;
+        // Saying who a photo shows usually means showing it; the owner can still untick it
+        const show = !item.relation && next ? true : (item.public ?? false);
+        return { ...item, relation: next, public: show };
+    });
+};
+
+const setPublic = (index: number, show: boolean) => {
     items.value = items.value.map((item, i) =>
-        i === index ? { ...item, relation: relation || null } : item,
+        i === index ? { ...item, public: show } : item,
     );
 };
 
@@ -97,7 +116,12 @@ const applyCrop = (file: File) => {
     const cropped = newPhotoItem(file);
     items.value = items.value.map((item, i) =>
         i === index
-            ? { ...cropped, key: item.key, relation: item.relation }
+            ? {
+                  ...cropped,
+                  key: item.key,
+                  relation: item.relation,
+                  public: item.public,
+              }
             : item,
     );
     cropIndex.value = null;
@@ -124,9 +148,11 @@ watch(cropOpen, (open) => {
             <div
                 v-for="(item, index) in items"
                 :key="item.key"
-                class="overflow-hidden rounded-lg border bg-muted"
+                class="flex min-w-0 flex-col gap-2"
             >
-                <div class="relative">
+                <div
+                    class="relative overflow-hidden rounded-lg border bg-muted"
+                >
                     <img
                         :src="item.src"
                         :alt="`${label} ${index + 1}`"
@@ -184,38 +210,91 @@ watch(cropOpen, (open) => {
                         </Button>
                     </div>
                 </div>
-                <select
-                    v-if="relations"
-                    :value="item.relation ?? ''"
-                    :aria-label="`What photo ${index + 1} shows`"
-                    class="block h-8 w-full border-0 border-t bg-background px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    @change="
-                        setRelation(
-                            index,
-                            ($event.target as HTMLSelectElement).value,
-                        )
-                    "
-                >
-                    <option value="">Certificate / document · private</option>
-                    <optgroup label="Ancestor · shown on the pedigree">
-                        <option
-                            v-for="option in RELATIVE_OPTIONS"
-                            :key="option.value"
-                            :value="option.value"
+                <!-- Who the photo shows: a certificate stays private, a relative is shown on the pedigree -->
+                <div v-if="relations" class="grid gap-1">
+                    <label
+                        :for="`${props.id}-relation-${index}`"
+                        class="text-xs font-medium"
+                        >Who is this?</label
+                    >
+                    <div class="relative">
+                        <select
+                            :id="`${props.id}-relation-${index}`"
+                            :value="item.relation ?? ''"
+                            class="h-9 w-full min-w-0 cursor-pointer appearance-none truncate rounded-md border border-input bg-background py-1 pr-8 pl-2.5 text-xs shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+                            @change="
+                                setRelation(
+                                    index,
+                                    ($event.target as HTMLSelectElement).value,
+                                )
+                            "
                         >
-                            {{ option.label }}
-                        </option>
-                    </optgroup>
-                    <optgroup label="Other relative · shown on the pedigree">
-                        <option
-                            v-for="option in OTHER_RELATIVE_OPTIONS"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-                    </optgroup>
-                </select>
+                            <option value="">Certificate / document</option>
+                            <optgroup label="Parents & ancestors">
+                                <option
+                                    v-for="option in RELATIVE_OPTIONS"
+                                    :key="option.value"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </optgroup>
+                            <optgroup
+                                label="Brothers, sisters & other relatives"
+                            >
+                                <option
+                                    v-for="option in OTHER_RELATIVE_OPTIONS"
+                                    :key="option.value"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </optgroup>
+                        </select>
+                        <ChevronDown
+                            class="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                        />
+                    </div>
+                    <!-- The owner decides what is on the pedigree, certificates included -->
+                    <label
+                        class="mt-1 flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors"
+                        :class="
+                            item.public
+                                ? 'border-emerald-600/40 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-950/40'
+                                : 'border-input'
+                        "
+                    >
+                        <Checkbox
+                            :model-value="item.public ?? false"
+                            class="mt-px"
+                            @update:model-value="
+                                setPublic(index, $event === true)
+                            "
+                        />
+                        <span class="grid min-w-0 gap-0.5">
+                            <span class="font-medium">Show on pedigree</span>
+                            <span
+                                class="flex items-center gap-1 text-[11px]"
+                                :class="
+                                    item.public
+                                        ? 'text-emerald-700 dark:text-emerald-400'
+                                        : 'text-muted-foreground'
+                                "
+                            >
+                                <Eye
+                                    v-if="item.public"
+                                    class="size-3 shrink-0"
+                                />
+                                <Lock v-else class="size-3 shrink-0" />
+                                {{
+                                    item.public
+                                        ? 'Anyone with the link sees it'
+                                        : 'Private, only you see it'
+                                }}
+                            </span>
+                        </span>
+                    </label>
+                </div>
             </div>
 
             <button

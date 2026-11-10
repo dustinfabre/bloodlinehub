@@ -13,6 +13,7 @@ import {
     isAncestorRelation,
     lineageSteps,
     relationHint,
+    relationSide,
     relationTitle,
 } from '@/lib/pedigree';
 import { edit as storageSettings } from '@/routes/storage';
@@ -36,6 +37,8 @@ const props = defineProps<{
     photos?: string[];
     // Photos of relatives uploaded on the bird: an ancestor's chart position, or e.g. 'sibling'
     relativePhotos?: { url: string; relation: string }[];
+    // Certificates and documents the owner chose to show
+    documents?: string[];
     // Owner only: where to add photos of the bird, for the note shown when there are none
     addPhotosHref?: string;
 }>();
@@ -53,6 +56,8 @@ interface Photo {
     hint: string | null;
     ringNumber: string | null;
     name: string | null;
+    // A certificate or document: shown whole rather than cropped to a square
+    document?: boolean;
 }
 
 // Photos that failed to load (e.g. the owner disconnected their Drive) are dropped rather than shown broken
@@ -65,6 +70,7 @@ const photoUrls = computed(() => [
         slot.node?.photo_url ? [slot.node.photo_url] : [],
     ),
     ...(props.relativePhotos ?? []).map((photo) => photo.url),
+    ...(props.documents ?? []),
 ]);
 
 // The bird at each chart position, to name a relative's photo by its ring number
@@ -158,9 +164,7 @@ const sides = computed(() =>
             term: 'Sire',
             photos: uniqueByUrl(
                 all.value.filter(
-                    (photo) =>
-                        isAncestorRelation(photo.position) &&
-                        photo.position.startsWith('S'),
+                    (photo) => relationSide(photo.position) === 'S',
                 ),
             ),
         },
@@ -170,21 +174,40 @@ const sides = computed(() =>
             term: 'Dam',
             photos: uniqueByUrl(
                 all.value.filter(
-                    (photo) =>
-                        isAncestorRelation(photo.position) &&
-                        photo.position.startsWith('D'),
+                    (photo) => relationSide(photo.position) === 'D',
                 ),
             ),
         },
         {
+            // Full siblings, offspring and other family
             key: 'other',
-            title: 'Other relatives',
+            title: 'Siblings & relatives',
             term: null,
             photos: uniqueByUrl(
                 all.value.filter(
                     (photo) =>
-                        photo.position && !isAncestorRelation(photo.position),
+                        photo.position !== '' &&
+                        relationSide(photo.position) === null,
                 ),
+            ),
+        },
+        {
+            key: 'documents',
+            title: 'Certificates & documents',
+            term: null,
+            photos: uniqueByUrl(
+                (props.documents ?? [])
+                    .filter((url) => !failed.value.has(url))
+                    .map((url, index) => ({
+                        id: `document:${index}`,
+                        url,
+                        position: '',
+                        title: 'Certificate',
+                        hint: null,
+                        ringNumber: null,
+                        name: null,
+                        document: true,
+                    })),
             ),
         },
     ].filter((side) => side.photos.length),
@@ -308,7 +331,12 @@ const altText = (photo: Photo) =>
                                     :src="photo.url"
                                     :alt="altText(photo)"
                                     loading="lazy"
-                                    class="size-full object-cover transition-transform group-hover:scale-105"
+                                    class="size-full transition-transform group-hover:scale-105"
+                                    :class="
+                                        photo.document
+                                            ? 'bg-white object-contain'
+                                            : 'object-cover'
+                                    "
                                     @error="markFailed(photo.url)"
                                 />
                             </div>
@@ -364,9 +392,13 @@ const altText = (photo: Photo) =>
                                 ].join(' › ')
                             }}
                         </template>
-                        <template v-else-if="current.position"
-                            >A relative of this pigeon</template
+                        <template v-else-if="current.document"
+                            >A certificate or document shared by the
+                            owner</template
                         >
+                        <template v-else-if="current.position">{{
+                            current.hint ?? 'A relative of this pigeon'
+                        }}</template>
                         <template v-else>The pigeon on this pedigree</template>
                     </DialogDescription>
                 </DialogHeader>

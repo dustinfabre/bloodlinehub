@@ -238,7 +238,7 @@ class PigeonController extends Controller
         unset($data['bloodlines']);
 
         $this->ensureUploadsArrived($request);
-        unset($data['photos'], $data['upload_count'], $data['pedigree_image_relations']);
+        unset($data['photos'], $data['upload_count'], $data['pedigree_image_details']);
 
         // Photos go to the user's own Google Drive; the first is the main photo
         if ($request->hasFile('photos')) {
@@ -257,8 +257,8 @@ class PigeonController extends Controller
                 $request->user(),
                 "{$data['ring_number']} pedigree",
             ));
-            $data['pedigree_image_relations'] = $this->imageRelations(
-                $request->input('pedigree_image_relations'),
+            [$data['pedigree_image_relations'], $data['pedigree_images_public']] = $this->imageDetails(
+                $request->input('pedigree_image_details'),
                 $data['pedigree_images'],
                 $data['pedigree_images'],
             );
@@ -390,7 +390,7 @@ class PigeonController extends Controller
         unset($data['bloodlines']);
 
         $this->ensureUploadsArrived($request);
-        unset($data['photos'], $data['photo_order'], $data['upload_count'], $data['pedigree_image_relations']);
+        unset($data['photos'], $data['photo_order'], $data['upload_count'], $data['pedigree_image_details']);
 
         // Images replaced or removed here leave the app only once the pigeon is saved, so a failed upload never
         // costs the user the photo they had
@@ -429,10 +429,17 @@ class PigeonController extends Controller
             $data['pedigree_images'] = $images;
         }
 
-        $data['pedigree_image_relations'] = $request->has('pedigree_image_relations')
-            ? $this->imageRelations($request->input('pedigree_image_relations'), $images, $newImages)
+        if ($request->has('pedigree_image_details')) {
+            [$data['pedigree_image_relations'], $data['pedigree_images_public']] = $this->imageDetails(
+                $request->input('pedigree_image_details'),
+                $images,
+                $newImages,
+            );
+        } else {
             // Not sent: keep what was set for the images still there
-            : (array_intersect_key($pigeon->pedigree_image_relations ?? [], array_flip($images)) ?: null);
+            $data['pedigree_image_relations'] = array_intersect_key($pigeon->pedigree_image_relations ?? [], array_flip($images)) ?: null;
+            $data['pedigree_images_public'] = array_values(array_intersect($pigeon->pedigree_images_public ?? [], $images)) ?: null;
+        }
 
         $pigeon->update($data);
 
@@ -559,38 +566,53 @@ class PigeonController extends Controller
     }
 
     /**
-     * Which relative each certificate or relative's photo shows, from the form's list of {ref, relation}: ref is an
-     * image the pigeon keeps (its URL) or "new:N" for the Nth image uploaded now; relation is an ancestor's chart
-     * position such as 'S' (sire) or 'SD' (sire's dam), one of Pigeon::OTHER_RELATIVES, or null for a certificate.
-     * Anything else is ignored.
+     * Who each certificate or relative's photo shows and whether it is on the pedigree, from the form's list of
+     * {ref, relation, public}: ref is an image the pigeon keeps (its URL) or "new:N" for the Nth image uploaded now;
+     * relation is an ancestor's chart position such as 'S' (sire) or 'SD' (sire's dam), one of
+     * Pigeon::OTHER_RELATIVES, or null for a certificate or document; public says whether the owner shows it on the
+     * pedigree (when left out, photos of relatives are shown and certificates aren't). Anything else is ignored.
      *
      * @param  list<string>  $images  The pigeon's images after this save
      * @param  list<string>  $new  The images uploaded now, in upload order
-     * @return array<string, string>|null Image URL => chart position
+     * @return array{0: array<string, string>|null, 1: list<string>|null} [image URL => relation, URLs shown on the pedigree]
      */
-    private function imageRelations(?string $json, array $images, array $new): ?array
+    private function imageDetails(?string $json, array $images, array $new): array
     {
         $relations = [];
+        $public = [];
 
         foreach ((array) json_decode($json ?? '[]', true) as $entry) {
             $ref = is_array($entry) ? ($entry['ref'] ?? null) : null;
-            $relation = is_array($entry) ? ($entry['relation'] ?? null) : null;
 
-            $valid = is_string($relation)
-                && (preg_match('/^[SD]{1,4}$/', $relation) || in_array($relation, Pigeon::OTHER_RELATIVES, true));
-
-            if (! is_string($ref) || ! $valid) {
+            if (! is_string($ref)) {
                 continue;
             }
 
             $url = preg_match('/^new:(\d+)$/', $ref, $match) ? ($new[(int) $match[1]] ?? null) : $ref;
 
-            if ($url !== null && in_array($url, $images, true)) {
+            if ($url === null || ! in_array($url, $images, true)) {
+                continue;
+            }
+
+            $relation = $entry['relation'] ?? null;
+            $relation = is_string($relation)
+                && (preg_match('/^[SD]{1,4}$/', $relation) || in_array($relation, Pigeon::OTHER_RELATIVES, true))
+                ? $relation
+                : null;
+
+            if ($relation !== null) {
                 $relations[$url] = $relation;
+            }
+
+            if (filter_var($entry['public'] ?? ($relation !== null), FILTER_VALIDATE_BOOL)) {
+                $public[] = $url;
             }
         }
 
-        return $relations ?: null;
+        // In the pigeon's own order
+        $public = array_values(array_intersect($images, $public));
+
+        return [$relations ?: null, $public ?: null];
     }
 
     /**
@@ -699,6 +721,8 @@ class PigeonController extends Controller
             'pedigree_images' => $pigeon->pedigree_images,
             // Image URL => who it shows (an ancestor's chart position or another relative); the rest are certificates
             'pedigree_image_relations' => (object) ($pigeon->pedigree_image_relations ?? []),
+            // The ones the owner shows on the pedigree
+            'pedigree_images_public' => $pigeon->pedigree_images_public ?? [],
             'bred_by' => $pigeon->bred_by,
             'bred_in_loft' => $pigeon->isBredInLoft(),
             'for_sale' => $pigeon->for_sale,

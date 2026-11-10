@@ -1,4 +1,9 @@
-import { familyName, familyPath, OTHER_RELATIVES } from '@/lib/pedigree';
+import {
+    familyName,
+    familyPath,
+    isAncestorRelation,
+    OTHER_RELATIVES,
+} from '@/lib/pedigree';
 
 // One photo in a photo list on the pigeon form: either already saved on the pigeon or added now
 export interface PhotoItem {
@@ -11,8 +16,10 @@ export interface PhotoItem {
     // The file to upload, for a photo added now
     file: File | null;
     // Certificates & relatives' photos only: who it shows, as an ancestor's chart position ('S' its sire,
-    // 'SD' its sire's dam, ...) or one of OTHER_RELATIVES; null for a certificate or other document (kept private)
+    // 'SD' its sire's dam, ...) or one of OTHER_RELATIVES; null for a certificate or other document
     relation?: string | null;
+    // Certificates & relatives' photos only: shown on the pedigree (otherwise only the owner sees it)
+    public?: boolean;
 }
 
 // Who a relative's photo can show: parents, grandparents and great-grandparents
@@ -40,25 +47,36 @@ export const RELATIVE_OPTIONS = [
             : familyName(position),
 }));
 
-// Relatives outside its own line: brothers and sisters, offspring, ...
+// Relatives outside its own line: full and half siblings, offspring and other family
 export const OTHER_RELATIVE_OPTIONS = Object.entries(OTHER_RELATIVES).map(
-    ([value, label]) => ({ value, label }),
+    ([value, relative]) => ({ value, label: relative.option }),
 );
 
 let nextKey = 0;
 const key = () => `photo-${++nextKey}`;
 
+// A saved relation the form no longer offers (e.g. an older "half-sibling") counts as a relative, so the photo
+// stays on the pedigree rather than turning private on the next save
+const knownRelation = (relation: string | null | undefined): string | null => {
+    if (!relation) return null;
+    return isAncestorRelation(relation) || relation in OTHER_RELATIVES
+        ? relation
+        : 'relative';
+};
+
 export const savedPhotoItems = (
     urls: string[] | null | undefined,
-    // Image URL => relative's chart position, for certificates & relatives' photos
+    // For certificates & relatives' photos: image URL => who it shows, and the ones shown on the pedigree
     relations?: Record<string, string> | null,
+    publicUrls?: string[] | null,
 ): PhotoItem[] =>
     (urls ?? []).map((url) => ({
         key: key(),
         src: url,
         saved: url,
         file: null,
-        relation: relations?.[url] ?? null,
+        relation: knownRelation(relations?.[url]),
+        public: publicUrls?.includes(url) ?? false,
     }));
 
 export const newPhotoItem = (file: File): PhotoItem => ({
@@ -80,13 +98,14 @@ export const photoOrder = (items: PhotoItem[]): string => {
     );
 };
 
-// Which relative each photo shows (JSON list of {ref, relation}), with refs as in photoOrder
-export const photoRelations = (items: PhotoItem[]): string => {
+// Who each photo shows and whether it is on the pedigree (JSON list of {ref, relation, public}), refs as in photoOrder
+export const photoDetails = (items: PhotoItem[]): string => {
     let uploaded = 0;
     return JSON.stringify(
         items.map((item) => ({
             ref: item.file ? `new:${uploaded++}` : item.saved,
             relation: item.relation ?? null,
+            public: item.public ?? false,
         })),
     );
 };

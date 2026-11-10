@@ -15,7 +15,7 @@ import { index as lineageIndex } from '@/routes/lineage';
 import { index as testPairingIndex } from '@/routes/test-pairing';
 import type { GoldenPairInfo, Merit, MeritLevelOption, MeritSuggestion, MeritTypeOption } from '@/types/lineage';
 import { Head, Link } from '@inertiajs/vue3';
-import { FlaskConical, GitFork, Network, Pencil } from 'lucide-vue-next';
+import { Eye, FlaskConical, GitFork, Lock, Network, Pencil } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 
@@ -60,6 +60,8 @@ interface Pigeon {
     pedigree_images: string[] | null;
     // Image URL => chart position of the relative it shows; the rest are certificates
     pedigree_image_relations: Record<string, string>;
+    // The ones shown on the pedigree
+    pedigree_images_public: string[];
     bred_by: string | null;
     // Both parents are the user's birds
     bred_in_loft: boolean;
@@ -131,9 +133,13 @@ const relativePhotos = computed(() => {
             position: relations[url],
             title: relationTitle(relations[url]),
             hint: relationHint(relations[url]),
+            public: isPublic(url),
         }))
         .sort((a, b) => order(a.position).localeCompare(order(b.position)));
 });
+// Shown on the pedigree, or only to the owner
+const isPublic = (url: string) => (props.pigeon.pedigree_images_public ?? []).includes(url);
+
 const certificates = computed(() =>
     (props.pigeon.pedigree_images ?? []).filter((url) => !props.pigeon.pedigree_image_relations?.[url]),
 );
@@ -364,6 +370,11 @@ const childDetails = (child: Child) => {
                                     </div>
                                     <p class="mt-1 truncate text-xs font-medium">{{ photo.title }}</p>
                                     <p v-if="photo.hint" class="truncate text-xs text-muted-foreground">{{ photo.hint }}</p>
+                                    <p class="flex items-center gap-1 text-[11px]" :class="photo.public ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'">
+                                        <Eye v-if="photo.public" class="size-3 shrink-0" />
+                                        <Lock v-else class="size-3 shrink-0" />
+                                        {{ photo.public ? 'On pedigree' : 'Private' }}
+                                    </p>
                                 </a>
                             </div>
                         </div>
@@ -516,16 +527,23 @@ const childDetails = (child: Child) => {
 
                         <!-- Certificates and documents (photos of relatives are under Parents) -->
                         <div v-if="certificates.length > 0">
-                            <p class="text-sm font-medium text-muted-foreground">Certificates &amp; documents · private</p>
+                            <p class="text-sm font-medium text-muted-foreground">Certificates &amp; documents</p>
                             <p class="mb-2 text-xs text-muted-foreground">
-                                Is one of these a photo of a relative? On the
+                                On the
                                 <Link :href="edit({ pigeon: pigeon.id }).url" class="underline underline-offset-2">edit page</Link>,
-                                choose who it shows to put it on the pigeon's page and its pedigree.
+                                tick Show on pedigree to put one on the pedigree, or say who a photo of a relative shows.
                             </p>
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <a v-for="(image, index) in certificates" :key="image" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
-                                    <img :src="image" :alt="`${pigeonLabel} certificate ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
-                                </a>
+                                <div v-for="(image, index) in certificates" :key="image" class="space-y-1">
+                                    <a :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
+                                        <img :src="image" :alt="`${pigeonLabel} certificate ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
+                                    </a>
+                                    <p class="flex items-center gap-1 text-xs" :class="isPublic(image) ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'">
+                                        <Eye v-if="isPublic(image)" class="size-3.5 shrink-0" />
+                                        <Lock v-else class="size-3.5 shrink-0" />
+                                        {{ isPublic(image) ? 'Shown on the pedigree' : 'Private, only you see it' }}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </CardContent>

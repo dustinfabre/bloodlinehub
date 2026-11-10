@@ -137,6 +137,7 @@ const accessUntil = computed(() =>
                     :tree="tree"
                     :photos="meta.photos"
                     :relative-photos="meta.relative_photos"
+                    :documents="meta.documents"
                     :add-photos-href="
                         isOwner && pigeonId
                             ? editPigeon({ pigeon: pigeonId }).url

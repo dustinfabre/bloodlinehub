@@ -61,29 +61,72 @@ export const familyPath = (key: string): string => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-// Relatives outside the bird's own line, for photos of relatives (ancestors use their chart position instead)
-export const OTHER_RELATIVES: Record<string, string> = {
-    sibling: 'Brother or sister',
-    half_sibling: 'Half-sibling',
-    offspring: 'Son or daughter',
-    relative: 'Other relative',
+// Relatives outside the bird's own line, for photos of relatives (ancestors use their chart position instead).
+// Half-siblings belong to the side of the family they share.
+export const OTHER_RELATIVES: Record<
+    string,
+    {
+        title: string;
+        hint: string | null;
+        option: string;
+        side: 'S' | 'D' | null;
+    }
+> = {
+    sibling: {
+        title: 'Full sibling',
+        hint: 'Same father and mother',
+        option: 'Full sibling (same father and mother)',
+        side: null,
+    },
+    half_sibling_sire: {
+        title: 'Half-sibling',
+        hint: "Sire's side, same father",
+        option: "Half-sibling, sire's side (same father)",
+        side: 'S',
+    },
+    half_sibling_dam: {
+        title: 'Half-sibling',
+        hint: "Dam's side, same mother",
+        option: "Half-sibling, dam's side (same mother)",
+        side: 'D',
+    },
+    offspring: {
+        title: 'Son or daughter',
+        hint: null,
+        option: 'Son or daughter',
+        side: null,
+    },
+    relative: {
+        title: 'Relative',
+        hint: 'Cousin, aunt, uncle or other family',
+        option: 'Relative (cousin, aunt, uncle, …)',
+        side: null,
+    },
 };
 
 // A relation is an ancestor's chart position ('S', 'SD', ...) or one of OTHER_RELATIVES
 export const isAncestorRelation = (relation: string): boolean =>
     /^[SD]+$/.test(relation);
 
-// "Grandmother", "Brother or sister"
+// Which side of the family a relative belongs to, if one: 'S' (father's) or 'D' (mother's)
+export const relationSide = (relation: string): 'S' | 'D' | null =>
+    isAncestorRelation(relation)
+        ? (relation[0] as 'S' | 'D')
+        : (OTHER_RELATIVES[relation]?.side ?? null);
+
+// "Grandmother", "Full sibling"
 export const relationTitle = (relation: string): string =>
     isAncestorRelation(relation)
         ? familyName(relation)
-        : (OTHER_RELATIVES[relation] ?? 'Relative');
+        : (OTHER_RELATIVES[relation]?.title ?? 'Relative');
 
-// "Father's mother" for ancestors beyond the parents; nothing otherwise
+// "Father's mother" for ancestors beyond the parents, "Same father and mother" for a full sibling, ...
 export const relationHint = (relation: string): string | null =>
-    isAncestorRelation(relation) && relation.length > 1
-        ? familyPath(relation)
-        : null;
+    isAncestorRelation(relation)
+        ? relation.length > 1
+            ? familyPath(relation)
+            : null
+        : (OTHER_RELATIVES[relation]?.hint ?? null);
 
 export const VISIBILITY_LABELS: Record<PedigreeVisibility, string> = {
     public: 'Public pedigree',

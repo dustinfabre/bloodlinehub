@@ -5,7 +5,7 @@ import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import FormActionBar from '@/components/FormActionBar.vue';
 import PhotoListInput from '@/components/PhotoListInput.vue';
-import { photoFiles, photoRelations, type PhotoItem } from '@/lib/images';
+import { photoDetails, photoFiles, type PhotoItem } from '@/lib/images';
 import DriveConnectNotice from '@/components/DriveConnectNotice.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -299,7 +299,7 @@ const submit = (event?: SubmitEvent) => {
         ...data,
         photos,
         pedigree_images: pedigreeImages,
-        pedigree_image_relations: photoRelations(certificate_items),
+        pedigree_image_details: photoDetails(certificate_items),
         upload_count: photos.length + pedigreeImages.length,
         for_sale: data.for_sale ? 1 : 0,
         hide_price: data.hide_price ? 1 : 0,
@@ -637,7 +637,7 @@ const submit = (event?: SubmitEvent) => {
                                     id="pedigree_images"
                                     v-model="form.certificate_items"
                                     label="Certificates & relatives' photos"
-                                    description="Certificates and documents stay private. For a photo of a relative, choose who it shows (an ancestor, a brother or sister, ...): it then appears on the pigeon's page and its pedigree, which search engines never list."
+                                    description="Say who each photo shows, and tick Show on pedigree for the ones you want on the pedigree, certificates included. The rest only you see. Pedigrees are never listed by search engines."
                                     relations
                                     :error="fieldError('pedigree_images')"
                                 />

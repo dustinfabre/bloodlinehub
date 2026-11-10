@@ -347,11 +347,12 @@ class GoogleDriveStorageTest extends TestCase
                 'ring_number' => 'PH-1',
                 'bred_by' => 'De Smet Loft',
                 'pedigree_images' => [$this->photo(), $this->photo(), $this->photo()],
-                // A certificate, the dam, and a made-up relation that is ignored
-                'pedigree_image_relations' => json_encode([
-                    ['ref' => 'new:0', 'relation' => null],
+                // A certificate the owner shows, the dam (shown, as relatives are unless unticked), and a made-up
+                // relation that is ignored, leaving a private certificate
+                'pedigree_image_details' => json_encode([
+                    ['ref' => 'new:0', 'relation' => null, 'public' => true],
                     ['ref' => 'new:1', 'relation' => 'D'],
-                    ['ref' => 'new:2', 'relation' => 'cousin'],
+                    ['ref' => 'new:2', 'relation' => 'cousin', 'public' => false],
                 ]),
                 'upload_count' => 3,
             ])
@@ -361,21 +362,25 @@ class GoogleDriveStorageTest extends TestCase
         [$certificate, $dam, $other] = $pigeon->pedigree_images;
         $this->assertSame('De Smet Loft', $pigeon->bred_by);
         $this->assertSame([$dam => 'D'], $pigeon->pedigree_image_relations);
-        $this->assertSame([['url' => $dam, 'relation' => 'D']], $pigeon->relativePhotos());
+        $this->assertSame([$certificate, $dam], $pigeon->pedigree_images_public);
+        $this->assertSame([
+            'relatives' => [['url' => $dam, 'relation' => 'D']],
+            'documents' => [$certificate],
+        ], $pigeon->publicPedigreeImages());
 
-        // Retag on edit: the certificate becomes the sire's photo, the other one a sister's, a new grandsire photo is
-        // added and the dam's is removed
+        // On edit: the certificate becomes the sire's photo but is kept private, the other one a half-sibling's shown
+        // on the pedigree, a new grandsire photo is added and the dam's is removed
         $this->actingAs($this->me)
             ->put(route('pigeons.update', $pigeon), [
                 'status' => 'stock',
                 'ring_number' => 'PH-1',
                 'pedigree_images' => [$this->photo()],
                 'remove_pedigree' => [$dam],
-                'pedigree_image_relations' => json_encode([
-                    ['ref' => $certificate, 'relation' => 'S'],
-                    ['ref' => $other, 'relation' => 'sibling'],
-                    ['ref' => 'new:0', 'relation' => 'SS'],
-                    ['ref' => $dam, 'relation' => 'D'],
+                'pedigree_image_details' => json_encode([
+                    ['ref' => $certificate, 'relation' => 'S', 'public' => false],
+                    ['ref' => $other, 'relation' => 'half_sibling_sire', 'public' => true],
+                    ['ref' => 'new:0', 'relation' => 'SS', 'public' => true],
+                    ['ref' => $dam, 'relation' => 'D', 'public' => true],
                 ]),
                 'upload_count' => 1,
             ])
@@ -384,13 +389,16 @@ class GoogleDriveStorageTest extends TestCase
         $pigeon->refresh();
         $this->assertCount(3, $pigeon->pedigree_images);
         $added = $pigeon->pedigree_images[2];
-        $this->assertSame([$certificate => 'S', $other => 'sibling', $added => 'SS'], $pigeon->pedigree_image_relations);
+        $this->assertSame([$certificate => 'S', $other => 'half_sibling_sire', $added => 'SS'], $pigeon->pedigree_image_relations);
+        $this->assertSame([$other, $added], $pigeon->pedigree_images_public);
 
-        // An edit that doesn't send tags keeps them
+        // An edit that doesn't send the details keeps them
         $this->actingAs($this->me)
             ->put(route('pigeons.update', $pigeon), ['status' => 'stock', 'ring_number' => 'PH-1'])
             ->assertSessionHasNoErrors();
-        $this->assertSame([$certificate => 'S', $other => 'sibling', $added => 'SS'], $pigeon->fresh()->pedigree_image_relations);
+        $pigeon->refresh();
+        $this->assertSame([$certificate => 'S', $other => 'half_sibling_sire', $added => 'SS'], $pigeon->pedigree_image_relations);
+        $this->assertSame([$other, $added], $pigeon->pedigree_images_public);
     }
 
     public function test_a_save_that_lost_photos_on_the_way_is_refused(): void

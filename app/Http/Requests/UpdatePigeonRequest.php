@@ -70,8 +70,9 @@ class UpdatePigeonRequest extends FormRequest
             // Certificates, handwritten pedigrees and photos of relatives
             'pedigree_images' => ['nullable', 'array'],
             'pedigree_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
-            // Which relative each certificate or relative's photo shows (JSON list of {ref, relation})
-            'pedigree_image_relations' => ['nullable', 'json'],
+            // Who each certificate or relative's photo shows and whether it is on the pedigree
+            // (JSON list of {ref, relation, public})
+            'pedigree_image_details' => ['nullable', 'json'],
             // Who bred the bird, when not both parents are in the user's loft
             'bred_by' => ['nullable', 'string', 'max:255'],
             // How many files the form sent, to catch any the server dropped (PHP's max_file_uploads)
