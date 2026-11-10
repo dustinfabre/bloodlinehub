@@ -54,6 +54,8 @@ interface Pigeon {
     remarks: string | null;
     notes: string | null;
     photo_url: string | null;
+    // Every photo, the main one first
+    photos: string[];
     pedigree_images: string[] | null;
     sire: ParentSummary | null;
     dam: ParentSummary | null;
@@ -223,15 +225,31 @@ const childDetails = (child: Child) => {
                         <CardTitle>General Information</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-4">
-                        <!-- Photo -->
-                        <div v-if="pigeon.photo_url" class="mb-4">
-                            <a :href="pigeon.photo_url" target="_blank" class="block overflow-hidden rounded-lg border">
-                                <img 
-                                    :src="pigeon.photo_url" 
-                                    :alt="pigeonLabel" 
-                                    class="h-48 w-full object-cover transition-transform hover:scale-105" 
+                        <!-- Photos: the main one large, the rest underneath -->
+                        <div v-if="pigeon.photos.length" class="mb-4 space-y-2">
+                            <a :href="pigeon.photos[0]" target="_blank" class="block overflow-hidden rounded-lg border">
+                                <img
+                                    :src="pigeon.photos[0]"
+                                    :alt="pigeonLabel"
+                                    class="h-48 w-full object-cover transition-transform hover:scale-105"
                                 />
                             </a>
+                            <div v-if="pigeon.photos.length > 1" class="grid grid-cols-4 gap-2">
+                                <a
+                                    v-for="(photo, index) in pigeon.photos.slice(1)"
+                                    :key="photo"
+                                    :href="photo"
+                                    target="_blank"
+                                    class="block overflow-hidden rounded-md border"
+                                >
+                                    <img
+                                        :src="photo"
+                                        :alt="`${pigeonLabel} photo ${index + 2}`"
+                                        loading="lazy"
+                                        class="aspect-square w-full object-cover transition-transform hover:scale-105"
+                                    />
+                                </a>
+                            </div>
                         </div>
                         <div v-if="pigeon.name">
                             <p class="text-sm text-muted-foreground">Name</p>
@@ -452,12 +470,12 @@ const childDetails = (child: Child) => {
                             </div>
                         </div>
 
-                        <!-- Uploaded Pedigree Images -->
+                        <!-- Certificates & relatives' photos -->
                         <div v-if="pigeon.pedigree_images && pigeon.pedigree_images.length > 0">
-                            <p class="text-sm font-medium text-muted-foreground mb-2">Uploaded Pedigree Images</p>
+                            <p class="text-sm font-medium text-muted-foreground mb-2">Certificates &amp; relatives' photos</p>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <a v-for="(image, index) in pigeon.pedigree_images" :key="index" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
-                                    <img :src="image" :alt="`${pigeonLabel} pedigree ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
+                                    <img :src="image" :alt="`${pigeonLabel} certificate or relative ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
                                 </a>
                             </div>
                         </div>

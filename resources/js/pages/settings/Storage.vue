@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { AlertTriangle, CheckCircle2, ExternalLink, HardDrive } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { privacy } from '@/routes';
 import { edit } from '@/routes/storage';
 import { connect, destroy } from '@/routes/storage/google';
 import { type BreadcrumbItem } from '@/types';
@@ -80,7 +81,7 @@ const imageLabel = computed(() => `${props.imageCount} ${props.imageCount === 1 
             <div class="space-y-6">
                 <HeadingSmall
                     title="Photo storage"
-                    description="Pigeon photos and pedigree images are saved to your own Google Drive, so you can keep as many as your Drive holds."
+                    description="Pigeon photos, certificates and photos of relatives are saved to your own Google Drive, so you can keep as many as your Drive holds."
                 />
 
                 <Alert v-if="error" variant="destructive">
@@ -181,6 +182,9 @@ const imageLabel = computed(() => `${props.imageCount} ${props.imageCount === 1 
                                 BloodlineHub creates a <span class="font-medium text-foreground">BloodlineHub</span> folder in
                                 your Drive and can only see the files it puts there, never the rest of your Drive. The photos
                                 are yours: they stay in your Drive and count toward your Google storage.
+                                <Link :href="`${privacy().url}#google-drive`" class="underline underline-offset-4"
+                                    >How we use your Google data</Link
+                                >
                             </p>
                         </div>
                     </div>

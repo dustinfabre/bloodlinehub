@@ -26,7 +26,7 @@ const connectUrl = computed(() => {
             <div class="space-y-1">
                 <p class="text-sm font-medium">Connect Google Drive to add photos</p>
                 <p class="text-xs text-muted-foreground">
-                    Photos and pedigree images are saved to a BloodlineHub folder in your own Drive.
+                    Photos and certificates are saved to a BloodlineHub folder in your own Drive.
                     <template v-if="props.unsavedChanges">Unsaved changes on this page will be lost.</template>
                 </p>
             </div>

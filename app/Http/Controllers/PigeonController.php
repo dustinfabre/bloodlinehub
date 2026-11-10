@@ -15,10 +15,12 @@ use App\Services\GoogleDrive\GoogleDriveException;
 use App\Services\ImageUploadService;
 use App\Services\Merits\GoldenPairs;
 use App\Services\Merits\MeritSuggester;
+use App\Services\Pedigree\GoneBirdPedigrees;
 use App\Services\Pedigree\OutsideBirdSync;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -235,18 +237,23 @@ class PigeonController extends Controller
         $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
 
-        // Photos go to the user's own Google Drive
-        if ($request->hasFile('photo')) {
-            $data['photo_url'] = $this->toDrive('photo', fn () => $imageService->upload(
-                $request->file('photo'),
+        $this->ensureUploadsArrived($request);
+        unset($data['photos'], $data['upload_count']);
+
+        // Photos go to the user's own Google Drive; the first is the main photo
+        if ($request->hasFile('photos')) {
+            $photos = $this->toDrive('photos', fn () => $imageService->uploadMultiple(
+                Arr::wrap($request->file('photos')),
                 $request->user(),
                 "{$data['ring_number']} photo",
             ));
+            $data['photo_url'] = $photos[0] ?? null;
+            $data['extra_photos'] = array_slice($photos, 1) ?: null;
         }
 
         if ($request->hasFile('pedigree_images')) {
             $data['pedigree_images'] = $this->toDrive('pedigree_images', fn () => $imageService->uploadMultiple(
-                $request->file('pedigree_images'),
+                Arr::wrap($request->file('pedigree_images')),
                 $request->user(),
                 "{$data['ring_number']} pedigree",
             ));
@@ -377,25 +384,31 @@ class PigeonController extends Controller
         $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
 
+        $this->ensureUploadsArrived($request);
+        unset($data['photos'], $data['photo_order'], $data['upload_count']);
+
         // Images replaced or removed here leave the app only once the pigeon is saved, so a failed upload never
         // costs the user the photo they had
         $discard = [];
 
-        if ($request->hasFile('photo')) {
-            $data['photo_url'] = $this->toDrive('photo', fn () => $imageService->upload(
-                $request->file('photo'),
-                $user,
-                "{$label} photo",
-            ));
-            $discard[] = $pigeon->photo_url;
-        } elseif ($request->boolean('remove_photo')) {
-            $data['photo_url'] = null;
-            $discard[] = $pigeon->photo_url;
+        $newPhotos = $request->hasFile('photos') ? $this->toDrive('photos', fn () => $imageService->uploadMultiple(
+            Arr::wrap($request->file('photos')),
+            $user,
+            "{$label} photo",
+        )) : [];
+
+        if ($newPhotos || $request->filled('photo_order')) {
+            $current = $pigeon->allPhotos();
+            $order = $request->filled('photo_order') ? json_decode($request->input('photo_order'), true) : null;
+            $photos = $this->orderPhotos($current, $newPhotos, is_array($order) ? $order : null);
+            $data['photo_url'] = $photos[0] ?? null;
+            $data['extra_photos'] = array_slice($photos, 1) ?: null;
+            array_push($discard, ...array_diff($current, $photos));
         }
 
         if ($request->hasFile('pedigree_images')) {
             $newImages = $this->toDrive('pedigree_images', fn () => $imageService->uploadMultiple(
-                $request->file('pedigree_images'),
+                Arr::wrap($request->file('pedigree_images')),
                 $user,
                 "{$label} pedigree",
             ));
@@ -412,6 +425,10 @@ class PigeonController extends Controller
         }
 
         $pigeon->update($data);
+
+        if ($pigeon->wasChanged('status')) {
+            GoneBirdPedigrees::promptFor([$pigeon->id]);
+        }
 
         if ($discard = array_values(array_filter($discard))) {
             $imageService->deleteMultiple($discard, $user);
@@ -454,6 +471,10 @@ class PigeonController extends Controller
 
         $pigeon->update(['status' => $validated['status']]);
 
+        if ($pigeon->wasChanged('status')) {
+            GoneBirdPedigrees::promptFor([$pigeon->id]);
+        }
+
         return back();
     }
 
@@ -461,7 +482,7 @@ class PigeonController extends Controller
     {
         $this->ensureOwner($request, $pigeon);
 
-        $images = array_values(array_filter([$pigeon->photo_url, ...($pigeon->pedigree_images ?? [])]));
+        $images = array_values(array_filter([...$pigeon->allPhotos(), ...($pigeon->pedigree_images ?? [])]));
 
         $pigeon->delete();
 
@@ -487,6 +508,59 @@ class PigeonController extends Controller
             return $upload();
         } catch (GoogleDriveException $e) {
             throw ValidationException::withMessages([$field => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * The pigeon's photos after an edit, in the order the form sent. Each entry is a photo the pigeon already has
+     * (its URL) or "new:N" for the Nth photo uploaded with this save. Photos left out of the order are removed;
+     * URLs the pigeon doesn't have are ignored, since they could be someone else's file. Without an order, new
+     * photos are added after the existing ones.
+     *
+     * @param  list<string>  $current
+     * @param  list<string>  $new
+     * @param  array<mixed>|null  $order
+     * @return list<string>
+     */
+    private function orderPhotos(array $current, array $new, ?array $order): array
+    {
+        if ($order === null) {
+            return [...$current, ...$new];
+        }
+
+        $photos = [];
+
+        foreach ($order as $entry) {
+            if (! is_string($entry)) {
+                continue;
+            }
+
+            $url = preg_match('/^new:(\d+)$/', $entry, $match)
+                ? ($new[(int) $match[1]] ?? null)
+                : (in_array($entry, $current, true) ? $entry : null);
+
+            if ($url !== null && ! in_array($url, $photos, true)) {
+                $photos[] = $url;
+            }
+        }
+
+        // A photo uploaded now but missing from the order is kept rather than lost
+        return [...$photos, ...array_values(array_diff($new, $photos))];
+    }
+
+    /**
+     * PHP silently drops files beyond max_file_uploads (and a few hosts limit them further). The form says how many
+     * it sent, so a save never quietly loses photos.
+     */
+    private function ensureUploadsArrived(Request $request): void
+    {
+        $sent = $request->integer('upload_count');
+        $received = count(Arr::wrap($request->file('photos'))) + count(Arr::wrap($request->file('pedigree_images')));
+
+        if ($sent > $received) {
+            throw ValidationException::withMessages([
+                'photos' => "Only {$received} of the {$sent} photos you added reached the server. Save with fewer photos, then add the rest.",
+            ]);
         }
     }
 
@@ -575,6 +649,8 @@ class PigeonController extends Controller
             'remarks' => $pigeon->remarks,
             'notes' => $pigeon->notes,
             'photo_url' => $pigeon->photo_url,
+            // Every photo, the main one first
+            'photos' => $pigeon->allPhotos(),
             'pedigree_images' => $pigeon->pedigree_images,
             'for_sale' => $pigeon->for_sale,
             'sale_price' => $pigeon->sale_price,

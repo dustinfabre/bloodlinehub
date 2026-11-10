@@ -44,6 +44,8 @@ class PedigreeService
                 'qr_svg' => $this->qrSvg($shareUrl),
                 ...$this->breeder($pigeon->user),
                 'photo_url' => $pigeon->photo_url,
+                // Every photo of the bird, the main one first, for the photo showcase
+                'photos' => $pigeon->allPhotos(),
                 'generated_at' => now()->toDateString(),
             ],
         ];
@@ -88,6 +90,7 @@ class PedigreeService
                 'qr_svg' => '',
                 ...$this->breeder($breeder),
                 'photo_url' => null,
+                'photos' => [],
                 'generated_at' => now()->toDateString(),
             ],
         ];

@@ -7,6 +7,7 @@ use App\Models\OlrRace;
 use App\Models\OlrSeason;
 use App\Models\Pigeon;
 use App\Services\Merits\MeritSuggester;
+use App\Services\Pedigree\GoneBirdPedigrees;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -250,6 +251,10 @@ class OlrSeasonController extends Controller
         // If status is provided, update the pigeon's status directly
         if (isset($validated['status'])) {
             $pigeon->update(['status' => $validated['status']]);
+
+            if ($pigeon->wasChanged('status')) {
+                GoneBirdPedigrees::promptFor([$pigeon->id]);
+            }
         }
 
         if ($updateData) {

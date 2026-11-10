@@ -63,7 +63,14 @@ const accessUntil = computed(() =>
                   ? 'Password protected pedigree'
                   : 'Private pedigree'
         "
-    />
+    >
+        <!-- Never in search engines, so a lost bird can't be traced to its pedigree (also sent as X-Robots-Tag) -->
+        <meta
+            head-key="robots"
+            name="robots"
+            content="noindex, nofollow, noarchive, noimageindex"
+        />
+    </Head>
 
     <div class="min-h-screen bg-muted/40">
         <header class="bg-navy">
@@ -119,7 +126,7 @@ const accessUntil = computed(() =>
                     </p>
                 </div>
 
-                <PedigreePhotos :tree="tree" />
+                <PedigreePhotos :tree="tree" :photos="meta.photos" />
 
                 <PedigreeViewer>
                     <PedigreeChart :tree="tree" :meta="meta" />

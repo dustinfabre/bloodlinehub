@@ -207,11 +207,14 @@ class PedigreeTest extends TestCase
             'sire_id' => $sire->id,
             'dam_ring_number' => 'NL-2019-654321',
             'photo_url' => 'https://example.test/media/subject.webp',
+            'extra_photos' => ['https://example.test/media/subject-2.webp'],
         ]);
         $subject->pedigreeAncestors()->create(['path' => 'DS', 'ring_number' => 'NL-2015-1']);
 
         $assertPhotos = fn (Assert $page) => $page
             ->where('tree.photo_url', 'https://example.test/media/subject.webp')
+            // All of the bird's own photos, the main one first
+            ->where('meta.photos', ['https://example.test/media/subject.webp', 'https://example.test/media/subject-2.webp'])
             ->where('tree.sire.photo_url', 'https://example.test/media/sire.webp')
             ->where('tree.sire.sire.photo_url', 'https://example.test/media/grandsire.webp')
             // Outside ancestors have no photos

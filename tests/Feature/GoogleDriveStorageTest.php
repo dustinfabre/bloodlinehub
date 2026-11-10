@@ -206,8 +206,8 @@ class GoogleDriveStorageTest extends TestCase
         $this->fakeGoogle();
 
         $this->actingAs($this->me)
-            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo' => $this->photo()])
-            ->assertSessionHasErrors(['photo' => 'Connect your Google Drive in Settings → Storage to add photos.']);
+            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photos' => [$this->photo()]])
+            ->assertSessionHasErrors(['photos' => 'Connect your Google Drive in Settings → Storage to add photos.']);
 
         $this->assertSame(0, Pigeon::count());
         Http::assertNothingSent();
@@ -222,7 +222,7 @@ class GoogleDriveStorageTest extends TestCase
             ->post(route('pigeons.store'), [
                 'status' => 'stock',
                 'ring_number' => 'ph-1',
-                'photo' => $this->photo(),
+                'photos' => [$this->photo()],
                 'pedigree_images' => [$this->photo(), $this->photo()],
             ])
             ->assertSessionHasNoErrors();
@@ -242,13 +242,125 @@ class GoogleDriveStorageTest extends TestCase
         $this->assertStringContainsString('"name":"PH-1 pedigree 2.webp"', $uploads[2][0]->body());
     }
 
+    public function test_a_pigeon_can_have_any_number_of_photos_and_certificates(): void
+    {
+        $this->connectDrive($this->me);
+        $this->fakeGoogle();
+
+        $this->actingAs($this->me)
+            ->post(route('pigeons.store'), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'photos' => array_map(fn () => $this->photo(), range(1, 5)),
+                'pedigree_images' => array_map(fn () => $this->photo(), range(1, 4)),
+                'upload_count' => 9,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pigeon = Pigeon::where('ring_number', 'PH-1')->sole();
+        // The first photo is the main one; the rest follow in order
+        $this->assertNotNull($pigeon->photo_url);
+        $this->assertCount(4, $pigeon->extra_photos);
+        $this->assertCount(5, array_unique($pigeon->allPhotos()));
+        $this->assertCount(4, $pigeon->pedigree_images);
+
+        $this->actingAs($this->me)
+            ->get(route('pigeons.show', $pigeon))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('pigeon.photos', $pigeon->allPhotos())
+                ->where('pigeon.photo_url', $pigeon->photo_url)
+            );
+    }
+
+    public function test_photos_can_be_reordered_removed_and_added_in_one_save(): void
+    {
+        $this->connectDrive($this->me);
+        [$a, $b, $c] = [$this->driveFile($this->me, 'drive-a'), $this->driveFile($this->me, 'drive-b'), $this->driveFile($this->me, 'drive-c')];
+        $other = User::factory()->create();
+        $theirs = $this->driveFile($other, 'drive-theirs');
+        $pigeon = Pigeon::create([
+            'user_id' => $this->me->id,
+            'status' => 'stock',
+            'ring_number' => 'PH-1',
+            'photo_url' => $a->url(),
+            'extra_photos' => [$b->url(), $c->url()],
+        ]);
+        $this->fakeGoogle();
+
+        // C becomes the main photo, a new photo goes second, A moves to the end, B is removed,
+        // and someone else's file slipped into the order is ignored
+        $this->actingAs($this->me)
+            ->put(route('pigeons.update', $pigeon), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'photos' => [$this->photo()],
+                'photo_order' => json_encode([$c->url(), 'new:0', $theirs->url(), $a->url()]),
+                'upload_count' => 1,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pigeon->refresh();
+        $this->assertSame($c->url(), $pigeon->photo_url);
+        $this->assertCount(2, $pigeon->extra_photos);
+        $this->assertMatchesRegularExpression('#^/media/[0-9a-f-]{36}\.webp$#', $pigeon->extra_photos[0]);
+        $this->assertNotContains($pigeon->extra_photos[0], [$a->url(), $b->url(), $c->url()]);
+        $this->assertSame($a->url(), $pigeon->extra_photos[1]);
+        $this->assertModelMissing($b);
+        $this->assertModelExists($a);
+        $this->assertModelExists($c);
+        $this->assertModelExists($theirs);
+    }
+
+    public function test_removing_every_photo_clears_the_main_photo(): void
+    {
+        $this->connectDrive($this->me);
+        [$a, $b] = [$this->driveFile($this->me, 'drive-a'), $this->driveFile($this->me, 'drive-b')];
+        $pigeon = Pigeon::create([
+            'user_id' => $this->me->id,
+            'status' => 'stock',
+            'ring_number' => 'PH-1',
+            'photo_url' => $a->url(),
+            'extra_photos' => [$b->url()],
+        ]);
+        $this->fakeGoogle();
+
+        $this->actingAs($this->me)
+            ->put(route('pigeons.update', $pigeon), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo_order' => '[]'])
+            ->assertSessionHasNoErrors();
+
+        $pigeon->refresh();
+        $this->assertNull($pigeon->photo_url);
+        $this->assertNull($pigeon->extra_photos);
+        $this->assertModelMissing($a);
+        $this->assertModelMissing($b);
+    }
+
+    public function test_a_save_that_lost_photos_on_the_way_is_refused(): void
+    {
+        $this->connectDrive($this->me);
+        $this->fakeGoogle();
+
+        // The form sent 3 files but only 1 arrived (e.g. the server's max_file_uploads)
+        $this->actingAs($this->me)
+            ->post(route('pigeons.store'), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'photos' => [$this->photo()],
+                'upload_count' => 3,
+            ])
+            ->assertSessionHasErrors(['photos' => 'Only 1 of the 3 photos you added reached the server. Save with fewer photos, then add the rest.']);
+
+        $this->assertSame(0, Pigeon::count());
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/upload/drive/v3/files'));
+    }
+
     public function test_an_expired_access_token_is_refreshed_before_uploading(): void
     {
         $connection = $this->connectDrive($this->me, ['access_token_expires_at' => now()->subMinute()]);
         $this->fakeGoogle();
 
         $this->actingAs($this->me)
-            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo' => $this->photo()])
+            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photos' => [$this->photo()]])
             ->assertSessionHasNoErrors();
 
         $this->assertSame('new-access-token', $connection->fresh()->access_token);
@@ -267,8 +379,8 @@ class GoogleDriveStorageTest extends TestCase
         ]);
 
         $this->actingAs($this->me)
-            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo' => $this->photo()])
-            ->assertSessionHasErrors(['photo' => 'Your Google Drive connection has expired. Reconnect it in Settings → Storage.']);
+            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photos' => [$this->photo()]])
+            ->assertSessionHasErrors(['photos' => 'Your Google Drive connection has expired. Reconnect it in Settings → Storage.']);
 
         $this->assertSame(0, GoogleDriveConnection::count());
         $this->assertSame(0, Pigeon::count());
@@ -282,8 +394,8 @@ class GoogleDriveStorageTest extends TestCase
         ]);
 
         $this->actingAs($this->me)
-            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo' => $this->photo()])
-            ->assertSessionHasErrors(['photo' => 'Your Google Drive is full. Free up space or add Google storage, then try again.']);
+            ->post(route('pigeons.store'), ['status' => 'stock', 'ring_number' => 'PH-1', 'photos' => [$this->photo()]])
+            ->assertSessionHasErrors(['photos' => 'Your Google Drive is full. Free up space or add Google storage, then try again.']);
     }
 
     public function test_media_is_served_from_the_owners_drive_with_no_cookies_and_long_caching(): void
@@ -345,7 +457,12 @@ class GoogleDriveStorageTest extends TestCase
         $this->fakeGoogle();
 
         $this->actingAs($this->me)
-            ->put(route('pigeons.update', $pigeon), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo' => $this->photo()])
+            ->put(route('pigeons.update', $pigeon), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'photos' => [$this->photo()],
+                'photo_order' => json_encode(['new:0']),
+            ])
             ->assertSessionHasNoErrors();
 
         $this->assertNotSame($old->url(), $pigeon->fresh()->photo_url);
@@ -363,8 +480,13 @@ class GoogleDriveStorageTest extends TestCase
         $this->fakeGoogle(['www.googleapis.com/upload/drive/v3/files*' => Http::response([], 500)]);
 
         $this->actingAs($this->me)
-            ->put(route('pigeons.update', $pigeon), ['status' => 'stock', 'ring_number' => 'PH-1', 'photo' => $this->photo()])
-            ->assertSessionHasErrors('photo');
+            ->put(route('pigeons.update', $pigeon), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'photos' => [$this->photo()],
+                'photo_order' => json_encode(['new:0']),
+            ])
+            ->assertSessionHasErrors('photos');
 
         $this->assertSame($old->url(), $pigeon->fresh()->photo_url);
         $this->assertModelExists($old);
@@ -375,12 +497,14 @@ class GoogleDriveStorageTest extends TestCase
     {
         $this->connectDrive($this->me);
         $photo = $this->driveFile($this->me, 'drive-photo');
+        $extra = $this->driveFile($this->me, 'drive-extra');
         $pedigree = $this->driveFile($this->me, 'drive-pedigree');
         $pigeon = Pigeon::create([
             'user_id' => $this->me->id,
             'status' => 'stock',
             'ring_number' => 'PH-1',
             'photo_url' => $photo->url(),
+            'extra_photos' => [$extra->url()],
             'pedigree_images' => [$pedigree->url()],
         ]);
         $this->fakeGoogle();
@@ -388,7 +512,7 @@ class GoogleDriveStorageTest extends TestCase
         $this->actingAs($this->me)->delete(route('pigeons.destroy', $pigeon))->assertRedirect(route('pigeons.index'));
 
         $this->assertSame(0, DriveFile::count());
-        Http::assertSentCount(2);
+        Http::assertSentCount(3);
     }
 
     public function test_only_my_own_images_can_be_removed(): void

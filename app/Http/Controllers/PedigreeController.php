@@ -100,6 +100,26 @@ class PedigreeController extends Controller
     }
 
     /**
+     * Make the given birds' public pedigrees private: the answer to the prompt shown after birds go missing or die.
+     * Password-protected and private pedigrees are left as they are.
+     */
+    public function makePrivate(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'pigeon_ids' => ['required', 'array', 'max:1000'],
+            'pigeon_ids.*' => ['integer'],
+        ]);
+
+        $count = Pedigree::query()
+            ->whereIn('pigeon_id', $validated['pigeon_ids'])
+            ->whereHas('pigeon', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->where('is_public', true)
+            ->update(['is_public' => false]);
+
+        return back()->with('success', $count === 1 ? 'Pedigree is now private.' : "{$count} pedigrees are now private.");
+    }
+
+    /**
      * Shared pedigree page (the QR code target). Private pedigrees are only visible to their owner;
      * password-protected ones also to visitors who have entered the password.
      */

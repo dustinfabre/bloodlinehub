@@ -135,7 +135,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                 </Button>
             </div>
 
-            <PedigreePhotos :tree="tree" />
+            <PedigreePhotos :tree="tree" :photos="meta.photos" />
 
             <PedigreeViewer>
                 <PedigreeChart :tree="tree" :meta="meta" linkable />

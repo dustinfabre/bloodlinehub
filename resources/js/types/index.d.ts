@@ -26,7 +26,15 @@ export type AppPageProps<
     sidebarOpen: boolean;
     // Switches set in config/features.php
     features: { marketplace: boolean };
+    // Birds that just went missing or died while their pedigree is public
+    pedigreePrompt?: PedigreePrompt | null;
 };
+
+export interface PedigreePrompt {
+    // Unique per prompt, so each is shown once
+    id: string;
+    pigeons: { id: number; label: string; status: string }[];
+}
 
 export interface User {
     id: number;

@@ -40,6 +40,8 @@ export interface PedigreeMeta {
     // Breeder contact details the breeder chose to show (null when hidden or not filled in)
     contact: PedigreeContact;
     photo_url: string | null;
+    // Every photo of the bird, the main one first
+    photos: string[];
     generated_at: string;
 }
 

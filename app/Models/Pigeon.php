@@ -44,6 +44,7 @@ class Pigeon extends Model
         'remarks',
         'notes',
         'photo_url',
+        'extra_photos',
         'pedigree_images',
         'for_sale',
         'sale_price',
@@ -68,6 +69,7 @@ class Pigeon extends Model
     ];
 
     protected $casts = [
+        'extra_photos' => 'array',
         'pedigree_images' => 'array',
         'hatch_date' => 'date',
         'for_sale' => 'boolean',
@@ -75,6 +77,16 @@ class Pigeon extends Model
         'sire_merits' => 'array',
         'dam_merits' => 'array',
     ];
+
+    /**
+     * Every photo of the bird, the main photo (photo_url) first.
+     *
+     * @return list<string>
+     */
+    public function allPhotos(): array
+    {
+        return array_values(array_filter([$this->photo_url, ...($this->extra_photos ?? [])]));
+    }
 
     protected static function booted(): void
     {

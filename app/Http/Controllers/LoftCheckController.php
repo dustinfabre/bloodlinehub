@@ -7,6 +7,7 @@ use App\Models\LoftCheck;
 use App\Models\Pigeon;
 use App\Models\PigeonStatusChange;
 use App\Services\LoftCheck\LoftCheckScope;
+use App\Services\Pedigree\GoneBirdPedigrees;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -166,6 +167,8 @@ class LoftCheckController extends Controller
 
             return $check;
         });
+
+        GoneBirdPedigrees::promptFor($missing);
 
         return redirect()
             ->route('loft-checks.show', $check)

@@ -57,9 +57,14 @@ class StorePigeonRequest extends FormRequest
             'personal_number' => ['nullable', 'string', 'max:255'],
             'remarks' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
-            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
-            'pedigree_images' => ['nullable', 'array', 'max:2'],
+            // Photos are saved to the user's own Google Drive, so there is no limit on how many
+            'photos' => ['nullable', 'array'],
+            'photos.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
+            // Certificates, handwritten pedigrees and photos of relatives
+            'pedigree_images' => ['nullable', 'array'],
             'pedigree_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
+            // How many files the form sent, to catch any the server dropped (PHP's max_file_uploads)
+            'upload_count' => ['nullable', 'integer', 'min:0'],
             'for_sale' => ['boolean'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'hide_price' => ['boolean'],
@@ -113,8 +118,14 @@ class StorePigeonRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'photo.dimensions' => 'The photo can be at most 8000 × 8000 pixels.',
-            'pedigree_images.*.dimensions' => 'Pedigree images can be at most 8000 × 8000 pixels.',
+            'photos.*.dimensions' => 'Photos can be at most 8000 × 8000 pixels.',
+            'photos.*.max' => 'Each photo can be at most 10 MB.',
+            'photos.*.image' => 'Photos must be images.',
+            'photos.*.mimes' => 'Photos must be JPEG, PNG or WebP images.',
+            'pedigree_images.*.dimensions' => 'Certificates and photos of relatives can be at most 8000 × 8000 pixels.',
+            'pedigree_images.*.max' => 'Each certificate or photo of a relative can be at most 10 MB.',
+            'pedigree_images.*.image' => 'Certificates and photos of relatives must be images.',
+            'pedigree_images.*.mimes' => 'Certificates and photos of relatives must be JPEG, PNG or WebP images.',
         ];
     }
 }

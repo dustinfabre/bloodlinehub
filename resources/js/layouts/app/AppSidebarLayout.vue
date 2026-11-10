@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
+import PedigreePrivacyPrompt from '@/components/pedigree/PedigreePrivacyPrompt.vue';
 import PwaStatus from '@/components/PwaStatus.vue';
 import { Toaster } from '@/components/ui/sonner';
 import type { BreadcrumbItemType } from '@/types';
@@ -26,6 +27,7 @@ withDefaults(defineProps<Props>(), {
         </AppContent>
         <MobileBottomNav />
         <PwaStatus />
+        <PedigreePrivacyPrompt />
         <Toaster
             position="top-right"
             :richColors="true"

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Pedigree\GoneBirdPedigrees;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -49,6 +50,8 @@ class HandleInertiaRequests extends Middleware
             'features' => [
                 'marketplace' => (bool) config('features.marketplace'),
             ],
+            // Birds that just went missing or died while their pedigree is public: offer to make it private
+            'pedigreePrompt' => fn () => $request->hasSession() ? $request->session()->get(GoneBirdPedigrees::SESSION_KEY) : null,
         ];
     }
 }

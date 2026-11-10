@@ -17,14 +17,18 @@ import type { PedigreeNode } from '@/types/pedigree';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-// A showcase of the bird on a pedigree: its own photo, then the photos of its loft ancestors grouped by the
+// A showcase of the bird on a pedigree: its own photos, then the main photos of its loft ancestors grouped by the
 // father's and the mother's side, each named by its place in the family. Outside ancestors have no photos.
 // Shows nothing when no bird on the chart has a photo.
 const props = defineProps<{
     tree: PedigreeNode;
+    // Every photo of the bird itself, the main one first
+    photos?: string[];
 }>();
 
 interface Photo {
+    // Unique among the photos on show
+    id: string;
     url: string;
     // Chart position: '' for the pigeon itself, 'SD' for its sire's dam, ...
     position: string;
@@ -48,6 +52,7 @@ const all = computed<Photo[]>(() =>
         // Generation by generation, top to bottom within each
         .sort((a, b) => a.depth - b.depth || a.index - b.index)
         .map((slot) => ({
+            id: `chart:${slot.key}`,
             url: slot.node!.photo_url!,
             position: slot.key,
             title: slot.key ? familyName(slot.key) : 'This pigeon',
@@ -64,7 +69,24 @@ const uniqueByUrl = (photos: Photo[]) =>
             photos.findIndex((other) => other.url === photo.url) === index,
     );
 
-const subject = computed(() => all.value.find((photo) => !photo.position));
+// The bird's own photos: all of them when given, otherwise the main photo on the chart
+const subjectPhotos = computed<Photo[]>(() => {
+    const fromChart = all.value.find((photo) => !photo.position);
+    if (!props.photos?.length) return fromChart ? [fromChart] : [];
+    return props.photos
+        .filter((url) => !failed.value.has(url))
+        .map((url, index) => ({
+            id: `self:${index}`,
+            url,
+            position: '',
+            title: 'This pigeon',
+            hint: null,
+            ringNumber: props.tree.ring_number,
+            name: props.tree.name,
+        }));
+});
+const subject = computed(() => subjectPhotos.value[0]);
+const subjectExtras = computed(() => subjectPhotos.value.slice(1));
 
 const sides = computed(() =>
     [
@@ -89,27 +111,26 @@ const sides = computed(() =>
 
 // Everything on show, in display order, for stepping through in the enlarged view
 const shown = computed<Photo[]>(() => [
-    ...(subject.value ? [subject.value] : []),
+    ...subjectPhotos.value,
     ...sides.value.flatMap((side) => side.photos),
 ]);
 
-const openPosition = ref<string | null>(null);
+const openId = ref<string | null>(null);
 const openIndex = computed(() =>
-    shown.value.findIndex((photo) => photo.position === openPosition.value),
+    shown.value.findIndex((photo) => photo.id === openId.value),
 );
 const current = computed(() => shown.value[openIndex.value] ?? null);
 const open = computed({
     get: () => current.value !== null,
     set: (value) => {
-        if (!value) openPosition.value = null;
+        if (!value) openId.value = null;
     },
 });
 
 const step = (by: number) => {
     const count = shown.value.length;
     if (openIndex.value < 0 || count < 2) return;
-    openPosition.value =
-        shown.value[(openIndex.value + by + count) % count].position;
+    openId.value = shown.value[(openIndex.value + by + count) % count].id;
 };
 
 const markFailed = (url: string) => {
@@ -128,7 +149,7 @@ const altText = (photo: Photo) =>
                 <button
                     type="button"
                     class="group block w-full rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    @click="openPosition = subject.position"
+                    @click="openId = subject.id"
                 >
                     <div
                         class="aspect-square overflow-hidden rounded-lg border bg-muted"
@@ -153,6 +174,27 @@ const altText = (photo: Photo) =>
                 >
                     {{ subject.ringNumber }}
                 </p>
+                <div
+                    v-if="subjectExtras.length"
+                    class="mt-3 grid grid-cols-4 gap-1.5"
+                >
+                    <button
+                        v-for="photo in subjectExtras"
+                        :key="photo.id"
+                        type="button"
+                        class="group overflow-hidden rounded-md border bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        :aria-label="`Open photo of ${altText(photo)}`"
+                        @click="openId = photo.id"
+                    >
+                        <img
+                            :src="photo.url"
+                            :alt="altText(photo)"
+                            loading="lazy"
+                            class="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                            @error="markFailed(photo.url)"
+                        />
+                    </button>
+                </div>
             </div>
 
             <!-- Its ancestors from the loft, by side of the family -->
@@ -171,10 +213,10 @@ const altText = (photo: Photo) =>
                     <div class="mt-2 flex flex-wrap gap-3">
                         <button
                             v-for="photo in side.photos"
-                            :key="photo.position"
+                            :key="photo.id"
                             type="button"
                             class="group w-28 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                            @click="openPosition = photo.position"
+                            @click="openId = photo.id"
                         >
                             <div
                                 class="aspect-square overflow-hidden rounded-lg border bg-muted"

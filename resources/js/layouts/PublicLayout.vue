@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import InstallAppButton from '@/components/landing/InstallAppButton.vue';
-import { dashboard, home, login, register } from '@/routes';
+import { dashboard, home, login, privacy, register, terms } from '@/routes';
 import { index as marketplace } from '@/routes/marketplace';
 import { Head, Link } from '@inertiajs/vue3';
 
@@ -79,6 +79,18 @@ const year = new Date().getFullYear();
                         class="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-ivory md:min-h-0"
                     >
                         {{ $page.props.auth.user ? 'Dashboard' : 'Log in' }}
+                    </Link>
+                    <Link
+                        :href="privacy()"
+                        class="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-ivory md:min-h-0"
+                    >
+                        Privacy
+                    </Link>
+                    <Link
+                        :href="terms()"
+                        class="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-ivory md:min-h-0"
+                    >
+                        Terms
                     </Link>
                 </nav>
                 <p>&copy; {{ year }} BloodlineHub</p>

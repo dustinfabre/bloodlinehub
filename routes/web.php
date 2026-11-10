@@ -25,11 +25,17 @@ use App\Http\Controllers\PigeonMeritController;
 use App\Http\Controllers\PlannedPairingController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\TestPairingController;
+use App\Http\Middleware\NoIndex;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', fn () => Inertia::render('Welcome'))
     ->name('home');
+// Legal pages, public (also the privacy policy URL on the Google OAuth consent screen)
+Route::get('privacy', fn () => Inertia::render('legal/Privacy'))
+    ->name('privacy');
+Route::get('terms', fn () => Inertia::render('legal/Terms'))
+    ->name('terms');
 // Public marketplace (no auth required)
 Route::get('marketplace', [MarketplaceController::class, 'index'])
     ->middleware('throttle:60,1')
@@ -43,12 +49,13 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:5,1')
         ->name('invite-requests.store');
 });
-// Shared pedigree (QR code target); private pedigrees are only visible to their owner or with the share password
+// Shared pedigree (QR code target); private pedigrees are only visible to their owner or with the share password.
+// Kept out of search engines, so a lost bird's pedigree can't be found by searching its ring number.
 Route::get('p/{serial}', [PedigreeController::class, 'shared'])
-    ->middleware('throttle:60,1')
+    ->middleware(['throttle:60,1', NoIndex::class])
     ->name('pedigrees.shared');
 Route::post('p/{serial}/unlock', [PedigreeController::class, 'unlock'])
-    ->middleware('throttle:10,1,pedigree-unlock')
+    ->middleware(['throttle:10,1,pedigree-unlock', NoIndex::class])
     ->name('pedigrees.unlock');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -70,6 +77,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.printPedigree');
     Route::patch('pigeons/{pigeon}/pedigree/visibility', [PedigreeController::class, 'updateVisibility'])
         ->name('pigeons.pedigreeVisibility');
+    Route::patch('pedigrees/private', [PedigreeController::class, 'makePrivate'])
+        ->name('pedigrees.makePrivate');
     Route::get('pigeons/{pigeon}/pedigree/edit', [PedigreeAncestorController::class, 'edit'])
         ->name('pigeons.editPedigree');
     Route::put('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'update'])

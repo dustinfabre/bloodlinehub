@@ -158,9 +158,9 @@ class SecurityHardeningTest extends TestCase
             ->post(route('pigeons.store'), [
                 'status' => 'stock',
                 'ring_number' => 'BIG',
-                'photo' => UploadedFile::fake()->image('huge.png', 9000, 10),
+                'photos' => [UploadedFile::fake()->image('huge.png', 9000, 10)],
             ])
-            ->assertSessionHasErrors(['photo' => 'The photo can be at most 8000 × 8000 pixels.']);
+            ->assertSessionHasErrors(['photos.0' => 'Photos can be at most 8000 × 8000 pixels.']);
     }
 
     public function test_club_events_only_take_birds_entered_in_the_season(): void

@@ -38,8 +38,8 @@ const chapters = computed<Chapter[]>(() => [
                 text: 'Give a bird more than one bloodline and mark the primary. The primary one prints on its pedigree.',
             },
             {
-                term: 'Photo and papers',
-                text: 'One photo per bird, cropped in the app, plus up to two images of its paper pedigree.',
+                term: 'Photos and papers',
+                text: 'As many photos per bird as you like, cropped in the app if you want, plus its certificates and photos of its relatives.',
             },
             {
                 term: 'Search and filters',

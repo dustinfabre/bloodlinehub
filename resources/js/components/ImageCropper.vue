@@ -5,19 +5,25 @@ import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 import { ref, watch, nextTick, onUnmounted } from 'vue';
 
+// Optional cropping for a photo before it is uploaded. Free cropping by default, or a square.
 interface Props {
     open: boolean;
     imageSrc: string | null;
-    aspectRatio?: number;
-    minWidth?: number;
-    minHeight?: number;
+    // Name for the cropped file
+    fileName?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    aspectRatio: 1, // Square crop by default (for card display)
-    minWidth: 200,
-    minHeight: 200,
+    fileName: 'photo.jpg',
 });
+
+// The cropped photo is kept large; the server sizes it down for display
+const MAX_OUTPUT = 2000;
+
+const ASPECTS = [
+    { label: 'Free', value: NaN },
+    { label: 'Square', value: 1 },
+];
 
 const emit = defineEmits<{
     'update:open': [value: boolean];
@@ -29,6 +35,12 @@ const imageRef = ref<HTMLImageElement | null>(null);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cropper = ref<any>(null);
 const isProcessing = ref(false);
+const aspect = ref(NaN);
+
+const setAspect = (value: number) => {
+    aspect.value = value;
+    cropper.value?.setAspectRatio(value);
+};
 
 // Initialize cropper when dialog opens
 watch(() => props.open, async (isOpen) => {
@@ -49,7 +61,7 @@ const initCropper = () => {
     destroyCropper();
     
     cropper.value = new Cropper(imageRef.value, {
-        aspectRatio: props.aspectRatio,
+        aspectRatio: aspect.value,
         viewMode: 1,
         dragMode: 'move',
         autoCropArea: 0.9,
@@ -80,8 +92,9 @@ const handleCrop = async () => {
     
     try {
         const canvas = cropper.value.getCroppedCanvas({
-            width: props.minWidth * 2, // Higher quality output
-            height: props.minHeight * 2,
+            maxWidth: MAX_OUTPUT,
+            maxHeight: MAX_OUTPUT,
+            fillColor: '#ffffff',
             imageSmoothingEnabled: true,
             imageSmoothingQuality: 'high',
         });
@@ -89,7 +102,8 @@ const handleCrop = async () => {
         // Convert canvas to blob
         canvas.toBlob((blob: Blob | null) => {
             if (blob) {
-                const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
+                const name = `${props.fileName.replace(/\.[^.]+$/, '')}.jpg`;
+                const file = new File([blob], name, { type: 'image/jpeg' });
                 emit('crop', file);
                 closeDialog();
             }
@@ -141,7 +155,7 @@ onUnmounted(() => {
     <Dialog :open="open" @update:open="closeDialog">
         <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
-                <DialogTitle>Crop Image</DialogTitle>
+                <DialogTitle>Crop photo</DialogTitle>
             </DialogHeader>
             
             <div class="flex-1 min-h-0 overflow-hidden">
@@ -158,6 +172,20 @@ onUnmounted(() => {
                 
                 <!-- Controls -->
                 <div class="flex items-center justify-center gap-2 mt-4 flex-wrap">
+                    <div class="flex rounded-md border p-0.5" role="group" aria-label="Crop shape">
+                        <Button
+                            v-for="option in ASPECTS"
+                            :key="option.label"
+                            type="button"
+                            size="sm"
+                            :variant="Object.is(aspect, option.value) ? 'secondary' : 'ghost'"
+                            class="h-7"
+                            :aria-pressed="Object.is(aspect, option.value)"
+                            @click="setAspect(option.value)"
+                        >
+                            {{ option.label }}
+                        </Button>
+                    </div>
                     <Button type="button" variant="outline" size="sm" @click="rotateLeft" title="Rotate left">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38"/>
@@ -198,7 +226,7 @@ onUnmounted(() => {
                         </svg>
                         Processing...
                     </span>
-                    <span v-else>Apply Crop</span>
+                    <span v-else>Apply crop</span>
                 </Button>
             </DialogFooter>
         </DialogContent>

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import PublicLayout from '@/layouts/PublicLayout.vue';
-import { login } from '@/routes';
+import { login, privacy, terms } from '@/routes';
 import { store } from '@/routes/invite-requests';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -103,6 +103,20 @@ const submit = () => {
                             class="mt-2"
                             :message="form.errors.email"
                         />
+                        <p class="mt-3 text-sm text-muted-foreground">
+                            By requesting an invite you agree to our
+                            <Link
+                                :href="terms()"
+                                class="font-medium text-foreground underline decoration-gold underline-offset-4 hover:decoration-current"
+                                >Terms</Link
+                            >
+                            and
+                            <Link
+                                :href="privacy()"
+                                class="font-medium text-foreground underline decoration-gold underline-offset-4 hover:decoration-current"
+                                >Privacy Policy</Link
+                            >.
+                        </p>
 
                         <!-- Honeypot, kept off screen and out of the tab order -->
                         <div class="sr-only" aria-hidden="true">

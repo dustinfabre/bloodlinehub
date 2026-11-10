@@ -6,6 +6,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { registerSW } from 'virtual:pwa-register';
 import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
+import CookieNotice from './components/CookieNotice.vue';
 import { initializeTheme } from './composables/useAppearance';
 import { listenForPwaInstall } from './composables/usePwaInstall';
 
@@ -49,7 +50,8 @@ createInertiaApp({
             import.meta.glob<DefineComponent>('./pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
+        // The cookie notice sits beside the app so it shows on every page, whatever the layout
+        createApp({ render: () => [h(App, props), h(CookieNotice)] })
             .use(plugin)
             .mount(el);
     },
