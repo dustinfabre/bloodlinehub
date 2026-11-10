@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\NoIndex;
 use App\Models\DriveFile;
 use App\Models\GoogleDriveConnection;
 use App\Models\Pigeon;
@@ -346,11 +347,11 @@ class GoogleDriveStorageTest extends TestCase
                 'ring_number' => 'PH-1',
                 'bred_by' => 'De Smet Loft',
                 'pedigree_images' => [$this->photo(), $this->photo(), $this->photo()],
-                // A certificate, the dam, and a made-up position that is ignored
+                // A certificate, the dam, and a made-up relation that is ignored
                 'pedigree_image_relations' => json_encode([
                     ['ref' => 'new:0', 'relation' => null],
                     ['ref' => 'new:1', 'relation' => 'D'],
-                    ['ref' => 'new:2', 'relation' => 'XYZ'],
+                    ['ref' => 'new:2', 'relation' => 'cousin'],
                 ]),
                 'upload_count' => 3,
             ])
@@ -360,9 +361,10 @@ class GoogleDriveStorageTest extends TestCase
         [$certificate, $dam, $other] = $pigeon->pedigree_images;
         $this->assertSame('De Smet Loft', $pigeon->bred_by);
         $this->assertSame([$dam => 'D'], $pigeon->pedigree_image_relations);
-        $this->assertSame([['url' => $dam, 'position' => 'D']], $pigeon->relativePhotos());
+        $this->assertSame([['url' => $dam, 'relation' => 'D']], $pigeon->relativePhotos());
 
-        // Retag on edit: the certificate becomes the sire's photo, a new grandsire photo is added, the dam's is removed
+        // Retag on edit: the certificate becomes the sire's photo, the other one a sister's, a new grandsire photo is
+        // added and the dam's is removed
         $this->actingAs($this->me)
             ->put(route('pigeons.update', $pigeon), [
                 'status' => 'stock',
@@ -371,7 +373,7 @@ class GoogleDriveStorageTest extends TestCase
                 'remove_pedigree' => [$dam],
                 'pedigree_image_relations' => json_encode([
                     ['ref' => $certificate, 'relation' => 'S'],
-                    ['ref' => $other, 'relation' => null],
+                    ['ref' => $other, 'relation' => 'sibling'],
                     ['ref' => 'new:0', 'relation' => 'SS'],
                     ['ref' => $dam, 'relation' => 'D'],
                 ]),
@@ -382,13 +384,13 @@ class GoogleDriveStorageTest extends TestCase
         $pigeon->refresh();
         $this->assertCount(3, $pigeon->pedigree_images);
         $added = $pigeon->pedigree_images[2];
-        $this->assertSame([$certificate => 'S', $added => 'SS'], $pigeon->pedigree_image_relations);
+        $this->assertSame([$certificate => 'S', $other => 'sibling', $added => 'SS'], $pigeon->pedigree_image_relations);
 
         // An edit that doesn't send tags keeps them
         $this->actingAs($this->me)
             ->put(route('pigeons.update', $pigeon), ['status' => 'stock', 'ring_number' => 'PH-1'])
             ->assertSessionHasNoErrors();
-        $this->assertSame([$certificate => 'S', $added => 'SS'], $pigeon->fresh()->pedigree_image_relations);
+        $this->assertSame([$certificate => 'S', $other => 'sibling', $added => 'SS'], $pigeon->fresh()->pedigree_image_relations);
     }
 
     public function test_a_save_that_lost_photos_on_the_way_is_refused(): void
@@ -463,7 +465,9 @@ class GoogleDriveStorageTest extends TestCase
         $response = $this->get($file->url())
             ->assertOk()
             ->assertHeader('Content-Type', 'image/webp')
-            ->assertHeader('ETag', '"'.$file->id.'"');
+            ->assertHeader('ETag', '"'.$file->id.'"')
+            // Never in image search
+            ->assertHeader('X-Robots-Tag', NoIndex::DIRECTIVES);
 
         $this->assertSame('webp-bytes', $response->getContent());
         $this->assertStringContainsString('immutable', $response->headers->get('Cache-Control'));

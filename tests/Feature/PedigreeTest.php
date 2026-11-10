@@ -281,16 +281,17 @@ class PedigreeTest extends TestCase
     public function test_tagged_relatives_photos_reach_the_pedigree_and_certificates_do_not(): void
     {
         $subject = $this->pigeon([
-            'pedigree_images' => ['/media/certificate.webp', '/media/sire.webp', '/media/grandam.webp'],
-            'pedigree_image_relations' => ['/media/sire.webp' => 'S', '/media/grandam.webp' => 'DD'],
+            'pedigree_images' => ['/media/certificate.webp', '/media/sire.webp', '/media/grandam.webp', '/media/sister.webp'],
+            'pedigree_image_relations' => ['/media/sire.webp' => 'S', '/media/grandam.webp' => 'DD', '/media/sister.webp' => 'sibling'],
         ]);
         $subject->pedigreeRecord()->update(['is_public' => true]);
 
         $this->get(route('pedigrees.shared', $subject->pedigreeRecord()->serial))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->where('meta.relative_photos', [
-                ['url' => '/media/sire.webp', 'position' => 'S'],
-                ['url' => '/media/grandam.webp', 'position' => 'DD'],
+                ['url' => '/media/sire.webp', 'relation' => 'S'],
+                ['url' => '/media/grandam.webp', 'relation' => 'DD'],
+                ['url' => '/media/sister.webp', 'relation' => 'sibling'],
             ]));
     }
 

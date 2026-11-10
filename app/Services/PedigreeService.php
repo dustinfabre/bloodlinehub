@@ -47,7 +47,7 @@ class PedigreeService
                 'photo_url' => $pigeon->photo_url,
                 // Every photo of the bird, the main one first, for the photo showcase
                 'photos' => $pigeon->allPhotos(),
-                // Photos of relatives uploaded on the bird, each with the relative's chart position
+                // Photos of relatives uploaded on the bird, each saying who it shows (never certificates)
                 'relative_photos' => $pigeon->relativePhotos(),
                 'generated_at' => now()->toDateString(),
             ],

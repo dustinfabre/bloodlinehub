@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import {
     newPhotoItem,
-    type PhotoItem,
+    OTHER_RELATIVE_OPTIONS,
     RELATIVE_OPTIONS,
     shrinkImage,
+    type PhotoItem,
 } from '@/lib/images';
 import { Crop, ImagePlus, Star, X } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
@@ -195,10 +196,19 @@ watch(cropOpen, (open) => {
                         )
                     "
                 >
-                    <option value="">Certificate / document</option>
-                    <optgroup label="Photo of a relative">
+                    <option value="">Certificate / document · private</option>
+                    <optgroup label="Ancestor · shown on the pedigree">
                         <option
                             v-for="option in RELATIVE_OPTIONS"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </optgroup>
+                    <optgroup label="Other relative · shown on the pedigree">
+                        <option
+                            v-for="option in OTHER_RELATIVE_OPTIONS"
                             :key="option.value"
                             :value="option.value"
                         >

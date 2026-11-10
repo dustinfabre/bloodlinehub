@@ -637,7 +637,7 @@ const submit = (event?: SubmitEvent) => {
                                     id="pedigree_images"
                                     v-model="form.certificate_items"
                                     label="Certificates & relatives' photos"
-                                    description="Certificates and documents stay private. For a photo of a relative, choose who it shows: it then appears on the pigeon's page and its pedigree."
+                                    description="Certificates and documents stay private. For a photo of a relative, choose who it shows (an ancestor, a brother or sister, ...): it then appears on the pigeon's page and its pedigree, which search engines never list."
                                     relations
                                     :error="fieldError('pedigree_images')"
                                 />

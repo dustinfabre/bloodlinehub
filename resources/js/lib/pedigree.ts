@@ -61,6 +61,30 @@ export const familyPath = (key: string): string => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
+// Relatives outside the bird's own line, for photos of relatives (ancestors use their chart position instead)
+export const OTHER_RELATIVES: Record<string, string> = {
+    sibling: 'Brother or sister',
+    half_sibling: 'Half-sibling',
+    offspring: 'Son or daughter',
+    relative: 'Other relative',
+};
+
+// A relation is an ancestor's chart position ('S', 'SD', ...) or one of OTHER_RELATIVES
+export const isAncestorRelation = (relation: string): boolean =>
+    /^[SD]+$/.test(relation);
+
+// "Grandmother", "Brother or sister"
+export const relationTitle = (relation: string): string =>
+    isAncestorRelation(relation)
+        ? familyName(relation)
+        : (OTHER_RELATIVES[relation] ?? 'Relative');
+
+// "Father's mother" for ancestors beyond the parents; nothing otherwise
+export const relationHint = (relation: string): string | null =>
+    isAncestorRelation(relation) && relation.length > 1
+        ? familyPath(relation)
+        : null;
+
 export const VISIBILITY_LABELS: Record<PedigreeVisibility, string> = {
     public: 'Public pedigree',
     password: 'Password protected',

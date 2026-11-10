@@ -8,10 +8,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import {
-    familyName,
     familyPath,
     flattenPedigree,
+    isAncestorRelation,
     lineageSteps,
+    relationHint,
+    relationTitle,
 } from '@/lib/pedigree';
 import { edit as storageSettings } from '@/routes/storage';
 import type { PedigreeNode } from '@/types/pedigree';
@@ -32,8 +34,8 @@ const props = defineProps<{
     tree: PedigreeNode;
     // Every photo of the bird itself, the main one first
     photos?: string[];
-    // Photos of relatives uploaded on the bird, with the relative's chart position
-    relativePhotos?: { url: string; position: string }[];
+    // Photos of relatives uploaded on the bird: an ancestor's chart position, or e.g. 'sibling'
+    relativePhotos?: { url: string; relation: string }[];
     // Owner only: where to add photos of the bird, for the note shown when there are none
     addPhotosHref?: string;
 }>();
@@ -42,7 +44,8 @@ interface Photo {
     // Unique among the photos on show
     id: string;
     url: string;
-    // Chart position: '' for the pigeon itself, 'SD' for its sire's dam, ...
+    // '' for the pigeon itself, an ancestor's chart position ('SD' its sire's dam, ...), or another
+    // relative such as 'sibling'
     position: string;
     // "Grandmother"
     title: string;
@@ -73,8 +76,11 @@ const nodesByPosition = computed(
 );
 
 // Generation by generation, top to bottom (sire's line first) within each
+// (other relatives last)
 const positionOrder = (position: string) =>
-    `${position.length}:${position.replace(/S/g, '0').replace(/D/g, '1')}`;
+    position && !isAncestorRelation(position)
+        ? `9:${position}`
+        : `${position.length}:${position.replace(/S/g, '0').replace(/D/g, '1')}`;
 const allFailed = computed(
     () =>
         photoUrls.value.length > 0 &&
@@ -92,11 +98,13 @@ const all = computed<Photo[]>(() => {
             name: slot.node!.name,
         }));
     const relatives = (props.relativePhotos ?? []).map((photo, index) => {
-        const node = nodesByPosition.value.get(photo.position);
+        const node = isAncestorRelation(photo.relation)
+            ? nodesByPosition.value.get(photo.relation)
+            : null;
         return {
             id: `relative:${index}`,
             url: photo.url,
-            position: photo.position,
+            position: photo.relation,
             ringNumber: node?.ring_number ?? null,
             name: node?.name ?? null,
         };
@@ -109,8 +117,10 @@ const all = computed<Photo[]>(() => {
         )
         .map((photo) => ({
             ...photo,
-            title: photo.position ? familyName(photo.position) : 'This pigeon',
-            hint: photo.position.length > 1 ? familyPath(photo.position) : null,
+            title: photo.position
+                ? relationTitle(photo.position)
+                : 'This pigeon',
+            hint: photo.position ? relationHint(photo.position) : null,
         }));
 });
 
@@ -147,7 +157,11 @@ const sides = computed(() =>
             title: "Father's side",
             term: 'Sire',
             photos: uniqueByUrl(
-                all.value.filter((photo) => photo.position.startsWith('S')),
+                all.value.filter(
+                    (photo) =>
+                        isAncestorRelation(photo.position) &&
+                        photo.position.startsWith('S'),
+                ),
             ),
         },
         {
@@ -155,7 +169,22 @@ const sides = computed(() =>
             title: "Mother's side",
             term: 'Dam',
             photos: uniqueByUrl(
-                all.value.filter((photo) => photo.position.startsWith('D')),
+                all.value.filter(
+                    (photo) =>
+                        isAncestorRelation(photo.position) &&
+                        photo.position.startsWith('D'),
+                ),
+            ),
+        },
+        {
+            key: 'other',
+            title: 'Other relatives',
+            term: null,
+            photos: uniqueByUrl(
+                all.value.filter(
+                    (photo) =>
+                        photo.position && !isAncestorRelation(photo.position),
+                ),
             ),
         },
     ].filter((side) => side.photos.length),
@@ -258,7 +287,9 @@ const altText = (photo: Photo) =>
                 <div v-for="side in sides" :key="side.key" class="min-w-0">
                     <h3 class="text-sm font-semibold">
                         {{ side.title }}
-                        <span class="font-normal text-muted-foreground"
+                        <span
+                            v-if="side.term"
+                            class="font-normal text-muted-foreground"
                             >· {{ side.term }}</span
                         >
                     </h3>
@@ -319,7 +350,12 @@ const altText = (photo: Photo) =>
                         >
                     </DialogTitle>
                     <DialogDescription>
-                        <template v-if="current.position">
+                        <template
+                            v-if="
+                                current.position &&
+                                isAncestorRelation(current.position)
+                            "
+                        >
                             {{ familyPath(current.position) }} ·
                             {{
                                 [
@@ -328,6 +364,9 @@ const altText = (photo: Photo) =>
                                 ].join(' › ')
                             }}
                         </template>
+                        <template v-else-if="current.position"
+                            >A relative of this pigeon</template
+                        >
                         <template v-else>The pigeon on this pedigree</template>
                     </DialogDescription>
                 </DialogHeader>

@@ -46,8 +46,8 @@ export interface PedigreeMeta {
     bred_by: string | null;
     // Every photo of the bird, the main one first
     photos: string[];
-    // Photos of relatives uploaded on the bird, each with the relative's chart position ('S', 'SD', ...)
-    relative_photos: { url: string; position: string }[];
+    // Photos of relatives uploaded on the bird: an ancestor's chart position ('S', 'SD', ...) or e.g. 'sibling'
+    relative_photos: { url: string; relation: string }[];
     generated_at: string;
 }
 

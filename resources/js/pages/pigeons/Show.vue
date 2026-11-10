@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GoldenPairBadge from '@/components/GoldenPairBadge.vue';
 import PigeonMerits from '@/components/PigeonMerits.vue';
 import PigeonStatusMenu from '@/components/PigeonStatusMenu.vue';
-import { familyName, familyPath } from '@/lib/pedigree';
+import { isAncestorRelation, relationHint, relationTitle } from '@/lib/pedigree';
 import { statusStyle } from '@/lib/pigeon-status';
 import { show as loftCheckShow } from '@/routes/loft-checks';
 import { formatCheckDate, formatDay } from '@/types/loft-check';
@@ -121,16 +121,18 @@ const testPairingUrl = computed(() => {
 // Photos of relatives, named by their place in the family (father's side first), and the certificates and documents
 const relativePhotos = computed(() => {
     const relations = props.pigeon.pedigree_image_relations ?? {};
-    const order = (position: string) => position.replace(/S/g, '0').replace(/D/g, '1');
+    // Ancestors generation by generation (father's side first), then other relatives
+    const order = (relation: string) =>
+        isAncestorRelation(relation) ? `${relation.length}:${relation.replace(/S/g, '0').replace(/D/g, '1')}` : `9:${relation}`;
     return (props.pigeon.pedigree_images ?? [])
         .filter((url) => relations[url])
         .map((url) => ({
             url,
             position: relations[url],
-            title: familyName(relations[url]),
-            hint: relations[url].length > 1 ? familyPath(relations[url]) : null,
+            title: relationTitle(relations[url]),
+            hint: relationHint(relations[url]),
         }))
-        .sort((a, b) => a.position.length - b.position.length || order(a.position).localeCompare(order(b.position)));
+        .sort((a, b) => order(a.position).localeCompare(order(b.position)));
 });
 const certificates = computed(() =>
     (props.pigeon.pedigree_images ?? []).filter((url) => !props.pigeon.pedigree_image_relations?.[url]),
@@ -514,7 +516,12 @@ const childDetails = (child: Child) => {
 
                         <!-- Certificates and documents (photos of relatives are under Parents) -->
                         <div v-if="certificates.length > 0">
-                            <p class="text-sm font-medium text-muted-foreground mb-2">Certificates &amp; documents · private</p>
+                            <p class="text-sm font-medium text-muted-foreground">Certificates &amp; documents · private</p>
+                            <p class="mb-2 text-xs text-muted-foreground">
+                                Is one of these a photo of a relative? On the
+                                <Link :href="edit({ pigeon: pigeon.id }).url" class="underline underline-offset-2">edit page</Link>,
+                                choose who it shows to put it on the pigeon's page and its pedigree.
+                            </p>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <a v-for="(image, index) in certificates" :key="image" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
                                     <img :src="image" :alt="`${pigeonLabel} certificate ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />

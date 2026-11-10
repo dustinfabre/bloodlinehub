@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\NoIndex;
 use App\Models\DriveFile;
 use App\Models\GoogleDriveConnection;
 use App\Services\GoogleDrive\GoogleDrive;
@@ -59,6 +60,8 @@ class MediaController extends Controller
         return [
             'Cache-Control' => 'public, max-age=31536000, immutable',
             'ETag' => $etag,
+            // Photos are shown on shared pedigrees but never in image search, so a lost bird can't be traced by them
+            'X-Robots-Tag' => NoIndex::DIRECTIVES,
         ];
     }
 

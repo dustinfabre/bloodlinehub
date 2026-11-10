@@ -1,4 +1,4 @@
-import { familyName, familyPath } from '@/lib/pedigree';
+import { familyName, familyPath, OTHER_RELATIVES } from '@/lib/pedigree';
 
 // One photo in a photo list on the pigeon form: either already saved on the pigeon or added now
 export interface PhotoItem {
@@ -10,8 +10,8 @@ export interface PhotoItem {
     saved: string | null;
     // The file to upload, for a photo added now
     file: File | null;
-    // Certificates & relatives' photos only: the chart position of the relative it shows ('S' its sire,
-    // 'SD' its sire's dam, ...), or null for a certificate or other document
+    // Certificates & relatives' photos only: who it shows, as an ancestor's chart position ('S' its sire,
+    // 'SD' its sire's dam, ...) or one of OTHER_RELATIVES; null for a certificate or other document (kept private)
     relation?: string | null;
 }
 
@@ -39,6 +39,11 @@ export const RELATIVE_OPTIONS = [
             ? `${familyName(position)} (${familyPath(position).toLowerCase()})`
             : familyName(position),
 }));
+
+// Relatives outside its own line: brothers and sisters, offspring, ...
+export const OTHER_RELATIVE_OPTIONS = Object.entries(OTHER_RELATIVES).map(
+    ([value, label]) => ({ value, label }),
+);
 
 let nextKey = 0;
 const key = () => `photo-${++nextKey}`;

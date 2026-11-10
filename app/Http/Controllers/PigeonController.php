@@ -560,8 +560,9 @@ class PigeonController extends Controller
 
     /**
      * Which relative each certificate or relative's photo shows, from the form's list of {ref, relation}: ref is an
-     * image the pigeon keeps (its URL) or "new:N" for the Nth image uploaded now; relation is a chart position such
-     * as 'S' (sire) or 'SD' (sire's dam), or null for a certificate. Anything else is ignored.
+     * image the pigeon keeps (its URL) or "new:N" for the Nth image uploaded now; relation is an ancestor's chart
+     * position such as 'S' (sire) or 'SD' (sire's dam), one of Pigeon::OTHER_RELATIVES, or null for a certificate.
+     * Anything else is ignored.
      *
      * @param  list<string>  $images  The pigeon's images after this save
      * @param  list<string>  $new  The images uploaded now, in upload order
@@ -575,7 +576,10 @@ class PigeonController extends Controller
             $ref = is_array($entry) ? ($entry['ref'] ?? null) : null;
             $relation = is_array($entry) ? ($entry['relation'] ?? null) : null;
 
-            if (! is_string($ref) || ! is_string($relation) || ! preg_match('/^[SD]{1,4}$/', $relation)) {
+            $valid = is_string($relation)
+                && (preg_match('/^[SD]{1,4}$/', $relation) || in_array($relation, Pigeon::OTHER_RELATIVES, true));
+
+            if (! is_string($ref) || ! $valid) {
                 continue;
             }
 
@@ -693,7 +697,7 @@ class PigeonController extends Controller
             // Every photo, the main one first
             'photos' => $pigeon->allPhotos(),
             'pedigree_images' => $pigeon->pedigree_images,
-            // Image URL => chart position of the relative it shows; the rest are certificates
+            // Image URL => who it shows (an ancestor's chart position or another relative); the rest are certificates
             'pedigree_image_relations' => (object) ($pigeon->pedigree_image_relations ?? []),
             'bred_by' => $pigeon->bred_by,
             'bred_in_loft' => $pigeon->isBredInLoft(),

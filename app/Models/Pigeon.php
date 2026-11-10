@@ -22,6 +22,9 @@ class Pigeon extends Model
     // In stock, racing, breeding and injured: the birds actually in the loft
     public const IN_LOFT_STATUSES = ['stock', 'racing', 'breeding', 'injured'];
 
+    // Who a photo of a relative can show besides an ancestor (which is named by its chart position: 'S', 'SD', ...)
+    public const OTHER_RELATIVES = ['sibling', 'half_sibling', 'offspring', 'relative'];
+
     public const STATUS_LABELS = [
         'stock' => 'In Stock',
         'racing' => 'Racing',
@@ -101,17 +104,18 @@ class Pigeon extends Model
     }
 
     /**
-     * Photos of relatives among the certificates and relatives' photos, each with the relative's chart position
-     * ('S' its sire, 'SD' its sire's dam, ...). The other images are certificates and documents.
+     * Photos of relatives among the certificates and relatives' photos, each saying who it shows: an ancestor's
+     * chart position ('S' its sire, 'SD' its sire's dam, ...) or one of OTHER_RELATIVES. These are shown on the
+     * pedigree; the other images are certificates and documents and stay private.
      *
-     * @return list<array{url: string, position: string}>
+     * @return list<array{url: string, relation: string}>
      */
     public function relativePhotos(): array
     {
         $relations = $this->pedigree_image_relations ?? [];
 
         return array_values(array_map(
-            fn (string $url) => ['url' => $url, 'position' => $relations[$url]],
+            fn (string $url) => ['url' => $url, 'relation' => $relations[$url]],
             array_filter($this->pedigree_images ?? [], fn ($url) => is_string($url) && isset($relations[$url])),
         ));
     }
