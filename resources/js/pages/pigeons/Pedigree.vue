@@ -8,6 +8,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
+    edit as editPigeon,
     index as indexRoute,
     pedigree as pedigreeRoute,
     printPedigree,
@@ -135,7 +136,12 @@ const breadcrumbs: BreadcrumbItem[] = [
                 </Button>
             </div>
 
-            <PedigreePhotos :tree="tree" :photos="meta.photos" />
+            <PedigreePhotos
+                :tree="tree"
+                :photos="meta.photos"
+                :relative-photos="meta.relative_photos"
+                :add-photos-href="editPigeon({ pigeon: pigeon.id }).url"
+            />
 
             <PedigreeViewer>
                 <PedigreeChart :tree="tree" :meta="meta" linkable />

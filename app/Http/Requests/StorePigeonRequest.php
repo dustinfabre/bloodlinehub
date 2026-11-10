@@ -63,6 +63,10 @@ class StorePigeonRequest extends FormRequest
             // Certificates, handwritten pedigrees and photos of relatives
             'pedigree_images' => ['nullable', 'array'],
             'pedigree_images.*' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:10240', 'dimensions:max_width=8000,max_height=8000'],
+            // Which relative each certificate or relative's photo shows (JSON list of {ref, relation})
+            'pedigree_image_relations' => ['nullable', 'json'],
+            // Who bred the bird, when not both parents are in the user's loft
+            'bred_by' => ['nullable', 'string', 'max:255'],
             // How many files the form sent, to catch any the server dropped (PHP's max_file_uploads)
             'upload_count' => ['nullable', 'integer', 'min:0'],
             'for_sale' => ['boolean'],

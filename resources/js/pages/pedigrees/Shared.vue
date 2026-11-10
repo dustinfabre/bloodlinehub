@@ -10,7 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Toaster } from '@/components/ui/sonner';
 import { home, login } from '@/routes';
 import { unlock } from '@/routes/pedigrees';
-import { pedigree as pedigreeRoute } from '@/routes/pigeons';
+import {
+    edit as editPigeon,
+    pedigree as pedigreeRoute,
+} from '@/routes/pigeons';
 import { type AppPageProps } from '@/types';
 import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
@@ -113,7 +116,7 @@ const accessUntil = computed(() =>
                     class="flex items-center gap-2 rounded-lg border bg-background p-3 text-sm text-muted-foreground"
                 >
                     <Clock class="size-4 shrink-0 text-gold" />
-                    The breeder shared this pedigree with you until
+                    The owner shared this pedigree with you until
                     {{ accessUntil }}.
                 </div>
 
@@ -122,11 +125,24 @@ const accessUntil = computed(() =>
                         Pedigree {{ subjectLabel }}
                     </h1>
                     <p class="text-muted-foreground">
-                        Bred by {{ meta.breeder }}
+                        {{ meta.role === 'owner' ? 'Owned' : 'Bred' }} by
+                        {{ meta.breeder }}
+                        <template v-if="meta.role === 'owner' && meta.bred_by">
+                            · Bred by {{ meta.bred_by }}</template
+                        >
                     </p>
                 </div>
 
-                <PedigreePhotos :tree="tree" :photos="meta.photos" />
+                <PedigreePhotos
+                    :tree="tree"
+                    :photos="meta.photos"
+                    :relative-photos="meta.relative_photos"
+                    :add-photos-href="
+                        isOwner && pigeonId
+                            ? editPigeon({ pigeon: pigeonId }).url
+                            : undefined
+                    "
+                />
 
                 <PedigreeViewer>
                     <PedigreeChart :tree="tree" :meta="meta" />
@@ -148,7 +164,7 @@ const accessUntil = computed(() =>
                         This pedigree is password protected
                     </h1>
                     <p class="mt-2 text-sm text-muted-foreground">
-                        Enter the password the breeder shared with you to view
+                        Enter the password the owner shared with you to view
                         pedigree <span class="font-mono">{{ serial }}</span
                         >.
                     </p>

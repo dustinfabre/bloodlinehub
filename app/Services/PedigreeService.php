@@ -43,9 +43,12 @@ class PedigreeService
                 'share_url' => $shareUrl,
                 'qr_svg' => $this->qrSvg($shareUrl),
                 ...$this->breeder($pigeon->user),
+                ...$this->breeding($pigeon),
                 'photo_url' => $pigeon->photo_url,
                 // Every photo of the bird, the main one first, for the photo showcase
                 'photos' => $pigeon->allPhotos(),
+                // Photos of relatives uploaded on the bird, each with the relative's chart position
+                'relative_photos' => $pigeon->relativePhotos(),
                 'generated_at' => now()->toDateString(),
             ],
         ];
@@ -89,15 +92,20 @@ class PedigreeService
                 'share_url' => '',
                 'qr_svg' => '',
                 ...$this->breeder($breeder),
+                // Both parents are the breeder's own birds
+                'role' => 'breeder',
+                'bred_by' => $this->breeder($breeder)['breeder'],
                 'photo_url' => null,
                 'photos' => [],
+                'relative_photos' => [],
                 'generated_at' => now()->toDateString(),
             ],
         ];
     }
 
     /**
-     * The breeder name and the contact details the breeder chose to show; never the account email.
+     * The user's loft name (shown as Breeder or Owner) and the contact details they chose to show; never the
+     * account email.
      *
      * @return array{breeder: string, contact: array{phone: ?string, email: ?string, address: ?string}}
      */
@@ -109,6 +117,21 @@ class PedigreeService
             'breeder' => $profile?->display_name ?: $user->name,
             'contact' => $profile?->pedigreeContact() ?? ['phone' => null, 'email' => null, 'address' => null],
         ];
+    }
+
+    /**
+     * Whether the user is the bird's breeder (both parents are in their loft) or its owner, and who bred it:
+     * the user's own loft, or whoever they entered.
+     *
+     * @return array{role: 'breeder'|'owner', bred_by: ?string}
+     */
+    private function breeding(Pigeon $pigeon): array
+    {
+        if ($pigeon->isBredInLoft()) {
+            return ['role' => 'breeder', 'bred_by' => $this->breeder($pigeon->user)['breeder']];
+        }
+
+        return ['role' => 'owner', 'bred_by' => filled($pigeon->bred_by) ? $pigeon->bred_by : null];
     }
 
     /**

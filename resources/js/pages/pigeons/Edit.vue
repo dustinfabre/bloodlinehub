@@ -5,7 +5,7 @@ import InputError from '@/components/InputError.vue';
 import BloodlineMultiSelect from '@/components/BloodlineMultiSelect.vue';
 import FormActionBar from '@/components/FormActionBar.vue';
 import PhotoListInput from '@/components/PhotoListInput.vue';
-import { photoFiles, photoOrder, savedPhotoItems, type PhotoItem } from '@/lib/images';
+import { photoFiles, photoOrder, photoRelations, savedPhotoItems, type PhotoItem } from '@/lib/images';
 import DriveConnectNotice from '@/components/DriveConnectNotice.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import { edit as editRoute, editPedigree, index as indexRoute, show, show as sho
 import { useToast } from '@/composables/useToast';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
-import { Link2, Network } from 'lucide-vue-next';
+import { BadgeCheck, Link2, Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
 import type { PigeonSearchItem } from '@/types/pigeon-search';
@@ -79,6 +79,9 @@ interface Pigeon {
     // Every photo, the main one first
     photos: string[];
     pedigree_images: string[] | null;
+    // Image URL => chart position of the relative it shows; the rest are certificates
+    pedigree_image_relations: Record<string, string>;
+    bred_by: string | null;
     sire: ParentSummary | null;
     dam: ParentSummary | null;
     sire_name: string | null;
@@ -140,7 +143,8 @@ const form = useForm({
     notes: props.pigeon.notes ?? '',
     // Sent as photos[] + photo_order (the first is the main photo) and pedigree_images[] + remove_pedigree[]
     photo_items: savedPhotoItems(props.pigeon.photos) as PhotoItem[],
-    certificate_items: savedPhotoItems(props.pigeon.pedigree_images) as PhotoItem[],
+    certificate_items: savedPhotoItems(props.pigeon.pedigree_images, props.pigeon.pedigree_image_relations) as PhotoItem[],
+    bred_by: props.pigeon.bred_by ?? '',
     sire_id: props.pigeon.sire?.id ?? null,
     dam_id: props.pigeon.dam?.id ?? null,
     sire_name: props.pigeon.sire_name ?? '',
@@ -347,6 +351,7 @@ const submit = (event?: SubmitEvent) => {
         photos,
         photo_order: photoOrder(photo_items),
         pedigree_images: pedigreeImages,
+        pedigree_image_relations: photoRelations(certificate_items),
         remove_pedigree: (props.pigeon.pedigree_images ?? []).filter((url) => !keptCertificates.has(url)),
         upload_count: photos.length + pedigreeImages.length,
         for_sale: data.for_sale ? 1 : 0,
@@ -661,6 +666,21 @@ const submit = (event?: SubmitEvent) => {
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Who bred the bird: the user when both parents are their birds, otherwise whoever they enter -->
+                            <div v-if="form.sire_id && form.dam_id" class="flex items-start gap-3 rounded-lg border border-border/70 p-4 text-sm">
+                                <BadgeCheck class="mt-0.5 size-5 shrink-0 text-gold" />
+                                <div>
+                                    <p class="font-medium text-foreground">Bred in your loft</p>
+                                    <p class="text-muted-foreground">Both parents are your birds, so the pedigree names you as its breeder.</p>
+                                </div>
+                            </div>
+                            <div v-else class="grid gap-2 rounded-lg border border-border/70 p-4">
+                                <Label for="bred_by">Bred by</Label>
+                                <Input id="bred_by" v-model="form.bred_by" placeholder="Loft or breeder name" autocomplete="off" />
+                                <p class="text-xs text-muted-foreground">Not both parents are your birds, so the pedigree names you as its owner and shows who bred it.</p>
+                                <InputError :message="form.errors.bred_by" />
+                            </div>
                         </section>
 
                         <Separator />
@@ -685,7 +705,8 @@ const submit = (event?: SubmitEvent) => {
                                     id="pedigree_images"
                                     v-model="form.certificate_items"
                                     label="Certificates & relatives' photos"
-                                    description="Pedigree certificates, handwritten pedigrees, or photos of its parents and other relatives."
+                                    description="Certificates and documents stay private. For a photo of a relative, choose who it shows: it then appears on the pigeon's page and its pedigree."
+                                    relations
                                     :error="fieldError('pedigree_images') ?? fieldError('remove_pedigree')"
                                 />
                             </div>

@@ -1,3 +1,5 @@
+import { familyName, familyPath } from '@/lib/pedigree';
+
 // One photo in a photo list on the pigeon form: either already saved on the pigeon or added now
 export interface PhotoItem {
     // Stable key for rendering
@@ -8,19 +10,50 @@ export interface PhotoItem {
     saved: string | null;
     // The file to upload, for a photo added now
     file: File | null;
+    // Certificates & relatives' photos only: the chart position of the relative it shows ('S' its sire,
+    // 'SD' its sire's dam, ...), or null for a certificate or other document
+    relation?: string | null;
 }
+
+// Who a relative's photo can show: parents, grandparents and great-grandparents
+export const RELATIVE_OPTIONS = [
+    'S',
+    'D',
+    'SS',
+    'SD',
+    'DS',
+    'DD',
+    'SSS',
+    'SSD',
+    'SDS',
+    'SDD',
+    'DSS',
+    'DSD',
+    'DDS',
+    'DDD',
+].map((position) => ({
+    value: position,
+    // "Father", "Grandmother (father's mother)"
+    label:
+        position.length > 1
+            ? `${familyName(position)} (${familyPath(position).toLowerCase()})`
+            : familyName(position),
+}));
 
 let nextKey = 0;
 const key = () => `photo-${++nextKey}`;
 
 export const savedPhotoItems = (
     urls: string[] | null | undefined,
+    // Image URL => relative's chart position, for certificates & relatives' photos
+    relations?: Record<string, string> | null,
 ): PhotoItem[] =>
     (urls ?? []).map((url) => ({
         key: key(),
         src: url,
         saved: url,
         file: null,
+        relation: relations?.[url] ?? null,
     }));
 
 export const newPhotoItem = (file: File): PhotoItem => ({
@@ -39,6 +72,17 @@ export const photoOrder = (items: PhotoItem[]): string => {
     let uploaded = 0;
     return JSON.stringify(
         items.map((item) => (item.file ? `new:${uploaded++}` : item.saved)),
+    );
+};
+
+// Which relative each photo shows (JSON list of {ref, relation}), with refs as in photoOrder
+export const photoRelations = (items: PhotoItem[]): string => {
+    let uploaded = 0;
+    return JSON.stringify(
+        items.map((item) => ({
+            ref: item.file ? `new:${uploaded++}` : item.saved,
+            relation: item.relation ?? null,
+        })),
     );
 };
 

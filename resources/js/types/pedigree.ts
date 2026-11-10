@@ -40,8 +40,14 @@ export interface PedigreeMeta {
     // Breeder contact details the breeder chose to show (null when hidden or not filled in)
     contact: PedigreeContact;
     photo_url: string | null;
+    // The user is the bird's breeder when both parents are their birds, otherwise its owner
+    role: 'breeder' | 'owner';
+    // Who bred the bird: the user's loft, or whoever they entered (null when not known)
+    bred_by: string | null;
     // Every photo of the bird, the main one first
     photos: string[];
+    // Photos of relatives uploaded on the bird, each with the relative's chart position ('S', 'SD', ...)
+    relative_photos: { url: string; position: string }[];
     generated_at: string;
 }
 

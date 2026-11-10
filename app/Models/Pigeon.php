@@ -41,11 +41,13 @@ class Pigeon extends Model
         'color',
         'ring_number',
         'personal_number',
+        'bred_by',
         'remarks',
         'notes',
         'photo_url',
         'extra_photos',
         'pedigree_images',
+        'pedigree_image_relations',
         'for_sale',
         'sale_price',
         'hide_price',
@@ -71,6 +73,7 @@ class Pigeon extends Model
     protected $casts = [
         'extra_photos' => 'array',
         'pedigree_images' => 'array',
+        'pedigree_image_relations' => 'array',
         'hatch_date' => 'date',
         'for_sale' => 'boolean',
         'hide_price' => 'boolean',
@@ -86,6 +89,31 @@ class Pigeon extends Model
     public function allPhotos(): array
     {
         return array_values(array_filter([$this->photo_url, ...($this->extra_photos ?? [])]));
+    }
+
+    /**
+     * The user bred this bird when both its parents are in their loft; otherwise they are its owner and
+     * bred_by says who bred it.
+     */
+    public function isBredInLoft(): bool
+    {
+        return $this->sire_id !== null && $this->dam_id !== null;
+    }
+
+    /**
+     * Photos of relatives among the certificates and relatives' photos, each with the relative's chart position
+     * ('S' its sire, 'SD' its sire's dam, ...). The other images are certificates and documents.
+     *
+     * @return list<array{url: string, position: string}>
+     */
+    public function relativePhotos(): array
+    {
+        $relations = $this->pedigree_image_relations ?? [];
+
+        return array_values(array_map(
+            fn (string $url) => ['url' => $url, 'position' => $relations[$url]],
+            array_filter($this->pedigree_images ?? [], fn ($url) => is_string($url) && isset($relations[$url])),
+        ));
     }
 
     protected static function booted(): void

@@ -238,7 +238,7 @@ class PigeonController extends Controller
         unset($data['bloodlines']);
 
         $this->ensureUploadsArrived($request);
-        unset($data['photos'], $data['upload_count']);
+        unset($data['photos'], $data['upload_count'], $data['pedigree_image_relations']);
 
         // Photos go to the user's own Google Drive; the first is the main photo
         if ($request->hasFile('photos')) {
@@ -257,6 +257,11 @@ class PigeonController extends Controller
                 $request->user(),
                 "{$data['ring_number']} pedigree",
             ));
+            $data['pedigree_image_relations'] = $this->imageRelations(
+                $request->input('pedigree_image_relations'),
+                $data['pedigree_images'],
+                $data['pedigree_images'],
+            );
         }
 
         $pigeon = Pigeon::create($data);
@@ -385,7 +390,7 @@ class PigeonController extends Controller
         unset($data['bloodlines']);
 
         $this->ensureUploadsArrived($request);
-        unset($data['photos'], $data['photo_order'], $data['upload_count']);
+        unset($data['photos'], $data['photo_order'], $data['upload_count'], $data['pedigree_image_relations']);
 
         // Images replaced or removed here leave the app only once the pigeon is saved, so a failed upload never
         // costs the user the photo they had
@@ -406,23 +411,28 @@ class PigeonController extends Controller
             array_push($discard, ...array_diff($current, $photos));
         }
 
-        if ($request->hasFile('pedigree_images')) {
-            $newImages = $this->toDrive('pedigree_images', fn () => $imageService->uploadMultiple(
-                Arr::wrap($request->file('pedigree_images')),
-                $user,
-                "{$label} pedigree",
-            ));
-            $data['pedigree_images'] = array_merge($pigeon->pedigree_images ?? [], $newImages);
-        }
+        $newImages = $request->hasFile('pedigree_images') ? $this->toDrive('pedigree_images', fn () => $imageService->uploadMultiple(
+            Arr::wrap($request->file('pedigree_images')),
+            $user,
+            "{$label} pedigree",
+        )) : [];
+        $images = [...($pigeon->pedigree_images ?? []), ...$newImages];
 
         if ($request->input('remove_pedigree')) {
             // Only this pigeon's own images: any other URL could be someone else's file
-            // Keep images uploaded in this same request
-            $existingImages = $request->hasFile('pedigree_images') ? $data['pedigree_images'] : ($pigeon->pedigree_images ?? []);
             $toRemove = array_values(array_intersect((array) $request->input('remove_pedigree'), $pigeon->pedigree_images ?? []));
-            $data['pedigree_images'] = array_values(array_diff($existingImages, $toRemove));
+            $images = array_values(array_diff($images, $toRemove));
             array_push($discard, ...$toRemove);
         }
+
+        if ($newImages || $request->input('remove_pedigree')) {
+            $data['pedigree_images'] = $images;
+        }
+
+        $data['pedigree_image_relations'] = $request->has('pedigree_image_relations')
+            ? $this->imageRelations($request->input('pedigree_image_relations'), $images, $newImages)
+            // Not sent: keep what was set for the images still there
+            : (array_intersect_key($pigeon->pedigree_image_relations ?? [], array_flip($images)) ?: null);
 
         $pigeon->update($data);
 
@@ -549,6 +559,37 @@ class PigeonController extends Controller
     }
 
     /**
+     * Which relative each certificate or relative's photo shows, from the form's list of {ref, relation}: ref is an
+     * image the pigeon keeps (its URL) or "new:N" for the Nth image uploaded now; relation is a chart position such
+     * as 'S' (sire) or 'SD' (sire's dam), or null for a certificate. Anything else is ignored.
+     *
+     * @param  list<string>  $images  The pigeon's images after this save
+     * @param  list<string>  $new  The images uploaded now, in upload order
+     * @return array<string, string>|null Image URL => chart position
+     */
+    private function imageRelations(?string $json, array $images, array $new): ?array
+    {
+        $relations = [];
+
+        foreach ((array) json_decode($json ?? '[]', true) as $entry) {
+            $ref = is_array($entry) ? ($entry['ref'] ?? null) : null;
+            $relation = is_array($entry) ? ($entry['relation'] ?? null) : null;
+
+            if (! is_string($ref) || ! is_string($relation) || ! preg_match('/^[SD]{1,4}$/', $relation)) {
+                continue;
+            }
+
+            $url = preg_match('/^new:(\d+)$/', $ref, $match) ? ($new[(int) $match[1]] ?? null) : $ref;
+
+            if ($url !== null && in_array($url, $images, true)) {
+                $relations[$url] = $relation;
+            }
+        }
+
+        return $relations ?: null;
+    }
+
+    /**
      * PHP silently drops files beyond max_file_uploads (and a few hosts limit them further). The form says how many
      * it sent, so a save never quietly loses photos.
      */
@@ -652,6 +693,10 @@ class PigeonController extends Controller
             // Every photo, the main one first
             'photos' => $pigeon->allPhotos(),
             'pedigree_images' => $pigeon->pedigree_images,
+            // Image URL => chart position of the relative it shows; the rest are certificates
+            'pedigree_image_relations' => (object) ($pigeon->pedigree_image_relations ?? []),
+            'bred_by' => $pigeon->bred_by,
+            'bred_in_loft' => $pigeon->isBredInLoft(),
             'for_sale' => $pigeon->for_sale,
             'sale_price' => $pigeon->sale_price,
             'hide_price' => $pigeon->hide_price,

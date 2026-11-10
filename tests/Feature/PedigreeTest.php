@@ -236,6 +236,64 @@ class PedigreeTest extends TestCase
             ->assertInertia($assertPhotos);
     }
 
+    public function test_the_user_is_the_breeder_when_both_parents_are_their_birds(): void
+    {
+        $sire = $this->pigeon(['gender' => 'male']);
+        $dam = $this->pigeon(['gender' => 'female']);
+        // A bred_by left over from before both parents were linked is ignored
+        $subject = $this->pigeon(['sire_id' => $sire->id, 'dam_id' => $dam->id, 'bred_by' => 'Someone Else']);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $subject))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('meta.role', 'breeder')
+                ->where('meta.breeder', $this->user->name)
+                ->where('meta.bred_by', $this->user->name)
+            );
+    }
+
+    public function test_the_user_is_the_owner_when_a_parent_is_not_theirs_and_names_who_bred_it(): void
+    {
+        $sire = $this->pigeon(['gender' => 'male']);
+        $subject = $this->pigeon([
+            'sire_id' => $sire->id,
+            'dam_ring_number' => 'NL-2019-654321',
+            'bred_by' => 'De Smet Loft',
+        ]);
+        $unknown = $this->pigeon(['sire_id' => $sire->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $subject))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('meta.role', 'owner')
+                ->where('meta.breeder', $this->user->name)
+                ->where('meta.bred_by', 'De Smet Loft')
+            );
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.pedigree', $unknown))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('meta.role', 'owner')
+                ->where('meta.bred_by', null)
+            );
+    }
+
+    public function test_tagged_relatives_photos_reach_the_pedigree_and_certificates_do_not(): void
+    {
+        $subject = $this->pigeon([
+            'pedigree_images' => ['/media/certificate.webp', '/media/sire.webp', '/media/grandam.webp'],
+            'pedigree_image_relations' => ['/media/sire.webp' => 'S', '/media/grandam.webp' => 'DD'],
+        ]);
+        $subject->pedigreeRecord()->update(['is_public' => true]);
+
+        $this->get(route('pedigrees.shared', $subject->pedigreeRecord()->serial))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('meta.relative_photos', [
+                ['url' => '/media/sire.webp', 'position' => 'S'],
+                ['url' => '/media/grandam.webp', 'position' => 'DD'],
+            ]));
+    }
+
     public function test_unknown_serial_returns_not_found(): void
     {
         $this->get(route('pedigrees.shared', 'BLH-0000-0000'))->assertNotFound();

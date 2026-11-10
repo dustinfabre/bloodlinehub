@@ -44,6 +44,11 @@ const shareLabel = computed(() =>
 const hasContact = computed(() =>
     Object.values(props.meta.contact).some(Boolean),
 );
+// The user bred the bird when both parents are their birds; otherwise they are its owner
+const roleLabel = computed(() =>
+    props.meta.role === 'owner' ? 'Owner' : 'Breeder',
+);
+const roleWord = computed(() => roleLabel.value.toLowerCase());
 
 // Chart positions of ancestors found more than once (same ring number, or the same loft bird)
 const repeatedKeys = computed(() => {
@@ -94,7 +99,7 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
             </div>
             <dl class="pedigree-facts">
                 <div>
-                    <dt>Breeder</dt>
+                    <dt>{{ roleLabel }}</dt>
                     <dd>{{ meta.breeder }}</dd>
                 </div>
                 <div>
@@ -214,16 +219,18 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     </div>
                     <div v-if="sample" class="pedigree-footnote">
                         Sample from Test Pairing, not a registered bird ·
-                        Remarks supplied by the breeder
+                        Remarks supplied by the {{ roleWord }}
                     </div>
                     <div v-else class="pedigree-footnote">
-                        Remarks supplied by the breeder · Verify at
+                        Remarks supplied by the {{ roleWord }} · Verify at
                         {{ shareLabel }}
                     </div>
                 </div>
 
                 <div v-if="hasContact" class="pedigree-contact">
-                    <div class="pedigree-footer-label">Contact the breeder</div>
+                    <div class="pedigree-footer-label">
+                        Contact the {{ roleWord }}
+                    </div>
                     <div
                         v-if="meta.contact.phone || meta.contact.email"
                         class="pedigree-contact-line"
@@ -243,18 +250,10 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     </div>
                 </div>
 
-                <!-- Space to sign a printed copy -->
-                <div v-if="!sample" class="pedigree-signature">
-                    <div class="pedigree-sign is-name">
-                        <span class="pedigree-sign-line" />
-                        <span class="pedigree-footer-label"
-                            >Breeder's signature</span
-                        >
-                    </div>
-                    <div class="pedigree-sign is-date">
-                        <span class="pedigree-sign-line" />
-                        <span class="pedigree-footer-label">Date</span>
-                    </div>
+                <!-- Who bred the bird: the user's loft, or whoever they entered for a bird they own -->
+                <div v-if="!sample && meta.bred_by" class="pedigree-bred-by">
+                    <div class="pedigree-footer-label">Bred by</div>
+                    <div class="pedigree-bred-by-name">{{ meta.bred_by }}</div>
                 </div>
             </footer>
         </div>
@@ -914,7 +913,7 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
     font-size: 8px;
 }
 
-/* Footer: key and verify note, breeder contact, then space to sign a printed copy */
+/* Footer: key and verify note, contact details, then who bred the bird */
 .pedigree-footer {
     display: flex;
     flex-shrink: 0;
@@ -991,30 +990,21 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
     vertical-align: -1px;
 }
 
-.pedigree-signature {
-    display: flex;
-    flex-shrink: 0;
-    align-items: flex-end;
-    gap: 14px;
-}
-
-.pedigree-sign {
+.pedigree-bred-by {
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
     gap: 3px;
+    max-width: 220px;
+    padding-left: 14px;
+    border-left: 1px solid var(--rule);
 }
 
-.pedigree-sign.is-name {
-    width: 170px;
-}
-
-.pedigree-sign.is-date {
-    width: 80px;
-}
-
-.pedigree-sign-line {
-    height: 28px;
-    border-bottom: 1px solid var(--ink);
+.pedigree-bred-by-name {
+    color: var(--ink);
+    font-size: 10px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .pedigree-legend {

@@ -335,6 +335,62 @@ class GoogleDriveStorageTest extends TestCase
         $this->assertModelMissing($b);
     }
 
+    public function test_certificates_and_relatives_photos_say_who_they_show(): void
+    {
+        $this->connectDrive($this->me);
+        $this->fakeGoogle();
+
+        $this->actingAs($this->me)
+            ->post(route('pigeons.store'), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'bred_by' => 'De Smet Loft',
+                'pedigree_images' => [$this->photo(), $this->photo(), $this->photo()],
+                // A certificate, the dam, and a made-up position that is ignored
+                'pedigree_image_relations' => json_encode([
+                    ['ref' => 'new:0', 'relation' => null],
+                    ['ref' => 'new:1', 'relation' => 'D'],
+                    ['ref' => 'new:2', 'relation' => 'XYZ'],
+                ]),
+                'upload_count' => 3,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pigeon = Pigeon::where('ring_number', 'PH-1')->sole();
+        [$certificate, $dam, $other] = $pigeon->pedigree_images;
+        $this->assertSame('De Smet Loft', $pigeon->bred_by);
+        $this->assertSame([$dam => 'D'], $pigeon->pedigree_image_relations);
+        $this->assertSame([['url' => $dam, 'position' => 'D']], $pigeon->relativePhotos());
+
+        // Retag on edit: the certificate becomes the sire's photo, a new grandsire photo is added, the dam's is removed
+        $this->actingAs($this->me)
+            ->put(route('pigeons.update', $pigeon), [
+                'status' => 'stock',
+                'ring_number' => 'PH-1',
+                'pedigree_images' => [$this->photo()],
+                'remove_pedigree' => [$dam],
+                'pedigree_image_relations' => json_encode([
+                    ['ref' => $certificate, 'relation' => 'S'],
+                    ['ref' => $other, 'relation' => null],
+                    ['ref' => 'new:0', 'relation' => 'SS'],
+                    ['ref' => $dam, 'relation' => 'D'],
+                ]),
+                'upload_count' => 1,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pigeon->refresh();
+        $this->assertCount(3, $pigeon->pedigree_images);
+        $added = $pigeon->pedigree_images[2];
+        $this->assertSame([$certificate => 'S', $added => 'SS'], $pigeon->pedigree_image_relations);
+
+        // An edit that doesn't send tags keeps them
+        $this->actingAs($this->me)
+            ->put(route('pigeons.update', $pigeon), ['status' => 'stock', 'ring_number' => 'PH-1'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame([$certificate => 'S', $added => 'SS'], $pigeon->fresh()->pedigree_image_relations);
+    }
+
     public function test_a_save_that_lost_photos_on_the_way_is_refused(): void
     {
         $this->connectDrive($this->me);

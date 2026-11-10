@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GoldenPairBadge from '@/components/GoldenPairBadge.vue';
 import PigeonMerits from '@/components/PigeonMerits.vue';
 import PigeonStatusMenu from '@/components/PigeonStatusMenu.vue';
+import { familyName, familyPath } from '@/lib/pedigree';
 import { statusStyle } from '@/lib/pigeon-status';
 import { show as loftCheckShow } from '@/routes/loft-checks';
 import { formatCheckDate, formatDay } from '@/types/loft-check';
@@ -57,6 +58,11 @@ interface Pigeon {
     // Every photo, the main one first
     photos: string[];
     pedigree_images: string[] | null;
+    // Image URL => chart position of the relative it shows; the rest are certificates
+    pedigree_image_relations: Record<string, string>;
+    bred_by: string | null;
+    // Both parents are the user's birds
+    bred_in_loft: boolean;
     sire: ParentSummary | null;
     dam: ParentSummary | null;
     sire_name: string | null;
@@ -111,6 +117,24 @@ const testPairingUrl = computed(() => {
     if (props.pigeon.gender === 'female') return testPairingIndex({ query: { dam: props.pigeon.id } }).url;
     return null;
 });
+
+// Photos of relatives, named by their place in the family (father's side first), and the certificates and documents
+const relativePhotos = computed(() => {
+    const relations = props.pigeon.pedigree_image_relations ?? {};
+    const order = (position: string) => position.replace(/S/g, '0').replace(/D/g, '1');
+    return (props.pigeon.pedigree_images ?? [])
+        .filter((url) => relations[url])
+        .map((url) => ({
+            url,
+            position: relations[url],
+            title: familyName(relations[url]),
+            hint: relations[url].length > 1 ? familyPath(relations[url]) : null,
+        }))
+        .sort((a, b) => a.position.length - b.position.length || order(a.position).localeCompare(order(b.position)));
+});
+const certificates = computed(() =>
+    (props.pigeon.pedigree_images ?? []).filter((url) => !props.pigeon.pedigree_image_relations?.[url]),
+);
 
 const pigeonLabel = computed(() => props.pigeon.name || props.pigeon.ring_number || props.pigeon.personal_number || `Pigeon #${props.pigeon.id}`);
 
@@ -282,6 +306,10 @@ const childDetails = (child: Child) => {
                             <p class="text-sm text-muted-foreground">Color</p>
                             <p class="font-medium">{{ pigeon.color }}</p>
                         </div>
+                        <div v-if="pigeon.bred_in_loft || pigeon.bred_by">
+                            <p class="text-sm text-muted-foreground">Bred by</p>
+                            <p class="font-medium">{{ pigeon.bred_in_loft ? 'Your loft' : pigeon.bred_by }}</p>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -323,6 +351,20 @@ const childDetails = (child: Child) => {
                         </div>
 
                         <p v-if="parents.length === 0" class="text-sm text-muted-foreground">No parent information available</p>
+
+                        <!-- Photos of relatives uploaded on this bird -->
+                        <div v-if="relativePhotos.length" class="space-y-2 border-t pt-4">
+                            <p class="text-sm font-semibold text-muted-foreground">Photos of relatives</p>
+                            <div class="grid grid-cols-3 gap-3">
+                                <a v-for="photo in relativePhotos" :key="photo.url" :href="photo.url" target="_blank" class="group block min-w-0">
+                                    <div class="aspect-square overflow-hidden rounded-md border bg-muted">
+                                        <img :src="photo.url" :alt="`${pigeonLabel} ${photo.title}`" loading="lazy" class="size-full object-cover transition-transform group-hover:scale-105" />
+                                    </div>
+                                    <p class="mt-1 truncate text-xs font-medium">{{ photo.title }}</p>
+                                    <p v-if="photo.hint" class="truncate text-xs text-muted-foreground">{{ photo.hint }}</p>
+                                </a>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -470,12 +512,12 @@ const childDetails = (child: Child) => {
                             </div>
                         </div>
 
-                        <!-- Certificates & relatives' photos -->
-                        <div v-if="pigeon.pedigree_images && pigeon.pedigree_images.length > 0">
-                            <p class="text-sm font-medium text-muted-foreground mb-2">Certificates &amp; relatives' photos</p>
+                        <!-- Certificates and documents (photos of relatives are under Parents) -->
+                        <div v-if="certificates.length > 0">
+                            <p class="text-sm font-medium text-muted-foreground mb-2">Certificates &amp; documents · private</p>
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <a v-for="(image, index) in pigeon.pedigree_images" :key="index" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
-                                    <img :src="image" :alt="`${pigeonLabel} certificate or relative ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
+                                <a v-for="(image, index) in certificates" :key="image" :href="image" target="_blank" class="block overflow-hidden rounded-lg border">
+                                    <img :src="image" :alt="`${pigeonLabel} certificate ${index + 1}`" class="w-full object-contain transition-transform hover:scale-105" />
                                 </a>
                             </div>
                         </div>

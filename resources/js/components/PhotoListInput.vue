@@ -4,7 +4,12 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import { newPhotoItem, type PhotoItem, shrinkImage } from '@/lib/images';
+import {
+    newPhotoItem,
+    type PhotoItem,
+    RELATIVE_OPTIONS,
+    shrinkImage,
+} from '@/lib/images';
 import { Crop, ImagePlus, Star, X } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
@@ -15,6 +20,8 @@ const props = defineProps<{
     label: string;
     description?: string;
     main?: boolean;
+    // Ask what each image shows: a certificate or document, or which relative
+    relations?: boolean;
     error?: string;
 }>();
 
@@ -59,6 +66,12 @@ const remove = (index: number) => {
     items.value = items.value.filter((_, i) => i !== index);
 };
 
+const setRelation = (index: number, relation: string) => {
+    items.value = items.value.map((item, i) =>
+        i === index ? { ...item, relation: relation || null } : item,
+    );
+};
+
 const makeMain = (index: number) => {
     const list = [...items.value];
     const [item] = list.splice(index, 1);
@@ -82,7 +95,9 @@ const applyCrop = (file: File) => {
     if (index === null || !items.value[index]) return;
     const cropped = newPhotoItem(file);
     items.value = items.value.map((item, i) =>
-        i === index ? { ...cropped, key: item.key } : item,
+        i === index
+            ? { ...cropped, key: item.key, relation: item.relation }
+            : item,
     );
     cropIndex.value = null;
 };
@@ -108,64 +123,89 @@ watch(cropOpen, (open) => {
             <div
                 v-for="(item, index) in items"
                 :key="item.key"
-                class="relative overflow-hidden rounded-lg border bg-muted"
+                class="overflow-hidden rounded-lg border bg-muted"
             >
-                <img
-                    :src="item.src"
-                    :alt="`${label} ${index + 1}`"
-                    class="aspect-square w-full object-contain"
-                />
-                <span
-                    v-if="main && index === 0"
-                    class="absolute top-1.5 left-1.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground"
-                >
-                    Main
-                </span>
-                <span
-                    v-else-if="!item.saved"
-                    class="absolute top-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-semibold"
-                >
-                    New
-                </span>
-                <div
-                    class="absolute inset-x-0 bottom-0 flex justify-end gap-1 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-6"
-                >
-                    <Button
-                        v-if="main && index > 0"
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        class="size-7"
-                        title="Make main photo"
-                        aria-label="Make main photo"
-                        @click="makeMain(index)"
+                <div class="relative">
+                    <img
+                        :src="item.src"
+                        :alt="`${label} ${index + 1}`"
+                        class="aspect-square w-full object-contain"
+                    />
+                    <span
+                        v-if="main && index === 0"
+                        class="absolute top-1.5 left-1.5 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground"
                     >
-                        <Star class="size-4" />
-                    </Button>
-                    <Button
-                        v-if="item.file"
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        class="size-7"
-                        title="Crop"
-                        aria-label="Crop photo"
-                        @click="startCrop(index)"
+                        Main
+                    </span>
+                    <span
+                        v-else-if="!item.saved"
+                        class="absolute top-1.5 left-1.5 rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-semibold"
                     >
-                        <Crop class="size-4" />
-                    </Button>
-                    <Button
-                        type="button"
-                        size="icon"
-                        variant="destructive"
-                        class="size-7"
-                        title="Remove"
-                        aria-label="Remove photo"
-                        @click="remove(index)"
+                        New
+                    </span>
+                    <div
+                        class="absolute inset-x-0 bottom-0 flex justify-end gap-1 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-6"
                     >
-                        <X class="size-4" />
-                    </Button>
+                        <Button
+                            v-if="main && index > 0"
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            class="size-7"
+                            title="Make main photo"
+                            aria-label="Make main photo"
+                            @click="makeMain(index)"
+                        >
+                            <Star class="size-4" />
+                        </Button>
+                        <Button
+                            v-if="item.file"
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            class="size-7"
+                            title="Crop"
+                            aria-label="Crop photo"
+                            @click="startCrop(index)"
+                        >
+                            <Crop class="size-4" />
+                        </Button>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="destructive"
+                            class="size-7"
+                            title="Remove"
+                            aria-label="Remove photo"
+                            @click="remove(index)"
+                        >
+                            <X class="size-4" />
+                        </Button>
+                    </div>
                 </div>
+                <select
+                    v-if="relations"
+                    :value="item.relation ?? ''"
+                    :aria-label="`What photo ${index + 1} shows`"
+                    class="block h-8 w-full border-0 border-t bg-background px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    @change="
+                        setRelation(
+                            index,
+                            ($event.target as HTMLSelectElement).value,
+                        )
+                    "
+                >
+                    <option value="">Certificate / document</option>
+                    <optgroup label="Photo of a relative">
+                        <option
+                            v-for="option in RELATIVE_OPTIONS"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+                    </optgroup>
+                </select>
             </div>
 
             <button

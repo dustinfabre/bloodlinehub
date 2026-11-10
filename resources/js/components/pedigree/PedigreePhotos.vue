@@ -13,17 +13,29 @@ import {
     flattenPedigree,
     lineageSteps,
 } from '@/lib/pedigree';
+import { edit as storageSettings } from '@/routes/storage';
 import type { PedigreeNode } from '@/types/pedigree';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Link } from '@inertiajs/vue3';
+import {
+    ChevronLeft,
+    ChevronRight,
+    ImageOff,
+    ImagePlus,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-// A showcase of the bird on a pedigree: its own photos, then the main photos of its loft ancestors grouped by the
-// father's and the mother's side, each named by its place in the family. Outside ancestors have no photos.
-// Shows nothing when no bird on the chart has a photo.
+// A showcase of the bird on a pedigree: its own photos, then photos of its ancestors grouped by the father's and the
+// mother's side, each named by its place in the family: the main photo of each loft ancestor, and photos of
+// relatives uploaded on the bird itself (the way outside ancestors get a photo).
+// Shows nothing to visitors when no bird on the chart has a photo; the owner is told why and where to add them.
 const props = defineProps<{
     tree: PedigreeNode;
     // Every photo of the bird itself, the main one first
     photos?: string[];
+    // Photos of relatives uploaded on the bird, with the relative's chart position
+    relativePhotos?: { url: string; position: string }[];
+    // Owner only: where to add photos of the bird, for the note shown when there are none
+    addPhotosHref?: string;
 }>();
 
 interface Photo {
@@ -43,24 +55,64 @@ interface Photo {
 // Photos that failed to load (e.g. the owner disconnected their Drive) are dropped rather than shown broken
 const failed = ref(new Set<string>());
 
-const all = computed<Photo[]>(() =>
-    flattenPedigree(props.tree)
-        .filter(
-            (slot) =>
-                slot.node?.photo_url && !failed.value.has(slot.node.photo_url),
-        )
-        // Generation by generation, top to bottom within each
-        .sort((a, b) => a.depth - b.depth || a.index - b.index)
+// Every photo URL the pedigree has, whether or not it loads
+const photoUrls = computed(() => [
+    ...(props.photos ?? []),
+    ...flattenPedigree(props.tree).flatMap((slot) =>
+        slot.node?.photo_url ? [slot.node.photo_url] : [],
+    ),
+    ...(props.relativePhotos ?? []).map((photo) => photo.url),
+]);
+
+// The bird at each chart position, to name a relative's photo by its ring number
+const nodesByPosition = computed(
+    () =>
+        new Map(
+            flattenPedigree(props.tree).map((slot) => [slot.key, slot.node]),
+        ),
+);
+
+// Generation by generation, top to bottom (sire's line first) within each
+const positionOrder = (position: string) =>
+    `${position.length}:${position.replace(/S/g, '0').replace(/D/g, '1')}`;
+const allFailed = computed(
+    () =>
+        photoUrls.value.length > 0 &&
+        photoUrls.value.every((url) => failed.value.has(url)),
+);
+
+const all = computed<Photo[]>(() => {
+    const fromChart = flattenPedigree(props.tree)
+        .filter((slot) => slot.node?.photo_url)
         .map((slot) => ({
             id: `chart:${slot.key}`,
             url: slot.node!.photo_url!,
             position: slot.key,
-            title: slot.key ? familyName(slot.key) : 'This pigeon',
-            hint: slot.key.length > 1 ? familyPath(slot.key) : null,
             ringNumber: slot.node!.ring_number,
             name: slot.node!.name,
-        })),
-);
+        }));
+    const relatives = (props.relativePhotos ?? []).map((photo, index) => {
+        const node = nodesByPosition.value.get(photo.position);
+        return {
+            id: `relative:${index}`,
+            url: photo.url,
+            position: photo.position,
+            ringNumber: node?.ring_number ?? null,
+            name: node?.name ?? null,
+        };
+    });
+
+    return [...fromChart, ...relatives]
+        .filter((photo) => !failed.value.has(photo.url))
+        .sort((a, b) =>
+            positionOrder(a.position).localeCompare(positionOrder(b.position)),
+        )
+        .map((photo) => ({
+            ...photo,
+            title: photo.position ? familyName(photo.position) : 'This pigeon',
+            hint: photo.position.length > 1 ? familyPath(photo.position) : null,
+        }));
+});
 
 // A bird can sit more than once on one side (line breeding); show it once per side
 const uniqueByUrl = (photos: Photo[]) =>
@@ -303,4 +355,45 @@ const altText = (photo: Photo) =>
             </DialogContent>
         </Dialog>
     </section>
+
+    <!-- Owner only: why there is nothing to show -->
+    <div
+        v-else-if="addPhotosHref"
+        class="flex flex-col gap-3 rounded-xl border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+        <div class="flex items-start gap-3 text-sm">
+            <ImageOff
+                v-if="allFailed"
+                class="mt-0.5 size-5 shrink-0 text-muted-foreground"
+            />
+            <ImagePlus
+                v-else
+                class="mt-0.5 size-5 shrink-0 text-muted-foreground"
+            />
+            <div>
+                <template v-if="allFailed">
+                    <p class="font-medium">The photos couldn't be loaded</p>
+                    <p class="text-muted-foreground">
+                        They are kept in your Google Drive. Check that it is
+                        still connected in Settings → Storage.
+                    </p>
+                </template>
+                <template v-else>
+                    <p class="font-medium">No photos on this pedigree yet</p>
+                    <p class="text-muted-foreground">
+                        Add photos of this bird on its edit page. Photos of its
+                        parents and grandparents from your loft show here too.
+                        Only photos added in the app appear; files put straight
+                        into Google Drive can't be seen by the app.
+                    </p>
+                </template>
+            </div>
+        </div>
+        <Button size="sm" variant="outline" class="shrink-0" as-child>
+            <Link v-if="allFailed" :href="storageSettings().url">
+                Storage settings
+            </Link>
+            <Link v-else :href="addPhotosHref">Add photos</Link>
+        </Button>
+    </div>
 </template>
