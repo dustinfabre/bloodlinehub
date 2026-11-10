@@ -128,7 +128,7 @@ class PairingController extends Controller
             'sires' => $breeders('male'),
             'dams' => $breeders('female'),
             'locations' => $locations,
-            // Pre-selected birds, e.g. from Test Pairing, and location
+            // Pre-selected birds, e.g. from Pairing Analysis, and location
             'prefill' => [
                 'sire_id' => $request->integer('sire_id') ?: null,
                 'dam_id' => $request->integer('dam_id') ?: null,

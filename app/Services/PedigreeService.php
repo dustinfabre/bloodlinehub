@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
 use App\Models\User;
+use App\Services\Lineage\LineageService;
+use App\Services\Lineage\LoftGraph;
+use App\Services\Lineage\PairingAnalysis;
 use App\Services\Pedigree\PedigreeShowcase;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
@@ -13,7 +16,11 @@ use BaconQrCode\Writer;
 
 class PedigreeService
 {
-    public function __construct(private PedigreeShowcase $showcase) {}
+    public function __construct(
+        private PedigreeShowcase $showcase,
+        private LineageService $lineage,
+        private PairingAnalysis $analysis,
+    ) {}
 
     /**
      * Generations on the chart, counting the subject (1 + 2 + 4 + 8 + 16 = 31 birds).
@@ -30,9 +37,9 @@ class PedigreeService
      * Props for rendering a pedigree chart.
      *
      * Remarks are included because they are meant for the pedigree; notes are private and never included.
-     * Public charts also omit internal pigeon IDs.
+     * Public charts also omit internal pigeon IDs. Pass the owner's loft graph if the caller has built it already.
      */
-    public function chart(Pigeon $pigeon, bool $public = false): array
+    public function chart(Pigeon $pigeon, bool $public = false, ?LoftGraph $graph = null): array
     {
         $pedigree = $pigeon->pedigreeRecord();
         $shareUrl = route('pedigrees.shared', $pedigree->serial);
@@ -47,6 +54,7 @@ class PedigreeService
                 'qr_svg' => $this->qrSvg($shareUrl),
                 ...$this->breeder($pigeon->user),
                 ...$this->breeding($pigeon),
+                'coi' => $this->coi($pigeon, $graph ?? $this->lineage->graph($pigeon->user_id)),
                 'photo_url' => $pigeon->photo_url,
                 // Below the chart: photos and certificates of the bird and its loft parents, and notable relatives
                 ...$this->showcase->for($pigeon, $public),
@@ -56,11 +64,11 @@ class PedigreeService
     }
 
     /**
-     * Props for a sample chart of a youngster from $sire × $dam (Test Pairing): the pedigree it would have,
+     * Props for a sample chart of a youngster from $sire × $dam (Pairing Analysis): the pedigree it would have,
      * built from the parents' own pedigrees. Owner view only; it has no serial, share link or QR code.
-     * Both birds must belong to $breeder.
+     * Both birds must belong to $breeder. $coi is the pair's PairingAnalysis::sheet().
      */
-    public function sampleChart(User $breeder, Pigeon $sire, Pigeon $dam): array
+    public function sampleChart(User $breeder, Pigeon $sire, Pigeon $dam, ?array $coi = null): array
     {
         $tree = [
             'id' => null,
@@ -96,6 +104,7 @@ class PedigreeService
                 // Both parents are the breeder's own birds
                 'role' => 'breeder',
                 'bred_by' => $this->breeder($breeder)['breeder'],
+                'coi' => $coi,
                 'photo_url' => null,
                 'photos' => [],
                 'relative_photos' => [],
@@ -104,6 +113,16 @@ class PedigreeService
                 'generated_at' => now()->toDateString(),
             ],
         ];
+    }
+
+    /**
+     * The bird's inbreeding coefficient as printed on its pedigree, or null when either parent is unknown.
+     */
+    private function coi(Pigeon $pigeon, LoftGraph $graph): ?array
+    {
+        [$sire, $dam] = $graph->parentsOf(LoftGraph::pigeonKey($pigeon->id));
+
+        return $sire && $dam ? $this->analysis->sheet($graph, $sire, $dam) : null;
     }
 
     /**

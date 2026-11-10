@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import NotableRelatives from '@/components/pedigree/NotableRelatives.vue';
+import PedigreeBreedingReport from '@/components/pedigree/PedigreeBreedingReport.vue';
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
 import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.vue';
 import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
@@ -19,8 +20,14 @@ import {
 } from '@/routes/pigeons';
 import { type BreadcrumbItem } from '@/types';
 import type {
+    BirdSummary,
+    Family,
+    PairingAnalysisReport,
+} from '@/types/lineage';
+import type {
     PedigreeMeta,
     PedigreeNode,
+    PedigreeReportLinks,
     PedigreeSharing,
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
@@ -41,6 +48,12 @@ const props = defineProps<{
     sharing: PedigreeSharing;
     // Any phone, email or address entered in Pedigree details, whether shown or hidden
     hasContactDetails: boolean;
+    // Below the photos: the Pairing Analysis of the bird's parents (null unless both are recorded) and its Lineage
+    analysis: PairingAnalysisReport | null;
+    generations: number;
+    lineage: { bird: BirdSummary; family: Family };
+    descendantGenerations: number;
+    ownerLinks: PedigreeReportLinks;
 }>();
 
 const pigeonLabel = computed(
@@ -151,7 +164,8 @@ const filename = computed(() =>
                 </Button>
             </div>
 
-            <!-- The pedigree first, then the photos, certificates and notable relatives that go with it -->
+            <!-- The pedigree first, then the photos, certificates and notable relatives that go with it, then the
+                 Pairing Analysis of its parents and its Lineage -->
             <PedigreeViewer>
                 <PedigreeChart ref="chart" :tree="tree" :meta="meta" linkable />
             </PedigreeViewer>
@@ -173,6 +187,14 @@ const filename = computed(() =>
                 :relatives="meta.notable_relatives"
                 linkable
                 :choose-href="`${editPedigree({ pigeon: pigeon.id }).url}#notable-relatives`"
+            />
+
+            <PedigreeBreedingReport
+                :analysis="analysis"
+                :generations="generations"
+                :lineage="lineage"
+                :descendant-generations="descendantGenerations"
+                :links="ownerLinks"
             />
         </div>
     </AppLayout>

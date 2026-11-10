@@ -16,6 +16,7 @@ use App\Http\Controllers\MeritSuggestionController;
 use App\Http\Controllers\OlrRaceController;
 use App\Http\Controllers\OlrSeasonController;
 use App\Http\Controllers\OlrSeasonRaceController;
+use App\Http\Controllers\PairingAnalysisController;
 use App\Http\Controllers\PairingController;
 use App\Http\Controllers\PedigreeAncestorController;
 use App\Http\Controllers\PedigreeController;
@@ -24,8 +25,8 @@ use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\PigeonMeritController;
 use App\Http\Controllers\PlannedPairingController;
 use App\Http\Controllers\SalesController;
-use App\Http\Controllers\TestPairingController;
 use App\Http\Middleware\NoIndex;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -110,11 +111,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('lineage/search', [LineageController::class, 'search'])
         ->name('lineage.search');
 
-    // Test pairing: relationship, inbreeding and proof of a planned cross
-    Route::get('test-pairing', [TestPairingController::class, 'index'])
-        ->name('test-pairing.index');
+    // Pairing Analysis: relationship, inbreeding and proof of a planned cross
+    Route::get('pairing-analysis', [PairingAnalysisController::class, 'index'])
+        ->name('pairing-analysis.index');
+    // Its old address (it was called Test Pairing), for bookmarks
+    Route::get('test-pairing', fn (Request $request) => redirect()->route('pairing-analysis.index', $request->query()));
 
-    // Breeding plan: test pairs saved for next season
+    // Breeding plan: pairs saved for next season
     Route::post('planned-pairings', [PlannedPairingController::class, 'store'])
         ->name('planned-pairings.store');
     Route::patch('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'update'])

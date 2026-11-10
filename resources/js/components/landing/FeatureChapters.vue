@@ -49,16 +49,16 @@ const chapters = computed<Chapter[]>(() => [
     },
     {
         title: 'Breeding',
-        where: 'In the menu: Breeding, Test Pairing, Lineage',
+        where: 'In the menu: Breeding, Pairing Analysis, Lineage',
         lead: 'Check how related two birds are before you pair them, then follow the pair clutch by clutch until the youngsters are ringed.',
         items: [
             {
-                term: 'Test Pairing',
+                term: 'Pairing Analysis',
                 text: 'See the COI of the youngsters, how related the pair is, their common ancestors and how much each one adds.',
             },
             {
                 term: 'Breeding plan',
-                text: 'Save test pairs for next season with a note. Their COI and Golden Pair status update as your loft changes.',
+                text: 'Save pairs for next season with a note. Their COI and Golden Pair status update as your loft changes.',
             },
             {
                 term: 'Pairings and clutches',
@@ -94,7 +94,7 @@ const chapters = computed<Chapter[]>(() => [
             },
             {
                 term: 'Serial and QR code',
-                text: 'Every pedigree carries its own serial number and a QR code that links to it online.',
+                text: "Every pedigree carries its own serial number, the bird's COI and a QR code that links to it online, where the Pairing Analysis of its parents and its Lineage follow the chart.",
             },
             {
                 term: 'Private, password or public',
@@ -125,7 +125,7 @@ const chapters = computed<Chapter[]>(() => [
             },
             {
                 term: 'One set of merits',
-                text: 'Twelve fixed merits, from OLY and ACE to FIN and BASE, mean the same and have the same color in every loft. Gold for titles, red for race wins, teal for steady flying, violet for breeding. Lineage and Test Pairing use them to rank proven birds.',
+                text: 'Twelve fixed merits, from OLY and ACE to FIN and BASE, mean the same and have the same color in every loft. Gold for titles, red for race wins, teal for steady flying, violet for breeding. Lineage and Pairing Analysis use them to rank proven birds.',
             },
         ],
         specimen: MeritSpecimen,

@@ -2,7 +2,7 @@
 import { vReveal } from '@/lib/reveal';
 import { GitMerge } from 'lucide-vue-next';
 
-// A first-cousin pairing, with the labels, bands and meter scale of the Test Pairing page. The sire is a little
+// A first-cousin pairing, with the labels, bands and meter scale of the Pairing Analysis page. The sire is a little
 // inbred himself (3.125%), which is why the relationship comes out just under 12.5%.
 const METER_MAX = 0.3;
 const COI = 0.0625;
@@ -25,7 +25,7 @@ const offset = (value: number) => `${(value / METER_MAX) * 100}%`;
 <template>
     <figure v-reveal="120" class="coi">
         <div class="rounded-lg border border-border bg-card p-4 sm:p-5">
-            <p class="text-sm font-medium text-navy">Test Pairing</p>
+            <p class="text-sm font-medium text-navy">Pairing Analysis</p>
 
             <div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-x-3">
                 <div class="min-w-0">
@@ -107,7 +107,7 @@ const offset = (value: number) => `${(value / METER_MAX) * 100}%`;
             </dl>
         </div>
         <figcaption class="mt-3 text-sm text-muted-foreground">
-            A first-cousin pairing in Test Pairing, worked out with Wright's
+            A first-cousin pairing in Pairing Analysis, worked out with Wright's
             method from the pedigrees you have recorded.
         </figcaption>
     </figure>

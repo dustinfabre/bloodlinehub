@@ -11,9 +11,9 @@ import {
 import { useToast } from '@/composables/useToast';
 import { COI_LEVEL_STYLES } from '@/lib/coi';
 import { birdLabel, percent, statusStyles } from '@/lib/lineage';
+import { index as pairingAnalysisIndex } from '@/routes/pairing-analysis';
 import { create as createPairing } from '@/routes/pairings';
 import { destroy as destroyPlan } from '@/routes/planned-pairings';
-import { index as testPairingIndex } from '@/routes/test-pairing';
 import type { BirdSummary, PlannedPair } from '@/types/lineage';
 import { Link, router } from '@inertiajs/vue3';
 import {
@@ -153,7 +153,7 @@ const remove = (plan: PlannedPair) => {
                             >
                                 <Link
                                     :href="
-                                        testPairingIndex({
+                                        pairingAnalysisIndex({
                                             query: {
                                                 sire: plan.sire.id ?? undefined,
                                                 dam: plan.dam.id ?? undefined,

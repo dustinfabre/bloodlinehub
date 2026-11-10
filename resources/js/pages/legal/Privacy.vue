@@ -27,7 +27,7 @@ const sections: LegalSection[] = [
     <LegalDocument
         title="Privacy Policy"
         description="What BloodlineHub collects, why, who can see it, and how to access or delete your information."
-        updated="November 10, 2026"
+        updated="November 11, 2026"
         :sections="sections"
     >
         <template #intro>
@@ -177,8 +177,14 @@ const sections: LegalSection[] = [
                     (anyone with the link and the password can open it), or
                     public (anyone with the link can open it). An open pedigree
                     shows the bird, its ancestors and their remarks, merits and
-                    photos, your breeder name, and any contact details you have
-                    switched on. Private notes are never shown.
+                    photos, the bird's inbreeding coefficient (COI), your
+                    breeder name, and any contact details you have switched on.
+                    Below the chart it also shows a Pairing Analysis of the
+                    bird's parents and the bird's Lineage: the other birds in
+                    your loft bred from its parents, and its own offspring,
+                    brothers, sisters and mates, with their ring numbers, names,
+                    colors, bloodlines, hatch dates, merits and race records.
+                    Private notes, loft numbers and statuses are never shown.
                 </li>
                 <li>
                     <strong>Marketplace listings.</strong> When the marketplace

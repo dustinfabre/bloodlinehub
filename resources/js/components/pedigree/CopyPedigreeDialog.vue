@@ -742,9 +742,10 @@ const submit = () => {
                 >
                     <Info class="mt-px size-3.5 shrink-0 text-gold" />
                     Ring numbers are copied exactly, so these ancestors count as
-                    the same birds in both pedigrees: Lineage and Test Pairing
-                    match them, and later edits to one record can update the
-                    others too. Ancestors without a ring number stay separate.
+                    the same birds in both pedigrees: Lineage and Pairing
+                    Analysis match them, and later edits to one record can
+                    update the others too. Ancestors without a ring number stay
+                    separate.
                 </p>
             </form>
 

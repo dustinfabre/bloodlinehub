@@ -2,6 +2,7 @@
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import InputError from '@/components/InputError.vue';
 import NotableRelatives from '@/components/pedigree/NotableRelatives.vue';
+import PedigreeBreedingReport from '@/components/pedigree/PedigreeBreedingReport.vue';
 import PedigreeChart from '@/components/pedigree/PedigreeChart.vue';
 import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
@@ -17,7 +18,16 @@ import {
     pedigree as pedigreeRoute,
 } from '@/routes/pigeons';
 import { type AppPageProps } from '@/types';
-import type { PedigreeMeta, PedigreeNode } from '@/types/pedigree';
+import type {
+    BirdSummary,
+    Family,
+    PairingAnalysisReport,
+} from '@/types/lineage';
+import type {
+    PedigreeMeta,
+    PedigreeNode,
+    PedigreeReportLinks,
+} from '@/types/pedigree';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { Clock, KeyRound, LoaderCircle, Lock } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -31,6 +41,14 @@ const props = defineProps<{
     accessExpiresAt?: string | null;
     tree: PedigreeNode | null;
     meta: PedigreeMeta | null;
+    // Below the photos (not sent while locked): the Pairing Analysis of the bird's parents (null unless both are
+    // recorded) and the bird's Lineage, public versions without internal ids
+    analysis?: PairingAnalysisReport | null;
+    generations?: number;
+    lineage?: { bird: BirdSummary; family: Family };
+    descendantGenerations?: number;
+    // The full reports in the app, for the owner
+    ownerLinks?: PedigreeReportLinks | null;
 }>();
 
 const page = usePage<AppPageProps>();
@@ -159,6 +177,16 @@ const accessUntil = computed(() =>
                             ? `${editPedigree({ pigeon: pigeonId }).url}#notable-relatives`
                             : undefined
                     "
+                />
+
+                <PedigreeBreedingReport
+                    v-if="lineage && generations && descendantGenerations"
+                    :analysis="analysis ?? null"
+                    :generations="generations"
+                    :lineage="lineage"
+                    :descendant-generations="descendantGenerations"
+                    :links="ownerLinks"
+                    public-view
                 />
             </template>
 

@@ -6,6 +6,7 @@ use App\Enums\MeritType;
 use App\Models\PedigreeAncestor;
 use App\Models\Pigeon;
 use App\Models\PigeonMerit;
+use App\Services\Merits\GoldenPairs;
 use Illuminate\Support\Facades\DB;
 
 class LineageService
@@ -42,11 +43,26 @@ class LineageService
      * Display data for graph nodes. Loft birds get their full record, merits and race record;
      * external ancestors only have what the pedigree recorded.
      *
+     * Public summaries (for a shared pedigree) leave out what only the owner should see: internal ids, which are
+     * also in the node keys, loft numbers, statuses, and photos (relatives' photos are public only when the owner
+     * features them on the pedigree). Results stay keyed by the real node key.
+     *
      * @param  iterable<string>  $keys
      * @return array<string, array<string, mixed>>
      */
-    public function summaries(LoftGraph $graph, iterable $keys): array
+    public function summaries(LoftGraph $graph, iterable $keys, bool $public = false): array
     {
+        if ($public) {
+            return array_map(fn (array $summary) => [
+                ...$summary,
+                'key' => self::publicKey($summary['key']),
+                'id' => null,
+                'personal_number' => null,
+                'status' => null,
+                'photo_url' => null,
+            ], $this->summaries($graph, $keys));
+        }
+
         $keys = collect($keys)->unique()->filter(fn ($key) => $graph->has($key))->values();
 
         $ids = $keys->map(fn ($key) => $graph->node($key)['pigeon_id'])->filter()->values()->all();
@@ -105,6 +121,14 @@ class LineageService
                 'results' => $results[$pigeon->id] ?? null,
             ]];
         })->all();
+    }
+
+    /**
+     * A node key that doesn't give away pigeon ids ("p:12", "x:12:SD"), the same for one bird throughout a response.
+     */
+    public static function publicKey(string $key): string
+    {
+        return 'b:'.substr(hash_hmac('sha256', $key, (string) config('app.key')), 0, 16);
     }
 
     /**
@@ -186,16 +210,22 @@ class LineageService
     }
 
     /**
+     * The birds that descend from both $a and $b, ready to show. $exclude leaves one of them out, e.g. the bird whose
+     * pedigree shows the report for its own parents.
+     *
      * @return array<string, mixed>
      */
-    public function sharedReport(LoftGraph $graph, string $a, string $b): array
+    public function sharedReport(LoftGraph $graph, string $a, string $b, bool $public = false, ?string $exclude = null): array
     {
-        $rows = $this->sharedDescendants($graph, $a, $b);
+        $rows = array_values(array_filter(
+            $this->sharedDescendants($graph, $a, $b),
+            fn (array $row) => $row['key'] !== $exclude,
+        ));
 
         $summaries = $this->summaries($graph, [
             ...array_column($rows, 'key'),
             ...array_merge([], ...array_map(fn ($row) => [...$row['from_a']['via'], ...$row['from_b']['via']], $rows)),
-        ]);
+        ], $public);
 
         $line = fn (array $from) => [
             'generation' => $from['generation'],
@@ -216,6 +246,87 @@ class LineageService
             'direct' => count(array_filter($birds, fn ($row) => $row['direct'])),
             'proven' => count(array_filter($birds, fn ($row) => $this->isProven($row['bird']))),
             'birds' => $birds,
+        ];
+    }
+
+    /**
+     * A bird's family: its parents, its descendants down to DESCENDANT_GENERATIONS, its full and half siblings
+     * (bought-in parents matched by ring number) and its mates with what they produced.
+     *
+     * @return array{bird: array<string, mixed>, family: array<string, mixed>}
+     */
+    public function family(LoftGraph $graph, string $key, bool $public = false): array
+    {
+        $descendants = $graph->descendants($key, self::DESCENDANT_GENERATIONS);
+        [$sire, $dam] = $graph->parentsOf($key);
+
+        $sireChildren = $sire ? $graph->childrenOf($sire) : [];
+        $damChildren = $dam ? $graph->childrenOf($dam) : [];
+        $full = array_values(array_diff(array_intersect($sireChildren, $damChildren), [$key]));
+        $halfSire = array_values(array_diff($sireChildren, $full, [$key]));
+        $halfDam = array_values(array_diff($damChildren, $full, [$key]));
+
+        // Mates: the other parent of each child
+        $mates = [];
+        foreach ($graph->childrenOf($key) as $child) {
+            [$childSire, $childDam] = $graph->parentsOf($child);
+            $mate = $childSire === $key ? $childDam : $childSire;
+            $mates[$mate ?? 'unknown'][] = $child;
+        }
+
+        $summaries = $this->summaries($graph, [
+            $key, ...array_filter([$sire, $dam]),
+            ...array_keys($descendants),
+            ...array_merge([], ...array_column($descendants, 'via')),
+            ...$full, ...$halfSire, ...$halfDam,
+            ...array_filter(array_keys($mates), fn ($mate) => $mate !== 'unknown'),
+        ], $public);
+
+        $generations = [];
+        foreach ($descendants as $descendantKey => $line) {
+            [$childSire, $childDam] = $graph->parentsOf($descendantKey);
+            $otherParent = $line['generation'] === 1 ? ($childSire === $key ? $childDam : $childSire) : null;
+
+            $generations[$line['generation']][] = [
+                'bird' => $summaries[$descendantKey],
+                'via' => array_map(fn ($via) => $this->mini($summaries[$via]), $line['via']),
+                'other_parent' => $otherParent ? $this->mini($summaries[$otherParent]) : null,
+                'share' => $graph->geneShare($key, $descendantKey),
+            ];
+        }
+        ksort($generations);
+
+        return [
+            'bird' => $summaries[$key],
+            'family' => [
+                'sire' => $sire ? $summaries[$sire] : null,
+                'dam' => $dam ? $summaries[$dam] : null,
+                'descendants' => collect($generations)->map(fn ($birds, $generation) => [
+                    'generation' => $generation,
+                    'label' => self::descendantLabel($generation),
+                    'birds' => $this->rank($birds, fn ($row) => $row['bird']),
+                ])->values()->all(),
+                'siblings' => [
+                    'full' => $this->rank(array_map(fn ($k) => $summaries[$k], $full)),
+                    'sire_side' => $this->rank(array_map(fn ($k) => $summaries[$k], $halfSire)),
+                    'dam_side' => $this->rank(array_map(fn ($k) => $summaries[$k], $halfDam)),
+                ],
+                'mates' => collect($mates)
+                    ->map(function ($children, $mate) use ($summaries) {
+                        $winners = GoldenPairs::countWinners(array_map(fn ($child) => $summaries[$child], $children));
+
+                        return [
+                            'bird' => $mate === 'unknown' ? null : $summaries[$mate],
+                            'offspring' => count($children),
+                            'proven' => count(array_filter($children, fn ($child) => $this->isProven($summaries[$child]))),
+                            'winners' => $winners,
+                            'golden' => $mate !== 'unknown' && $winners >= GoldenPairs::MIN_WINNERS,
+                        ];
+                    })
+                    ->sortByDesc('offspring')
+                    ->values()
+                    ->all(),
+            ],
         ];
     }
 

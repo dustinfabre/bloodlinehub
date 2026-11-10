@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A test pair saved to the breeding plan, before it becomes a real pairing.
+ * A pair saved to the breeding plan (from Pairing Analysis), before it becomes a real pairing.
  */
 class PlannedPairing extends Model
 {

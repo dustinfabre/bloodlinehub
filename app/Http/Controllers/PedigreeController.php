@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Pedigree;
 use App\Models\Pigeon;
+use App\Services\Lineage\LineageService;
+use App\Services\Lineage\LoftGraph;
+use App\Services\Lineage\PairingAnalysis;
 use App\Services\PedigreeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,20 +29,27 @@ class PedigreeController extends Controller
         '30d' => 30,
     ];
 
-    public function __construct(private PedigreeService $pedigrees) {}
+    public function __construct(
+        private PedigreeService $pedigrees,
+        private LineageService $lineage,
+        private PairingAnalysis $analysis,
+    ) {}
 
     public function show(Request $request, Pigeon $pigeon): Response
     {
         $this->ensureOwner($request, $pigeon);
 
         $profile = $pigeon->user->breederProfile;
+        $graph = $this->lineage->graph($pigeon->user_id);
 
         return Inertia::render('pigeons/Pedigree', [
             'pigeon' => $this->summary($pigeon),
-            ...$this->pedigrees->chart($pigeon),
+            ...$this->pedigrees->chart($pigeon, graph: $graph),
             'sharing' => $this->sharing($pigeon->pedigreeRecord()),
             // Whether any phone, email or address has been entered (shown or not), to prompt breeders who haven't
             'hasContactDetails' => filled($profile?->phone) || filled($profile?->email) || filled($profile?->address),
+            // The owner's own view: birds keep their ids (links to their pages) and statuses
+            ...$this->breedingReport($graph, $pigeon, public: false, links: true),
         ]);
     }
 
@@ -145,6 +155,8 @@ class PedigreeController extends Controller
             ])->toResponse($request)->setStatusCode(403);
         }
 
+        $graph = $this->lineage->graph($pigeon->user_id);
+
         return Inertia::render('pedigrees/Shared', [
             'serial' => $pedigree->serial,
             'isOwner' => $isOwner,
@@ -154,8 +166,43 @@ class PedigreeController extends Controller
             'accessExpiresAt' => ! $isOwner && ! $pedigree->is_public
                 ? $pedigree->password_expires_at?->toIso8601String()
                 : null,
-            ...$this->pedigrees->chart($pigeon, public: true),
+            ...$this->pedigrees->chart($pigeon, public: true, graph: $graph),
+            ...$this->breedingReport($graph, $pigeon, public: true, links: $isOwner),
         ]);
+    }
+
+    /**
+     * Below the chart and photos of a pedigree: the Pairing Analysis of the bird's parents (when both are known) and
+     * the bird's Lineage. On a shared pedigree everyone, the owner too, sees the public version (see
+     * LineageService::summaries()); $links adds the owner's links to the full reports in the app.
+     *
+     * @return array<string, mixed>
+     */
+    private function breedingReport(LoftGraph $graph, Pigeon $pigeon, bool $public, bool $links): array
+    {
+        $key = LoftGraph::pigeonKey($pigeon->id);
+        [$sire, $dam] = $graph->parentsOf($key);
+        $paired = $sire && $dam && $sire !== $dam;
+
+        // Pairing Analysis takes two loft birds
+        $sireId = $sire ? $graph->node($sire)['pigeon_id'] : null;
+        $damId = $dam ? $graph->node($dam)['pigeon_id'] : null;
+
+        return [
+            'analysis' => $paired
+                ? $this->analysis->analyse($graph, $sire, $dam, $pigeon->user_id, $public, subject: $key)
+                : null,
+            'generations' => LineageService::PEDIGREE_GENERATIONS + 1,
+            'lineage' => $this->lineage->family($graph, $key, $public),
+            'descendantGenerations' => LineageService::DESCENDANT_GENERATIONS,
+            'ownerLinks' => $links ? [
+                'pairing_analysis' => $paired && $sireId && $damId
+                    ? route('pairing-analysis.index', ['sire' => $sireId, 'dam' => $damId])
+                    : null,
+                'lineage' => route('lineage.index', ['pigeon' => $pigeon->id]),
+                'edit' => route('pigeons.edit', $pigeon),
+            ] : null,
+        ];
     }
 
     public function unlock(Request $request, string $serial): RedirectResponse

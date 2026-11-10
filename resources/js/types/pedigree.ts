@@ -1,4 +1,4 @@
-import type { Merit } from '@/types/lineage';
+import type { Assessment, Merit } from '@/types/lineage';
 import type { PigeonSearchItem } from '@/types/pigeon-search';
 
 export interface PedigreeNode {
@@ -44,6 +44,8 @@ export interface PedigreeMeta {
     role: 'breeder' | 'owner';
     // Who bred the bird: the user's loft, or whoever they entered (null when not known)
     bred_by: string | null;
+    // The bird's inbreeding coefficient, printed at the foot of the sheet (null when a parent is unknown)
+    coi: PedigreeCoi | null;
     // Every photo of the bird, the main one first
     photos: string[];
     // Photos of relatives uploaded on the bird: an ancestor's chart position ('S', 'SD', ...) or e.g. 'sibling'
@@ -53,6 +55,30 @@ export interface PedigreeMeta {
     // Related loft birds off the chart the owner features below it
     notable_relatives: NotableRelative[];
     generated_at: string;
+}
+
+/** The COI on a pedigree sheet (PairingAnalysis::sheet()). */
+export interface PedigreeCoi {
+    coefficient: number;
+    assessment: Assessment;
+    // The biggest contributors, largest first
+    common_ancestors: {
+        name: string | null;
+        ring_number: string | null;
+        contribution: number;
+    }[];
+    common_count: number;
+    // Generations of ancestors searched, and how many of them are fully known
+    generations: number;
+    complete_generations: number;
+}
+
+/** Links from a pedigree's Pairing Analysis and Lineage sections to the full reports in the app (owner only). */
+export interface PedigreeReportLinks {
+    // Null unless both parents are loft birds
+    pairing_analysis: string | null;
+    lineage: string;
+    edit: string;
 }
 
 export type PedigreeSide = 'sire' | 'dam';

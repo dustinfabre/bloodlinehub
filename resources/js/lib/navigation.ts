@@ -4,10 +4,10 @@ import { index as lineage } from '@/routes/lineage';
 import { index as locations } from '@/routes/locations';
 import { index as loftChecks } from '@/routes/loft-checks';
 import { index as olrRaces } from '@/routes/olr-races';
+import { index as pairingAnalysis } from '@/routes/pairing-analysis';
 import { index as pairings } from '@/routes/pairings';
 import { index as pigeons } from '@/routes/pigeons';
 import { index as sales } from '@/routes/sales';
-import { index as testPairing } from '@/routes/test-pairing';
 import type { NavItem } from '@/types';
 import {
     Bird,
@@ -29,7 +29,7 @@ export const mainNavItems: NavItem[] = [
     { title: 'Loft Check', href: loftChecks(), icon: ClipboardCheck },
     { title: 'Breeding', href: pairings(), icon: Heart },
     { title: 'Lineage', href: lineage(), icon: GitFork },
-    { title: 'Test Pairing', href: testPairing(), icon: FlaskConical },
+    { title: 'Pairing Analysis', href: pairingAnalysis(), icon: FlaskConical },
     { title: 'OLR Races', href: olrRaces(), icon: Trophy },
     { title: 'Clubs', href: clubs(), icon: Flag },
     { title: 'Sales & Auctions', href: sales(), icon: DollarSign },

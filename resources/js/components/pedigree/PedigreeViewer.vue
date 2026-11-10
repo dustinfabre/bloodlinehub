@@ -35,9 +35,10 @@ const scale = computed(() =>
                 {{ fit ? 'Actual size' : 'Fit to screen' }}
             </Button>
         </div>
+        <!-- Sized by its parent only: in a flex layout the full-size sheet would otherwise widen the page to fit it -->
         <div
             ref="container"
-            class="overflow-x-auto rounded-xl border bg-muted/40 p-2 sm:p-4"
+            class="overflow-x-auto rounded-xl border bg-muted/40 p-2 [contain:inline-size] sm:p-4"
         >
             <div
                 class="mx-auto overflow-hidden rounded-sm shadow-lg ring-1 ring-black/5"

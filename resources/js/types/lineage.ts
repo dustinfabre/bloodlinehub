@@ -91,7 +91,7 @@ export interface SharedReport {
     birds: SharedDescendant[];
 }
 
-// A bird found by the lineage / test pairing picker: the standard search details (see CLAUDE.md) plus its status
+// A bird found by the Lineage / Pairing Analysis picker: the standard search details (see CLAUDE.md) plus its status
 export interface PickerPigeon extends PigeonSearchItem {
     personal_number: string | null;
     gender: string | null;
@@ -156,7 +156,7 @@ export interface Assessment {
     equivalent: string;
 }
 
-/** A test pair saved to the breeding plan. */
+/** A pair saved to the breeding plan. */
 export interface PlannedPair {
     id: number;
     notes: string | null;
@@ -169,4 +169,60 @@ export interface PlannedPair {
     winner_count: number;
     sire_plans: number;
     dam_plans: number;
+}
+
+/** Pairing Analysis of a sire × dam: on the Pairing Analysis page, and on a pedigree for the bird's parents. */
+export interface PairingAnalysisReport {
+    sire: BirdSummary;
+    dam: BirdSummary;
+    coi: number;
+    relationship: number;
+    sire_coi: number;
+    dam_coi: number;
+    assessment: Assessment;
+    common_ancestors: {
+        bird: BirdSummary;
+        contribution: number;
+        // Positions in the youngster's pedigree of each pair of lines that meet at the ancestor
+        lines: { sire: string; dam: string }[];
+    }[];
+    influential_ancestors: {
+        bird: BirdSummary;
+        share: number;
+        positions: string[];
+    }[];
+    completeness: { generation: number; known: number; total: number }[];
+    shared: SharedReport;
+    golden_pair: GoldenPairInfo;
+}
+
+export interface DescendantRow {
+    bird: BirdSummary;
+    via: MiniBird[];
+    other_parent: MiniBird | null;
+    share: number;
+}
+
+/** A bird's family as shown by Lineage: its descendants, siblings and mates. */
+export interface Family {
+    sire: BirdSummary | null;
+    dam: BirdSummary | null;
+    descendants: {
+        generation: number;
+        label: string;
+        birds: DescendantRow[];
+    }[];
+    siblings: {
+        full: BirdSummary[];
+        sire_side: BirdSummary[];
+        dam_side: BirdSummary[];
+    };
+    mates: {
+        bird: BirdSummary | null;
+        offspring: number;
+        proven: number;
+        // Youngsters with a winning merit; two or more make a Golden Pair
+        winners: number;
+        golden: boolean;
+    }[];
 }

@@ -120,7 +120,7 @@ class PedigreeMeritTest extends TestCase
                 ->where('tree.sire.merits.0.id', null));
     }
 
-    public function test_external_ancestor_merits_count_in_lineage_and_test_pairing(): void
+    public function test_external_ancestor_merits_count_in_lineage_and_pairing_analysis(): void
     {
         // Two birds whose sires are both the same bought-in cock (matched by ring number)
         $cock = $this->pigeon('C1', ['gender' => 'male', 'sire_ring_number' => 'BE 2018-777', 'sire_name' => 'KANNIBAAL']);
@@ -129,7 +129,7 @@ class PedigreeMeritTest extends TestCase
         $this->saveAncestor($cock, 'S', ['ring_number' => 'BE 2018-777', 'name' => 'KANNIBAAL', 'merits' => [['type' => 'super_breeder']]]);
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $cock->id, 'dam' => $hen->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $cock->id, 'dam' => $hen->id]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('analysis.coi', 0.125)
                 ->where('analysis.common_ancestors.0.bird.external', true)

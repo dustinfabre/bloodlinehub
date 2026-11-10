@@ -2,6 +2,7 @@
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import PedigreeBirdDialog from '@/components/pedigree/PedigreeBirdDialog.vue';
 import PedigreeCard from '@/components/pedigree/PedigreeCard.vue';
+import { percent } from '@/lib/lineage';
 import { meritChipStyle } from '@/lib/merits';
 import {
     collectMerits,
@@ -26,7 +27,7 @@ const props = defineProps<{
     meta: PedigreeMeta;
     // The details of loft birds link to their pigeon pages (owner view only)
     linkable?: boolean;
-    // A sample for a pairing not yet made (Test Pairing): no serial, QR code or signature lines
+    // A sample for a pairing not yet made (Pairing Analysis): no serial, QR code or signature lines
     sample?: boolean;
     // Outline ancestors that appear more than once, i.e. what the bird is line-bred on
     markRepeated?: boolean;
@@ -69,6 +70,23 @@ const repeatedKeys = computed(() => {
     );
 });
 
+// COI meter at the foot of the sheet: 0 to 30%, marked at first cousins, half and full siblings
+const COI_METER_MAX = 0.3;
+const coiMarkers = [0.0625, 0.125, 0.25];
+const coiAncestors = computed(() =>
+    (props.meta.coi?.common_ancestors ?? []).map((ancestor) => ({
+        label: [
+            ancestor.ring_number,
+            ancestor.name && ancestor.name !== ancestor.ring_number
+                ? `“${ancestor.name}”`
+                : null,
+        ]
+            .filter(Boolean)
+            .join(' '),
+        contribution: `+${percent(ancestor.contribution)}`,
+    })),
+);
+
 // Clicking a card shows everything recorded about that bird
 const detailsOpen = ref(false);
 const selected = ref<Pick<PedigreeSlot, 'key' | 'node'>>({
@@ -91,7 +109,9 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                 <div>
                     <div class="pedigree-eyebrow">
                         {{
-                            sample ? 'Sample · Test pairing' : 'Five-generation'
+                            sample
+                                ? 'Sample · Pairing analysis'
+                                : 'Five-generation'
                         }}
                     </div>
                     <div class="pedigree-title">Pedigree</div>
@@ -143,7 +163,9 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     <span class="pedigree-fork" />
                     <div v-if="sample" class="pedigree-qr-block is-sample">
                         <div>
-                            <div class="pedigree-qr-label">Test pairing</div>
+                            <div class="pedigree-qr-label">
+                                Pairing analysis
+                            </div>
                             <div class="pedigree-qr-serial">
                                 Sample pedigree
                             </div>
@@ -218,7 +240,7 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                         </span>
                     </div>
                     <div v-if="sample" class="pedigree-footnote">
-                        Sample from Test Pairing, not a registered bird ·
+                        Sample from Pairing Analysis, not a registered bird ·
                         Remarks supplied by the {{ roleWord }}
                     </div>
                     <div v-else class="pedigree-footnote">
@@ -256,6 +278,69 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     <div class="pedigree-bred-by-name">{{ meta.bred_by }}</div>
                 </div>
             </footer>
+
+            <!-- The bird's inbreeding coefficient, from its parents' recorded pedigrees -->
+            <section
+                v-if="meta.coi"
+                class="pedigree-coi"
+                :data-level="meta.coi.assessment.level"
+            >
+                <div class="pedigree-coi-figure">
+                    <span class="pedigree-footer-label">Inbreeding (COI)</span>
+                    <b class="pedigree-coi-value">{{
+                        percent(meta.coi.coefficient)
+                    }}</b>
+                    <span class="pedigree-coi-meter" aria-hidden="true">
+                        <i
+                            :style="{
+                                width: `${(Math.min(meta.coi.coefficient, COI_METER_MAX) / COI_METER_MAX) * 100}%`,
+                            }"
+                        />
+                        <u
+                            v-for="marker in coiMarkers"
+                            :key="marker"
+                            :style="{
+                                left: `${(marker / COI_METER_MAX) * 100}%`,
+                            }"
+                        />
+                    </span>
+                    <span class="pedigree-coi-reading">
+                        <b>{{ meta.coi.assessment.label }}</b>
+                        <template v-if="meta.coi.coefficient > 0">
+                            · {{ meta.coi.assessment.equivalent }}</template
+                        >
+                    </span>
+                </div>
+                <div class="pedigree-coi-ancestors">
+                    <span class="pedigree-footer-label">Common ancestors</span>
+                    <template v-if="coiAncestors.length">
+                        <span
+                            v-for="ancestor in coiAncestors"
+                            :key="ancestor.label"
+                            class="pedigree-coi-ancestor"
+                        >
+                            {{ ancestor.label }}
+                            <b>{{ ancestor.contribution }}</b>
+                        </span>
+                        <span
+                            v-if="meta.coi.common_count > coiAncestors.length"
+                            class="pedigree-coi-more"
+                            >+{{
+                                meta.coi.common_count - coiAncestors.length
+                            }}
+                            more</span
+                        >
+                    </template>
+                    <span v-else class="pedigree-coi-none"
+                        >None in the recorded pedigree</span
+                    >
+                </div>
+                <div class="pedigree-coi-method">
+                    Wright's method ·
+                    {{ meta.coi.complete_generations }} of
+                    {{ meta.coi.generations }} generations complete
+                </div>
+            </section>
         </div>
 
         <PedigreeBirdDialog
@@ -911,6 +996,123 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
     width: 13px;
     height: 13px;
     font-size: 8px;
+}
+
+/* Below everything: the bird's COI, with a small meter in the color of its band */
+.pedigree-coi {
+    --coi: #0369a1;
+    --coi-track: #e0f0fa;
+
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 14px;
+    margin-top: 7px;
+    padding: 6px 12px;
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 8.5px;
+    white-space: nowrap;
+}
+
+.pedigree-coi[data-level='close'] {
+    --coi: #b45309;
+    --coi-track: #fbecd3;
+}
+
+.pedigree-coi[data-level='inbreeding'] {
+    --coi: #b91c1c;
+    --coi-track: #f8dddd;
+}
+
+.pedigree-coi-figure,
+.pedigree-coi-ancestors {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.pedigree-coi-figure {
+    flex-shrink: 0;
+}
+
+.pedigree-coi-value {
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.pedigree-coi-meter {
+    position: relative;
+    display: block;
+    width: 72px;
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--coi-track);
+}
+
+.pedigree-coi-meter i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 999px;
+    background: var(--coi);
+}
+
+.pedigree-coi-meter u {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1.5px;
+    background: var(--surface);
+}
+
+.pedigree-coi-reading {
+    color: var(--ink);
+}
+
+.pedigree-coi-reading b {
+    color: var(--coi);
+    font-weight: 700;
+}
+
+.pedigree-coi-ancestors {
+    flex: 1;
+    padding-left: 14px;
+    overflow: hidden;
+    border-left: 1px solid var(--rule);
+    text-overflow: ellipsis;
+}
+
+.pedigree-coi-ancestor {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-weight: 600;
+    text-overflow: ellipsis;
+}
+
+.pedigree-coi-ancestor b {
+    color: var(--gold-deep);
+    font-weight: 700;
+}
+
+.pedigree-coi-more,
+.pedigree-coi-none {
+    flex-shrink: 0;
+}
+
+.pedigree-coi-method {
+    flex-shrink: 0;
+    padding-left: 14px;
+    border-left: 1px solid var(--rule);
 }
 
 /* Footer: key and verify note, contact details, then who bred the bird */

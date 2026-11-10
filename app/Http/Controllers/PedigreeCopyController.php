@@ -20,7 +20,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Each copy takes the bird at position "from" in the other pigeon's pedigree (e.g. "SSS", its sire's sire's sire) and
  * puts it at position "to" in this pigeon's pedigree. Outside ancestors are copied with their ring numbers unchanged,
- * which is how Lineage and Test Pairing recognise the same bird in both pedigrees. A loft bird copied into the place of
+ * which is how Lineage and Pairing Analysis recognise the same bird in both pedigrees. A loft bird copied into the place of
  * a loft bird's parent is linked instead, so its own pedigree keeps coming along. Anything deeper is stored like any
  * outside ancestor: on the nearest loft bird in front of it (see PedigreeAncestorController), so if that is another
  * loft bird, its offspring inherit the copy too.

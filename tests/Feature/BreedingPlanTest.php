@@ -114,7 +114,7 @@ class BreedingPlanTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('parentPair.golden', true));
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $sire->id, 'dam' => $dam->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $sire->id, 'dam' => $dam->id]))
             ->assertInertia(fn (Assert $page) => $page->where('analysis.golden_pair.golden', true));
     }
 
@@ -177,7 +177,7 @@ class BreedingPlanTest extends TestCase
         $this->assertNotNull($plan->fresh());
     }
 
-    public function test_test_pairing_page_lists_the_plan_with_coi_and_conflicts(): void
+    public function test_pairing_analysis_page_lists_the_plan_with_coi_and_conflicts(): void
     {
         $grandsire = $this->bird('GS', ['gender' => 'male']);
         $grandam = $this->bird('GD', ['gender' => 'female']);
@@ -191,10 +191,10 @@ class BreedingPlanTest extends TestCase
         PlannedPairing::create(['user_id' => User::factory()->create()->id, 'sire_id' => $grandsire->id, 'dam_id' => $grandam->id]);
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $cock->id, 'dam' => $hen->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $cock->id, 'dam' => $hen->id]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('test-pairing/Index')
+                ->component('pairing-analysis/Index')
                 ->has('plans', 2)
                 ->where('plan.notes', 'Line breed on GS')
                 ->where('plans.1.sire.id', $cock->id)
@@ -208,7 +208,7 @@ class BreedingPlanTest extends TestCase
                 ->where('plans.0.golden', false));
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index'))
+            ->get(route('pairing-analysis.index'))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('plan', null)
                 ->has('plans', 2));

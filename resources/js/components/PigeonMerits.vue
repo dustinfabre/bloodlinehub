@@ -124,7 +124,7 @@ const remove = (merit: Merit) => {
                     <CardTitle>Merits</CardTitle>
                     <CardDescription>
                         Standard titles shared by every loft, so Lineage and
-                        Test Pairing can rank proven birds.
+                        Pairing Analysis can rank proven birds.
                     </CardDescription>
                 </div>
                 <Button

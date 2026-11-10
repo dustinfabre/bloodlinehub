@@ -88,7 +88,7 @@ const selectDam = (dam: Pigeon) => {
     showDamDropdown.value = false;
 };
 
-// Birds pre-selected from Test Pairing (only if they are still available to pair)
+// Birds pre-selected from Pairing Analysis (only if they are still available to pair)
 const prefilledSire = props.sires.find(s => s.id === props.prefill?.sire_id);
 const prefilledDam = props.dams.find(d => d.id === props.prefill?.dam_id);
 if (prefilledSire) selectSire(prefilledSire);

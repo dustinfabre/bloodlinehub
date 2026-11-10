@@ -12,7 +12,7 @@ import { show as loftCheckShow } from '@/routes/loft-checks';
 import { formatCheckDate, formatDay } from '@/types/loft-check';
 import { edit, editPedigree, index as indexRoute, show as showRoute, pedigree as pedigreeRoute } from '@/routes/pigeons';
 import { index as lineageIndex } from '@/routes/lineage';
-import { index as testPairingIndex } from '@/routes/test-pairing';
+import { index as pairingAnalysisIndex } from '@/routes/pairing-analysis';
 import type { GoldenPairInfo, Merit, MeritLevelOption, MeritSuggestion, MeritTypeOption } from '@/types/lineage';
 import { Head, Link } from '@inertiajs/vue3';
 import { Eye, FlaskConical, GitFork, Lock, Network, Pencil } from 'lucide-vue-next';
@@ -113,10 +113,10 @@ const props = defineProps<{
     statusHistory: StatusChange[];
 }>();
 
-// Test Pairing pre-filled with this bird on its side of the pair
-const testPairingUrl = computed(() => {
-    if (props.pigeon.gender === 'male') return testPairingIndex({ query: { sire: props.pigeon.id } }).url;
-    if (props.pigeon.gender === 'female') return testPairingIndex({ query: { dam: props.pigeon.id } }).url;
+// Pairing Analysis pre-filled with this bird on its side of the pair
+const pairingAnalysisUrl = computed(() => {
+    if (props.pigeon.gender === 'male') return pairingAnalysisIndex({ query: { sire: props.pigeon.id } }).url;
+    if (props.pigeon.gender === 'female') return pairingAnalysisIndex({ query: { dam: props.pigeon.id } }).url;
     return null;
 });
 
@@ -232,10 +232,10 @@ const childDetails = (child: Child) => {
                             Lineage
                         </Button>
                     </Link>
-                    <Link v-if="testPairingUrl" :href="testPairingUrl">
+                    <Link v-if="pairingAnalysisUrl" :href="pairingAnalysisUrl">
                         <Button variant="outline">
                             <FlaskConical class="mr-2 h-4 w-4" />
-                            Test Pair
+                            Pairing Analysis
                         </Button>
                     </Link>
                     <Link :href="pedigreeRoute({ pigeon: pigeon.id }).url">

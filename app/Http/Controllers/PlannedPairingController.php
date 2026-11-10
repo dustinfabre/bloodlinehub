@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * The breeding plan: test pairs saved for the next season. Listed and analysed on the Test Pairing page.
+ * The breeding plan: pairs saved for the next season. Listed and analysed on the Pairing Analysis page.
  */
 class PlannedPairingController extends Controller
 {

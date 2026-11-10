@@ -211,17 +211,17 @@ class LineageTest extends TestCase
             );
     }
 
-    public function test_test_pairing_reports_coi_relationship_and_common_ancestors(): void
+    public function test_pairing_analysis_reports_coi_relationship_and_common_ancestors(): void
     {
         $sire = $this->cock('X');
         $son = $this->cock('SON', $sire, $this->hen('M1'));
         $daughter = $this->hen('DAUGHTER', $sire, $this->hen('M2'));
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $son->id, 'dam' => $daughter->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $son->id, 'dam' => $daughter->id]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('test-pairing/Index')
+                ->component('pairing-analysis/Index')
                 ->where('analysis.coi', 0.125)
                 ->where('analysis.relationship', 0.25)
                 ->where('analysis.assessment.level', 'close')
@@ -238,7 +238,7 @@ class LineageTest extends TestCase
         $theirs = Pigeon::create(['user_id' => User::factory()->create()->id, 'status' => 'stock', 'ring_number' => 'THEIRS', 'gender' => 'female']);
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $mine->id, 'dam' => $theirs->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $mine->id, 'dam' => $theirs->id]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('sire.ring_number', 'MINE')
                 ->where('dam', null)
@@ -273,7 +273,7 @@ class LineageTest extends TestCase
         $this->cock('PHA-4', attributes: ['status' => 'missing']);
         $this->cock('PHA-5', attributes: ['status' => 'injured']);
 
-        // Test Pairing asks for birds in the loft only
+        // Pairing Analysis asks for birds in the loft only
         $this->actingAs($this->user)
             ->getJson(route('lineage.search', ['q' => 'pha', 'in_loft' => 1]))
             ->assertOk()
@@ -287,7 +287,7 @@ class LineageTest extends TestCase
             ->assertJsonCount(5, 'pigeons');
     }
 
-    public function test_test_pairing_includes_a_sample_pedigree_of_the_youngster(): void
+    public function test_pairing_analysis_includes_a_sample_pedigree_of_the_youngster(): void
     {
         // The grandsire's outside sire, and that bird's sire: the last column of the youngster's chart
         $grandsire = $this->cock('GS', attributes: ['bloodline' => 'JANSSEN', 'sire_ring_number' => 'OUTSIDE-1']);
@@ -296,7 +296,7 @@ class LineageTest extends TestCase
         $daughter = $this->hen('DAUGHTER', $grandsire, null, ['bloodline' => 'SION']);
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $son->id, 'dam' => $daughter->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $son->id, 'dam' => $daughter->id]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('sample.tree.id', null)
@@ -325,7 +325,7 @@ class LineageTest extends TestCase
         $dam = $this->hen('HEN');
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $line->id, 'dam' => $dam->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $line->id, 'dam' => $dam->id]))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('sample.tree.sire.ring_number', 'G5')
                 ->where('sample.tree.sire.sire.sire.sire.ring_number', 'G2')
@@ -338,13 +338,13 @@ class LineageTest extends TestCase
         $cock = $this->cock('C1');
 
         $this->actingAs($this->user)
-            ->get(route('test-pairing.index', ['sire' => $cock->id]))
+            ->get(route('pairing-analysis.index', ['sire' => $cock->id]))
             ->assertInertia(fn (Assert $page) => $page->where('sample', null));
     }
 
     public function test_coi_assessment_bands(): void
     {
-        $level = fn (float $coi) => \App\Http\Controllers\TestPairingController::assess($coi)['level'];
+        $level = fn (float $coi) => \App\Services\Lineage\PairingAnalysis::assess($coi)['level'];
 
         $this->assertSame('outcross', $level(0));
         $this->assertSame('light', $level(1 / 64));
