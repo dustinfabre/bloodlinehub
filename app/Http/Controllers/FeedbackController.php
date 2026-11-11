@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Feedback;
+use App\Notifications\Admin\FeedbackReceived;
+use App\Services\AdminNotifier;
 use App\Services\PrivateFiles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,7 +35,7 @@ class FeedbackController extends Controller
         ]);
     }
 
-    public function store(Request $request, PrivateFiles $files): RedirectResponse
+    public function store(Request $request, PrivateFiles $files, AdminNotifier $notifier): RedirectResponse
     {
         $validated = $request->validate([
             'category' => ['required', Rule::in(Feedback::CATEGORIES)],
@@ -49,13 +51,15 @@ class FeedbackController extends Controller
             ? $files->store($request->file('screenshot'), 'feedback/'.now()->format('Y/m'), field: 'screenshot')
             : null;
 
-        $request->user()->feedback()->create([
+        $feedback = $request->user()->feedback()->create([
             'category' => $validated['category'],
             'message' => trim($validated['message']),
             'page_url' => self::appPath($validated['page_url'] ?? null),
             'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
             'screenshot_path' => $screenshot['path'] ?? null,
         ]);
+
+        $notifier->notify(new FeedbackReceived($feedback));
 
         return back();
     }

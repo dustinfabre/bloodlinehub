@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
 use App\Models\Plan;
+use App\Notifications\Admin\PaymentSubmitted;
+use App\Services\AdminNotifier;
 use App\Services\PrivateFiles;
 use App\Support\PremiumFeature;
 use Illuminate\Http\RedirectResponse;
@@ -65,7 +67,7 @@ class BillingController extends Controller
         ]);
     }
 
-    public function store(Request $request, PrivateFiles $files): RedirectResponse
+    public function store(Request $request, PrivateFiles $files, AdminNotifier $notifier): RedirectResponse
     {
         $user = $request->user();
 
@@ -101,7 +103,7 @@ class BillingController extends Controller
 
         $receipt = $files->store($request->file('receipt'), 'receipts/'.now()->format('Y/m'), field: 'receipt');
 
-        $user->payments()->create([
+        $payment = $user->payments()->create([
             'payer_name' => $user->name,
             'payer_email' => $user->email,
             'plan_id' => $plan->id,
@@ -117,6 +119,8 @@ class BillingController extends Controller
             'receipt_path' => $receipt['path'],
             'receipt_mime' => $receipt['mime'],
         ]);
+
+        $notifier->notify(new PaymentSubmitted($payment));
 
         return back();
     }

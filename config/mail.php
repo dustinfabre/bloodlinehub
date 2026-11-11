@@ -115,4 +115,19 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Notifications
+    |--------------------------------------------------------------------------
+    |
+    | Who is emailed when a payment receipt is submitted or feedback is sent
+    | (App\Services\AdminNotifier). Comma-separated; empty sends nothing.
+    |
+    */
+
+    'admin_notifications' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('ADMIN_NOTIFICATION_EMAIL', '')),
+    ))),
+
 ];

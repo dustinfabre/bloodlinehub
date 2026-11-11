@@ -34,9 +34,9 @@ const sections: LegalSection[] = [
             <p>
                 BloodlineHub keeps records for pigeon fanciers: birds, ring
                 numbers, pedigrees, pairings and race results. This policy
-                explains what information we collect, why we collect it, who
-                can see it, and the choices you have. It applies to the
-                BloodlineHub website and the installable app.
+                explains what information we collect, why we collect it, who can
+                see it, and the choices you have. It applies to the BloodlineHub
+                website and the installable app.
             </p>
         </template>
 
@@ -44,9 +44,9 @@ const sections: LegalSection[] = [
             <h2 id="who-we-are">Who we are</h2>
             <p>
                 BloodlineHub ("we", "us") decides how the personal information
-                described here is used, and is responsible for it under the
-                Data Privacy Act of 2012 (Republic Act No. 10173) of the
-                Philippines. For any privacy question or request, email
+                described here is used, and is responsible for it under the Data
+                Privacy Act of 2012 (Republic Act No. 10173) of the Philippines.
+                For any privacy question or request, email
                 <a :href="mailto">{{ LEGAL_CONTACT_EMAIL }}</a
                 >.
             </p>
@@ -65,8 +65,8 @@ const sections: LegalSection[] = [
                     recovery codes in encrypted form.
                 </li>
                 <li>
-                    <strong>Waiting list:</strong> the email address you left
-                    on our "Request an invite" page before sign-up opened.
+                    <strong>Waiting list:</strong> the email address you left on
+                    our "Request an invite" page before sign-up opened.
                 </li>
                 <li>
                     <strong>Your loft records:</strong> everything you enter
@@ -78,9 +78,9 @@ const sections: LegalSection[] = [
                 </li>
                 <li>
                     <strong>Breeder details:</strong> the display name, phone
-                    number, email address and postal address you add in
-                    Settings → Pedigree. Each contact detail is printed on your
-                    pedigrees only if you switch it on.
+                    number, email address and postal address you add in Settings
+                    → Pedigree. Each contact detail is printed on your pedigrees
+                    only if you switch it on.
                 </li>
                 <li>
                     <strong>Photos:</strong> pictures of your birds, their
@@ -94,8 +94,7 @@ const sections: LegalSection[] = [
                     to, the reference number, any note you add, and the receipt
                     you upload. A receipt can show your name, your bank or
                     e-wallet and part of your account number. We also keep the
-                    name and email address on your account at the time you
-                    paid.
+                    name and email address on your account at the time you paid.
                 </li>
                 <li>
                     <strong>Messages and feedback:</strong> anything you send us
@@ -131,10 +130,10 @@ const sections: LegalSection[] = [
                 We do not use analytics or advertising trackers. We do not
                 process card payments or ask for your bank or e-wallet login:
                 you pay for Premium by bank transfer or e-wallet yourself, and
-                only tell us about the payment.
-                We do not ask for sensitive personal information such as
-                government ID numbers, health information or religious beliefs,
-                and you should not enter it in your records.
+                only tell us about the payment. We do not ask for sensitive
+                personal information such as government ID numbers, health
+                information or religious beliefs, and you should not enter it in
+                your records.
             </p>
         </section>
 
@@ -218,10 +217,10 @@ const sections: LegalSection[] = [
                 </li>
                 <li>
                     <strong>Photo links.</strong> Each photo is shown through a
-                    link containing a long random code. Anyone who has a
-                    photo's link can view it. People who see a shared pedigree
-                    or listing can also save, print or screenshot it, and we
-                    cannot take back copies made that way.
+                    link containing a long random code. Anyone who has a photo's
+                    link can view it. People who see a shared pedigree or
+                    listing can also save, print or screenshot it, and we cannot
+                    take back copies made that way.
                 </li>
             </ul>
             <p>
@@ -347,7 +346,8 @@ const sections: LegalSection[] = [
                 </li>
                 <li>
                     <strong>an email delivery provider</strong> that sends
-                    account emails;
+                    account emails, and that tells our staff when you submit a
+                    payment or send feedback;
                 </li>
                 <li>
                     <strong>Google</strong>, when you connect Google Drive, to
@@ -367,10 +367,10 @@ const sections: LegalSection[] = [
                 information becomes subject to a different privacy policy.
             </p>
             <p>
-                Some of these providers store or process information outside
-                the Philippines. When that happens we take reasonable steps so
-                that your information is protected to the standard this policy
-                and Philippine law require.
+                Some of these providers store or process information outside the
+                Philippines. When that happens we take reasonable steps so that
+                your information is protected to the standard this policy and
+                Philippine law require.
             </p>
         </section>
 
@@ -380,8 +380,8 @@ const sections: LegalSection[] = [
             <ul>
                 <li>a session cookie that keeps you signed in;</li>
                 <li>
-                    a security cookie (XSRF-TOKEN) that protects your forms
-                    from being submitted by other websites;
+                    a security cookie (XSRF-TOKEN) that protects your forms from
+                    being submitted by other websites;
                 </li>
                 <li>
                     a "remember me" cookie, if you tick that box when you log
@@ -396,10 +396,9 @@ const sections: LegalSection[] = [
                 Your browser also keeps some things on your device: unsaved loft
                 check counts (so a count survives a lost connection), your
                 display preferences, whether you have closed the cookie notice,
-                and, if you install the app, the app's
-                files so it opens quickly. You can clear these in your browser
-                settings at any time. We do not use advertising or tracking
-                cookies.
+                and, if you install the app, the app's files so it opens
+                quickly. You can clear these in your browser settings at any
+                time. We do not use advertising or tracking cookies.
             </p>
         </section>
 
@@ -438,8 +437,8 @@ const sections: LegalSection[] = [
                 </li>
             </ul>
             <p>
-                We may keep some information longer if the law requires it or
-                to resolve a dispute.
+                We may keep some information longer if the law requires it or to
+                resolve a dispute.
             </p>
         </section>
 
@@ -480,8 +479,8 @@ const sections: LegalSection[] = [
                 For anything else, such as a copy of your data, email
                 <a :href="mailto">{{ LEGAL_CONTACT_EMAIL }}</a
                 >. We may need to confirm your identity before acting on a
-                request, and we will reply within the time the law requires.
-                If you are not satisfied with our response, you can file a
+                request, and we will reply within the time the law requires. If
+                you are not satisfied with our response, you can file a
                 complaint with the
                 <a
                     href="https://privacy.gov.ph"
