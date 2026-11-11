@@ -6,9 +6,12 @@ import PedigreeExportActions from '@/components/pedigree/PedigreeExportActions.v
 import PedigreePhotos from '@/components/pedigree/PedigreePhotos.vue';
 import PedigreeSharingPanel from '@/components/pedigree/PedigreeSharingPanel.vue';
 import PedigreeViewer from '@/components/pedigree/PedigreeViewer.vue';
+import PremiumBadge from '@/components/PremiumBadge.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { pedigreeFilename } from '@/lib/pedigree';
+import { GENERATED_AT, usePremium } from '@/lib/premium';
+import { index as billing } from '@/routes/billing';
 import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
@@ -31,7 +34,16 @@ import type {
     PedigreeSharing,
 } from '@/types/pedigree';
 import { Head, Link } from '@inertiajs/vue3';
-import { Contact, Mail, MapPin, Pencil, Phone, Printer } from 'lucide-vue-next';
+import {
+    Contact,
+    ImageDown,
+    Mail,
+    MapPin,
+    Pencil,
+    Phone,
+    Printer,
+    QrCode,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface Pigeon {
@@ -43,6 +55,8 @@ interface Pigeon {
 
 const props = defineProps<{
     pigeon: Pigeon;
+    // The owner has Premium: Save image, sharing online, contact details, COI and Pairing Analysis
+    premium: boolean;
     tree: PedigreeNode;
     meta: PedigreeMeta;
     sharing: PedigreeSharing;
@@ -72,6 +86,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     { title: 'Pedigree', href: pedigreeRoute({ pigeon: props.pigeon.id }).url },
 ];
+
+const { featureUrl } = usePremium();
 
 // The sheet to export for Save image
 const chart = ref<InstanceType<typeof PedigreeChart> | null>(null);
@@ -119,22 +135,62 @@ const filename = computed(() =>
                     </Button>
                     <!-- Save image only: the PDF download was taken off; Print can still save a PDF -->
                     <PedigreeExportActions
+                        v-if="premium"
                         :target="chart?.paper"
                         :filename="filename"
                         :pdf="false"
                     />
+                    <Button v-else variant="outline" as-child>
+                        <Link :href="featureUrl('pedigree-export')">
+                            <ImageDown class="mr-2 h-4 w-4" />
+                            Save image
+                            <PremiumBadge icon-only class="ml-1" />
+                        </Link>
+                    </Button>
                 </div>
             </div>
 
             <PedigreeSharingPanel
+                v-if="premium"
                 :pigeon-id="pigeon.id"
                 :pigeon-label="pigeon.ring_number || pigeonLabel"
                 :share-url="meta.share_url"
                 :sharing="sharing"
             />
 
+            <!-- Without Premium: what the pedigree is missing, in one place -->
             <div
-                v-if="!hasContactDetails"
+                v-else
+                class="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="flex items-start gap-3">
+                    <QrCode
+                        class="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-300"
+                        aria-hidden="true"
+                    />
+                    <div class="text-sm">
+                        <p
+                            class="flex flex-wrap items-center gap-2 font-medium"
+                        >
+                            Share it online with a QR code
+                            <PremiumBadge />
+                        </p>
+                        <p class="text-muted-foreground">
+                            With Premium every pedigree gets a QR code and its
+                            own page online, your contact details and the bird's
+                            inbreeding (COI), and you can save it as an image.
+                            Without it the pedigree says "Generated at
+                            {{ GENERATED_AT }}".
+                        </p>
+                    </div>
+                </div>
+                <Button size="sm" class="shrink-0" as-child>
+                    <Link :href="billing()">Get Premium</Link>
+                </Button>
+            </div>
+
+            <div
+                v-if="premium && !hasContactDetails"
                 class="flex flex-col gap-3 rounded-lg border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between"
             >
                 <div class="flex items-start gap-3">

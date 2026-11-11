@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import PedigreeBirdDialog from '@/components/pedigree/PedigreeBirdDialog.vue';
 import PedigreeCard from '@/components/pedigree/PedigreeCard.vue';
@@ -14,6 +15,7 @@ import {
     slotGridArea,
     VISIBILITY_LABELS,
 } from '@/lib/pedigree';
+import { GENERATED_AT } from '@/lib/premium';
 import type {
     PedigreeMeta,
     PedigreeNode,
@@ -174,6 +176,22 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                             </div>
                         </div>
                     </div>
+                    <!-- Without Premium: no QR code or online page, just where the pedigree was made -->
+                    <div
+                        v-else-if="!meta.premium"
+                        class="pedigree-qr-block is-generated"
+                    >
+                        <AppLogoIcon class="pedigree-generated-logo" />
+                        <div>
+                            <div class="pedigree-qr-label">Generated at</div>
+                            <div class="pedigree-qr-serial">
+                                {{ GENERATED_AT }}
+                            </div>
+                            <div class="pedigree-qr-hint is-mono">
+                                {{ meta.serial }}
+                            </div>
+                        </div>
+                    </div>
                     <div v-else class="pedigree-qr-block">
                         <div class="pedigree-qr" v-html="meta.qr_svg" />
                         <div>
@@ -242,6 +260,10 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
                     <div v-if="sample" class="pedigree-footnote">
                         Sample from Pairing Analysis, not a registered bird ·
                         Remarks supplied by the {{ roleWord }}
+                    </div>
+                    <div v-else-if="!meta.premium" class="pedigree-footnote">
+                        Remarks supplied by the {{ roleWord }} · Generated at
+                        {{ GENERATED_AT }}
                     </div>
                     <div v-else class="pedigree-footnote">
                         Remarks supplied by the {{ roleWord }} · Verify at
@@ -582,6 +604,12 @@ const showDetails = (key: string, node: PedigreeNode | null) => {
     padding: 4px;
     border-radius: 8px;
     background: #ffffff;
+}
+
+.pedigree-generated-logo {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
 }
 
 .pedigree-qr svg {

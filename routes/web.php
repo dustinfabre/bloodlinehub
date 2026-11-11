@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\BloodlineController;
 use App\Http\Controllers\ClubController;
 use App\Http\Controllers\ClubSeasonController;
@@ -7,7 +8,6 @@ use App\Http\Controllers\ClubSeasonEventController;
 use App\Http\Controllers\ClubSeasonRaceController;
 use App\Http\Controllers\ClutchController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\InviteRequestController;
 use App\Http\Controllers\LineageController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\LoftCheckController;
@@ -41,14 +41,14 @@ Route::get('terms', fn () => Inertia::render('legal/Terms'))
 Route::get('marketplace', [MarketplaceController::class, 'index'])
     ->middleware('throttle:60,1')
     ->name('marketplace.index');
-// Request an invite while registration is closed. Fortify registration is disabled in config/fortify.php, so the
-// `register` name is free: remove this route if Fortify registration is ever turned on.
+// Sign-up. Fortify's registration feature stays off (config/fortify.php) so these routes own /register and can add
+// a honeypot, a rate limit and the terms checkbox.
 Route::middleware('guest')->group(function () {
-    Route::get('register', [InviteRequestController::class, 'create'])
+    Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
-    Route::post('invite-requests', [InviteRequestController::class, 'store'])
+    Route::post('register', [RegisteredUserController::class, 'store'])
         ->middleware('throttle:5,1')
-        ->name('invite-requests.store');
+        ->name('register.store');
 });
 // Shared pedigree (QR code target); private pedigrees are only visible to their owner or with the share password.
 // Kept out of search engines, so a lost bird's pedigree can't be found by searching its ring number.
@@ -68,7 +68,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.check-ring-number');
     Route::get('pigeons/suggest-ring-number', [PigeonController::class, 'suggestRingNumber'])
         ->name('pigeons.suggest-ring-number');
-    
+
     Route::resource('pigeons', PigeonController::class);
     Route::patch('pigeons/{pigeon}/status', [PigeonController::class, 'updateStatus'])
         ->name('pigeons.status');
@@ -88,12 +88,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.featureRelatives');
     Route::delete('pigeons/{pigeon}/pedigree/ancestors', [PedigreeAncestorController::class, 'destroy'])
         ->name('pigeons.removeAncestor');
-    Route::get('pigeons/{pigeon}/pedigree/copy-sources', [PedigreeCopyController::class, 'sources'])
-        ->name('pigeons.pedigreeCopySources');
-    Route::get('pigeons/{pigeon}/pedigree/copy-sources/{source}', [PedigreeCopyController::class, 'source'])
-        ->name('pigeons.pedigreeCopySource');
-    Route::post('pigeons/{pigeon}/pedigree/copy', [PedigreeCopyController::class, 'store'])
-        ->name('pigeons.copyPedigree');
+    // Copying ancestors from another bird's pedigree (Premium)
+    Route::middleware('premium:pedigree-copy')->group(function () {
+        Route::get('pigeons/{pigeon}/pedigree/copy-sources', [PedigreeCopyController::class, 'sources'])
+            ->name('pigeons.pedigreeCopySources');
+        Route::get('pigeons/{pigeon}/pedigree/copy-sources/{source}', [PedigreeCopyController::class, 'source'])
+            ->name('pigeons.pedigreeCopySource');
+        Route::post('pigeons/{pigeon}/pedigree/copy', [PedigreeCopyController::class, 'store'])
+            ->name('pigeons.copyPedigree');
+    });
     Route::post('pigeons/{pigeon}/merits', [PigeonMeritController::class, 'store'])
         ->name('pigeons.merits.store');
     Route::delete('pigeons/{pigeon}/merits/{merit}', [PigeonMeritController::class, 'destroy'])
@@ -111,19 +114,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('lineage/search', [LineageController::class, 'search'])
         ->name('lineage.search');
 
-    // Pairing Analysis: relationship, inbreeding and proof of a planned cross
-    Route::get('pairing-analysis', [PairingAnalysisController::class, 'index'])
-        ->name('pairing-analysis.index');
+    // Pairing Analysis: relationship, inbreeding and proof of a planned cross, and the breeding plan on the same page
+    // (Premium)
+    Route::middleware('premium:pairing-analysis')->group(function () {
+        Route::get('pairing-analysis', [PairingAnalysisController::class, 'index'])
+            ->name('pairing-analysis.index');
+
+        // Breeding plan: pairs saved for next season
+        Route::post('planned-pairings', [PlannedPairingController::class, 'store'])
+            ->name('planned-pairings.store');
+        Route::patch('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'update'])
+            ->name('planned-pairings.update');
+        Route::delete('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'destroy'])
+            ->name('planned-pairings.destroy');
+    });
     // Its old address (it was called Test Pairing), for bookmarks
     Route::get('test-pairing', fn (Request $request) => redirect()->route('pairing-analysis.index', $request->query()));
-
-    // Breeding plan: pairs saved for next season
-    Route::post('planned-pairings', [PlannedPairingController::class, 'store'])
-        ->name('planned-pairings.store');
-    Route::patch('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'update'])
-        ->name('planned-pairings.update');
-    Route::delete('planned-pairings/{plannedPairing}', [PlannedPairingController::class, 'destroy'])
-        ->name('planned-pairings.destroy');
 
     // Bloodlines management API
     Route::get('bloodlines', [BloodlineController::class, 'index'])
@@ -139,17 +145,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('bloodlines/{bloodline}', [BloodlineController::class, 'destroy'])
         ->name('bloodlines.destroy');
 
-    // Loft checks: count the birds after a training toss, find the missing ones, keep the history
-    Route::get('loft-checks', [LoftCheckController::class, 'index'])
-        ->name('loft-checks.index');
-    Route::get('loft-checks/create', [LoftCheckController::class, 'create'])
-        ->name('loft-checks.create');
-    Route::post('loft-checks', [LoftCheckController::class, 'store'])
-        ->name('loft-checks.store');
-    Route::get('loft-checks/{loftCheck}', [LoftCheckController::class, 'show'])
-        ->name('loft-checks.show');
-    Route::delete('loft-checks/{loftCheck}', [LoftCheckController::class, 'destroy'])
-        ->name('loft-checks.destroy');
+    // Loft checks: count the birds after a training toss, find the missing ones, keep the history (Premium)
+    Route::middleware('premium:loft-check')->group(function () {
+        Route::get('loft-checks', [LoftCheckController::class, 'index'])
+            ->name('loft-checks.index');
+        Route::get('loft-checks/create', [LoftCheckController::class, 'create'])
+            ->name('loft-checks.create');
+        Route::post('loft-checks', [LoftCheckController::class, 'store'])
+            ->name('loft-checks.store');
+        Route::get('loft-checks/{loftCheck}', [LoftCheckController::class, 'show'])
+            ->name('loft-checks.show');
+        Route::delete('loft-checks/{loftCheck}', [LoftCheckController::class, 'destroy'])
+            ->name('loft-checks.destroy');
+    });
 
     // Locations management
     Route::get('locations', [LocationController::class, 'index'])
@@ -172,7 +180,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('pairings', PairingController::class);
     Route::post('pairings/{pairing}/end-session', [PairingController::class, 'endSession'])
         ->name('pairings.end-session');
-    
+
     // Clutches management (nested under pairings)
     Route::post('pairings/{pairing}/clutches', [ClutchController::class, 'store'])
         ->name('pairings.clutches.store');
@@ -191,7 +199,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // OLR Races management
     Route::resource('olr-races', OlrRaceController::class);
-    
+
     // Nested OLR routes: each {season}, {race} and {pigeon} must belong to the one before it (404 otherwise)
     Route::scopeBindings()->group(function () {
         // OLR Seasons
@@ -207,7 +215,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('olr-races.seasons.update');
         Route::delete('olr-races/{olr_race}/seasons/{season}', [OlrSeasonController::class, 'destroy'])
             ->name('olr-races.seasons.destroy');
-    
+
         // OLR Season Entries
         Route::post('olr-races/{olr_race}/seasons/{season}/entries', [OlrSeasonController::class, 'addEntry'])
             ->name('olr-races.seasons.entries.store');
@@ -217,7 +225,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('olr-races.seasons.entries.destroy');
         Route::patch('olr-races/{olr_race}/seasons/{season}/entries/{pigeon}', [OlrSeasonController::class, 'updateEntry'])
             ->name('olr-races.seasons.entries.update');
-    
+
         // OLR Season Races
         Route::get('olr-races/{olr_race}/seasons/{season}/races/create', [OlrSeasonRaceController::class, 'create'])
             ->name('olr-races.seasons.races.create');
@@ -231,7 +239,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('olr-races.seasons.races.update');
         Route::delete('olr-races/{olr_race}/seasons/{season}/races/{race}', [OlrSeasonRaceController::class, 'destroy'])
             ->name('olr-races.seasons.races.destroy');
-    
+
         // OLR Race Results
         Route::post('olr-races/{olr_race}/seasons/{season}/races/{race}/results', [OlrSeasonRaceController::class, 'addResult'])
             ->name('olr-races.seasons.races.results.store');
@@ -245,7 +253,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Clubs management
     Route::resource('clubs', ClubController::class);
-    
+
     // Nested club routes: each {season}, {event}, {race} and {pigeon} must belong to the one before it (404 otherwise)
     Route::scopeBindings()->group(function () {
         // Club Seasons
@@ -261,7 +269,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('clubs.seasons.update');
         Route::delete('clubs/{club}/seasons/{season}', [ClubSeasonController::class, 'destroy'])
             ->name('clubs.seasons.destroy');
-    
+
         // Club Season Entries
         Route::post('clubs/{club}/seasons/{season}/entries', [ClubSeasonController::class, 'addEntry'])
             ->name('clubs.seasons.entries.store');
@@ -271,7 +279,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('clubs.seasons.entries.destroy');
         Route::patch('clubs/{club}/seasons/{season}/entries/{pigeon}', [ClubSeasonController::class, 'updateEntry'])
             ->name('clubs.seasons.entries.update');
-    
+
         // Club Season Events
         Route::post('clubs/{club}/seasons/{season}/events', [ClubSeasonEventController::class, 'store'])
             ->name('clubs.seasons.events.store');
@@ -301,7 +309,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('clubs.seasons.races.update');
         Route::delete('clubs/{club}/seasons/{season}/races/{race}', [ClubSeasonRaceController::class, 'destroy'])
             ->name('clubs.seasons.races.destroy');
-    
+
         // Club Race Results
         Route::post('clubs/{club}/seasons/{season}/races/{race}/results', [ClubSeasonRaceController::class, 'addResult'])
             ->name('clubs.seasons.races.results.store');
@@ -316,3 +324,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 require __DIR__.'/settings.php';
 require __DIR__.'/storage.php';
+require __DIR__.'/account.php';
+require __DIR__.'/admin.php';

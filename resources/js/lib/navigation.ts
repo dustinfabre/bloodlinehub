@@ -26,10 +26,20 @@ export const mainNavItems: NavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
     { title: 'Pigeons', href: pigeons(), icon: Bird },
     // Counted on the phone in the loft after training, so it sits in the mobile bottom bar
-    { title: 'Loft Check', href: loftChecks(), icon: ClipboardCheck },
+    {
+        title: 'Loft Check',
+        href: loftChecks(),
+        icon: ClipboardCheck,
+        premium: true,
+    },
     { title: 'Breeding', href: pairings(), icon: Heart },
     { title: 'Lineage', href: lineage(), icon: GitFork },
-    { title: 'Pairing Analysis', href: pairingAnalysis(), icon: FlaskConical },
+    {
+        title: 'Pairing Analysis',
+        href: pairingAnalysis(),
+        icon: FlaskConical,
+        premium: true,
+    },
     { title: 'OLR Races', href: olrRaces(), icon: Trophy },
     { title: 'Clubs', href: clubs(), icon: Flag },
     { title: 'Sales & Auctions', href: sales(), icon: DollarSign },

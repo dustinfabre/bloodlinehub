@@ -19,7 +19,7 @@ class PedigreeDetailsTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->user = User::factory()->create(['name' => 'Juan Dela Cruz', 'email' => 'juan.personal@example.com']);
+        $this->user = User::factory()->premium()->create(['name' => 'Juan Dela Cruz', 'email' => 'juan.personal@example.com']);
     }
 
     private function details(array $overrides = []): array

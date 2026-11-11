@@ -20,7 +20,7 @@ class PedigreeCopyTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->premium()->create();
     }
 
     private function pigeon(array $attributes = [], ?User $owner = null): Pigeon
@@ -103,7 +103,7 @@ class PedigreeCopyTest extends TestCase
             ->assertJsonCount(1, 'pigeons')
             ->assertJsonPath('pigeons.0.id', $unrelated->id);
 
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->premium()->create())
             ->getJson(route('pigeons.pedigreeCopySources', $target))
             ->assertNotFound();
     }
@@ -139,7 +139,7 @@ class PedigreeCopyTest extends TestCase
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySource', [$target, $theirs]))
             ->assertNotFound();
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->premium()->create())
             ->getJson(route('pigeons.pedigreeCopySource', [$target, $source]))
             ->assertNotFound();
     }
@@ -382,7 +382,7 @@ class PedigreeCopyTest extends TestCase
         $this->copy($target, $sireOnly, ['sire', 'sire'])->assertSessionHasErrors('sides.0');
         $this->copy($target, $target, ['sire'])->assertSessionHasErrors('source_id');
         $this->copy($target, $theirs, ['sire'])->assertSessionHasErrors('source_id');
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->premium()->create())
             ->post(route('pigeons.copyPedigree', $target), ['source_id' => $sireOnly->id, 'sides' => ['sire']])
             ->assertNotFound();
 

@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Feedback;
+use App\Models\Payment;
 use App\Services\Pedigree\GoneBirdPedigrees;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -45,11 +47,19 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
+                // Premium features unlocked (paid Premium or an admin); worked out here so the browser's clock can't
+                // disagree with the server's
+                'premium' => (bool) $request->user()?->hasPremium(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'features' => [
                 'marketplace' => (bool) config('features.marketplace'),
             ],
+            // Admins only: what's waiting for them, for the badges in the admin menu
+            'adminCounts' => fn () => $request->user()?->is_admin ? [
+                'pending_payments' => Payment::pending()->count(),
+                'unread_feedback' => Feedback::unread()->count(),
+            ] : null,
             // Birds that just went missing or died while their pedigree is public: offer to make it private
             'pedigreePrompt' => fn () => $request->hasSession() ? $request->session()->get(GoneBirdPedigrees::SESSION_KEY) : null,
         ];

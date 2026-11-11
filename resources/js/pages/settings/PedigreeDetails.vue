@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import HeadingSmall from '@/components/HeadingSmall.vue';
 import InputError from '@/components/InputError.vue';
+import PremiumBadge from '@/components/PremiumBadge.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -8,9 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { usePremium } from '@/lib/premium';
+import { index as billing } from '@/routes/billing';
 import { edit, update } from '@/routes/pedigree-details';
 import { type BreadcrumbItem } from '@/types';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Mail, MapPin, Phone } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -28,6 +31,8 @@ const props = defineProps<{
     accountName: string;
     details: Details;
 }>();
+
+const { premium } = usePremium();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     { title: 'Pedigree details', href: edit().url },
@@ -66,6 +71,25 @@ const submit = () => {
                     title="Pedigree details"
                     description="Your loft name, phone number, email and address on every pedigree: on screen and when printed."
                 />
+
+                <div
+                    v-if="!premium"
+                    class="flex flex-col gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <p>
+                        <span class="flex items-center gap-2 font-medium"
+                            >Contact details on pedigrees <PremiumBadge
+                        /></span>
+                        <span class="text-muted-foreground"
+                            >Your loft name is always printed. Your phone, email
+                            and address are printed only with Premium; you can
+                            fill them in now.</span
+                        >
+                    </p>
+                    <Button size="sm" class="shrink-0" as-child>
+                        <Link :href="billing()">Get Premium</Link>
+                    </Button>
+                </div>
 
                 <form class="space-y-6" @submit.prevent="submit">
                     <div class="grid gap-2">

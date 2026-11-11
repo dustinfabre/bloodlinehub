@@ -8,6 +8,7 @@ use App\Services\Lineage\LineageService;
 use App\Services\Lineage\LoftGraph;
 use App\Services\Lineage\PairingAnalysis;
 use App\Services\PedigreeService;
+use App\Support\PremiumFeature;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -44,6 +45,7 @@ class PedigreeController extends Controller
 
         return Inertia::render('pigeons/Pedigree', [
             'pigeon' => $this->summary($pigeon),
+            'premium' => $request->user()->hasPremium(),
             ...$this->pedigrees->chart($pigeon, graph: $graph),
             'sharing' => $this->sharing($pigeon->pedigreeRecord()),
             // Whether any phone, email or address has been entered (shown or not), to prompt breeders who haven't
@@ -84,6 +86,13 @@ class PedigreeController extends Controller
         ], [
             'expires_at.after' => 'Choose a date in the future.',
         ]);
+
+        // Sharing online is Premium; making a pedigree private is always allowed
+        if ($validated['visibility'] !== 'private' && ! $request->user()->hasPremium()) {
+            throw ValidationException::withMessages([
+                'visibility' => PremiumFeature::PedigreeSharing->title().' is a Premium feature.',
+            ]);
+        }
 
         if ($validated['visibility'] !== 'password') {
             $pedigree->update([
@@ -140,6 +149,19 @@ class PedigreeController extends Controller
         $isOwner = $request->user()?->id === $pigeon->user_id;
         $unlocked = $pedigree->grantsAccess($request->session()->get($this->accessKey($pedigree)));
 
+        // Online pedigrees are Premium: without it, visitors see a private pedigree and the owner is told why
+        // (e.g. a QR code printed while their Premium was active)
+        if (! $pigeon->user->hasPremium()) {
+            return Inertia::render('pedigrees/Shared', [
+                'serial' => $pedigree->serial,
+                'isOwner' => $isOwner,
+                'pigeonId' => $isOwner ? $pigeon->id : null,
+                'locked' => $isOwner ? 'premium' : 'private',
+                'tree' => null,
+                'meta' => null,
+            ])->toResponse($request)->setStatusCode(403);
+        }
+
         if (! $pedigree->is_public && ! $isOwner && ! $unlocked) {
             // If the owner logs in from here, bring them straight back
             if (! $request->user()) {
@@ -189,14 +211,15 @@ class PedigreeController extends Controller
         $damId = $dam ? $graph->node($dam)['pigeon_id'] : null;
 
         return [
-            'analysis' => $paired
+            // Pairing Analysis is Premium; Lineage is free
+            'analysis' => $paired && $pigeon->user->hasPremium()
                 ? $this->analysis->analyse($graph, $sire, $dam, $pigeon->user_id, $public, subject: $key)
                 : null,
             'generations' => LineageService::PEDIGREE_GENERATIONS + 1,
             'lineage' => $this->lineage->family($graph, $key, $public),
             'descendantGenerations' => LineageService::DESCENDANT_GENERATIONS,
             'ownerLinks' => $links ? [
-                'pairing_analysis' => $paired && $sireId && $damId
+                'pairing_analysis' => $paired && $sireId && $damId && $pigeon->user->hasPremium()
                     ? route('pairing-analysis.index', ['sire' => $sireId, 'dam' => $damId])
                     : null,
                 'lineage' => route('lineage.index', ['pigeon' => $pigeon->id]),

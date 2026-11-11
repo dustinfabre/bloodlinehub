@@ -25,7 +25,7 @@ class BreedingPlanTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->premium()->create();
     }
 
     private function bird(string $ring, array $attributes = [], ?User $owner = null): Pigeon
@@ -170,7 +170,8 @@ class BreedingPlanTest extends TestCase
             'sire_id' => $this->bird('COCK')->id,
             'dam_id' => $this->bird('HEN')->id,
         ]);
-        $intruder = User::factory()->create();
+        // Premium, so it's the ownership check that turns them away
+        $intruder = User::factory()->premium()->create();
 
         $this->actingAs($intruder)->patch(route('planned-pairings.update', $plan), ['notes' => 'x'])->assertNotFound();
         $this->actingAs($intruder)->delete(route('planned-pairings.destroy', $plan))->assertNotFound();

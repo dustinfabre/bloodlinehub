@@ -60,7 +60,26 @@ return [
             'report' => false,
         ],
 
+        // Cloudflare R2 (S3-compatible), a private bucket for payment receipts, bank QR codes and feedback
+        // screenshots. Files are only ever served through the app (PrivateFiles), never by public bucket URLs.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_BUCKET'),
+            // https://{account id}.r2.cloudflarestorage.com
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
     ],
+
+    // Disk for private uploads (see the r2 disk). Set PRIVATE_FILES_DISK=local to work without R2 locally.
+    'private' => env('PRIVATE_FILES_DISK', 'r2'),
 
     /*
     |--------------------------------------------------------------------------

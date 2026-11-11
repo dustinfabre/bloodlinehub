@@ -51,7 +51,7 @@ import { ArrowRight } from 'lucide-vue-next';
                             :href="register()"
                             class="group inline-flex min-h-11 items-center gap-2 rounded-md bg-navy px-5 text-[15px] font-semibold text-ivory transition-colors duration-150 hover:bg-navy/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
                         >
-                            Request an invite
+                            Create a free account
                             <ArrowRight
                                 class="size-4 transition-transform duration-150 group-hover:translate-x-0.5"
                                 aria-hidden="true"

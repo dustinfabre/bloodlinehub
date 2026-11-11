@@ -4,6 +4,7 @@ import AncestorDialog from '@/components/pedigree/AncestorDialog.vue';
 import CopyPedigreeDialog from '@/components/pedigree/CopyPedigreeDialog.vue';
 import PedigreeEditorSlot from '@/components/pedigree/PedigreeEditorSlot.vue';
 import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import PremiumBadge from '@/components/PremiumBadge.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/composables/useToast';
@@ -18,6 +19,7 @@ import {
     relationTitle,
     slotGridArea,
 } from '@/lib/pedigree';
+import { usePremium } from '@/lib/premium';
 import { edit as editPedigreeDetails } from '@/routes/pedigree-details';
 import {
     editPedigree,
@@ -216,11 +218,14 @@ const copyOpen = ref(false);
 // The place to fill when "Copy from another pigeon" is opened from a box on the chart
 const copyFocus = ref<string | null>(null);
 
-const openCopy = (focus: string | null) => {
-    copyFocus.value = focus;
-    dialogOpen.value = false;
-    copyOpen.value = true;
-};
+// Copying from another bird is Premium; without it this opens the page that explains it
+const { premium, withPremium } = usePremium();
+const openCopy = (focus: string | null) =>
+    withPremium('pedigree-copy', () => {
+        copyFocus.value = focus;
+        dialogOpen.value = false;
+        copyOpen.value = true;
+    });
 
 const dialogOpen = ref(false);
 const activeTarget = ref<AncestorTarget | null>(null);
@@ -252,6 +257,7 @@ const openEditor = (target: AncestorTarget | null) => {
                     <Button variant="outline" @click="openCopy(null)">
                         <Copy class="size-4" />
                         Copy from another pigeon
+                        <PremiumBadge v-if="!premium" icon-only />
                     </Button>
                     <Button variant="outline" as-child>
                         <Link :href="editRoute({ pigeon: pigeon.id }).url"

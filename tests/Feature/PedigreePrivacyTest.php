@@ -24,7 +24,7 @@ class PedigreePrivacyTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->me = User::factory()->create();
+        $this->me = User::factory()->premium()->create();
     }
 
     private function bird(string $ring, string $visibility = 'public', array $attributes = [], ?User $owner = null): Pigeon

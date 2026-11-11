@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PremiumBadge from '@/components/PremiumBadge.vue';
 import UserInfo from '@/components/UserInfo.vue';
 import {
     Sheet,
@@ -13,9 +14,22 @@ import {
 } from '@/lib/navigation';
 import { toUrl } from '@/lib/utils';
 import { logout } from '@/routes';
+import { dashboard as adminDashboard } from '@/routes/admin';
+import { index as billing } from '@/routes/billing';
+import { create as feedback } from '@/routes/feedback';
 import { edit as profileEdit } from '@/routes/profile';
+import type { AppPageProps } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { Download, LogOut, Menu, Settings, Share } from 'lucide-vue-next';
+import {
+    Crown,
+    Download,
+    LogOut,
+    Menu,
+    MessageSquare,
+    Settings,
+    Share,
+    Shield,
+} from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -23,7 +37,7 @@ interface BeforeInstallPromptEvent extends Event {
     userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const page = usePage();
+const page = usePage<AppPageProps>();
 const moreOpen = ref(false);
 const installPrompt = ref<BeforeInstallPromptEvent | null>(null);
 const isIos = computed(
@@ -93,7 +107,18 @@ onBeforeUnmount(() => {
                         : 'hover:text-foreground'
                 "
             >
-                <component :is="item.icon" class="size-5" aria-hidden="true" />
+                <span class="relative">
+                    <component
+                        :is="item.icon"
+                        class="size-5"
+                        aria-hidden="true"
+                    />
+                    <Crown
+                        v-if="item.premium && !page.props.auth.premium"
+                        class="absolute -top-1.5 -right-2 size-3 text-amber-600 dark:text-amber-300"
+                        aria-label="Premium"
+                    />
+                </span>
                 <span>{{ item.title }}</span>
             </Link>
             <button
@@ -144,7 +169,11 @@ onBeforeUnmount(() => {
                         class="size-5 shrink-0"
                         aria-hidden="true"
                     />
-                    <span class="text-sm">{{ item.title }}</span>
+                    <span class="flex-1 text-sm">{{ item.title }}</span>
+                    <PremiumBadge
+                        v-if="item.premium && !page.props.auth.premium"
+                        icon-only
+                    />
                 </Link>
             </div>
 
@@ -181,6 +210,31 @@ onBeforeUnmount(() => {
                     >
                         <Settings class="size-5" aria-hidden="true" />
                         Settings
+                    </Link>
+                    <Link
+                        :href="billing()"
+                        class="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        @click="moreOpen = false"
+                    >
+                        <Crown class="size-5" aria-hidden="true" />
+                        Plan & billing
+                    </Link>
+                    <Link
+                        :href="feedback({ query: { from: page.url } })"
+                        class="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        @click="moreOpen = false"
+                    >
+                        <MessageSquare class="size-5" aria-hidden="true" />
+                        Send feedback
+                    </Link>
+                    <Link
+                        v-if="page.props.auth.user.is_admin"
+                        :href="adminDashboard()"
+                        class="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        @click="moreOpen = false"
+                    >
+                        <Shield class="size-5" aria-hidden="true" />
+                        Admin
                     </Link>
                     <Link
                         :href="logout()"

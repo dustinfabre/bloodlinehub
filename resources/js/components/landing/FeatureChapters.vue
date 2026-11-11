@@ -11,7 +11,8 @@ interface Chapter {
     // Where to find it after logging in, in the app's own menu words
     where: string;
     lead: string;
-    items: { term: string; text: string }[];
+    // premium: only with BloodlineHub Premium (app/Support/PremiumFeature.php)
+    items: { term: string; text: string; premium?: boolean }[];
     specimen?: Component;
 }
 
@@ -54,10 +55,12 @@ const chapters = computed<Chapter[]>(() => [
         items: [
             {
                 term: 'Pairing Analysis',
+                premium: true,
                 text: 'See the COI of the youngsters, how related the pair is, their common ancestors and how much each one adds.',
             },
             {
                 term: 'Breeding plan',
+                premium: true,
                 text: 'Save pairs for next season with a note. Their COI and Golden Pair status update as your loft changes.',
             },
             {
@@ -90,14 +93,16 @@ const chapters = computed<Chapter[]>(() => [
             },
             {
                 term: 'Photo showcase and print',
-                text: "The bird's photo leads, with photos of its loft ancestors grouped by father's and mother's side. Save the chart as an image, print it on A4, or save a PDF from the print view.",
+                text: "The bird's photo leads, with photos of its loft ancestors grouped by father's and mother's side. Print it on A4; with Premium, also save it as an image or PDF and print your contact details on it.",
             },
             {
                 term: 'Serial and QR code',
-                text: "Every pedigree carries its own serial number, the bird's COI and a QR code that links to it online, where the Pairing Analysis of its parents and its Lineage follow the chart.",
+                premium: true,
+                text: "Every pedigree carries its own serial number. With Premium it also shows the bird's COI and a QR code that links to it online, where the Pairing Analysis of its parents and its Lineage follow the chart.",
             },
             {
                 term: 'Private, password or public',
+                premium: true,
                 text: 'Pedigrees start private. Protect one with a password or make it public. Private notes are never shown.',
             },
         ],
@@ -155,6 +160,7 @@ const chapters = computed<Chapter[]>(() => [
             },
             {
                 term: 'Pedigree for the buyer',
+                premium: true,
                 text: 'Send the pedigree link with a password that lasts 24 hours, 7 days, 30 days or until a date you pick.',
             },
         ],
@@ -230,6 +236,11 @@ const chapterNumber = (index: number) => String(index + 1).padStart(2, '0');
                             />
                             <span class="font-medium text-navy"
                                 >{{ item.term }}.</span
+                            >
+                            <span
+                                v-if="item.premium"
+                                class="ml-1 inline-block rounded-full border border-gold px-2 py-px align-[0.1em] text-[11px] font-semibold tracking-wide text-navy uppercase"
+                                >Premium</span
                             >
                             {{ ' ' }}
                             <span class="text-muted-foreground">{{

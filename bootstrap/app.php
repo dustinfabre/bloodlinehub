@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsurePremium;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\TrustProxies;
@@ -25,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Trusted proxies come from config('app.trusted_proxies') (TRUSTED_PROXIES), read per request so it also
         // works with cached config
         $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, TrustProxies::class);
+
+        $middleware->alias([
+            'admin' => EnsureUserIsAdmin::class,
+            'premium' => EnsurePremium::class,
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

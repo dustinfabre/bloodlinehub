@@ -3,6 +3,8 @@ import type { LucideIcon } from 'lucide-vue-next';
 
 export interface Auth {
     user: User;
+    // Premium features unlocked: paid Premium, or an admin
+    premium: boolean;
 }
 
 export interface BreadcrumbItem {
@@ -15,6 +17,8 @@ export interface NavItem {
     href: NonNullable<InertiaLinkProps['href']>;
     icon?: LucideIcon;
     isActive?: boolean;
+    // Premium only: shows a crown for accounts without Premium
+    premium?: boolean;
 }
 
 export type AppPageProps<
@@ -28,7 +32,14 @@ export type AppPageProps<
     features: { marketplace: boolean };
     // Birds that just went missing or died while their pedigree is public
     pedigreePrompt?: PedigreePrompt | null;
+    // Admins only: what's waiting in the admin dashboard (null for everyone else)
+    adminCounts?: AdminCounts | null;
 };
+
+export interface AdminCounts {
+    pending_payments: number;
+    unread_feedback: number;
+}
 
 export interface PedigreePrompt {
     // Unique per prompt, so each is shown once
@@ -42,6 +53,10 @@ export interface User {
     email: string;
     avatar?: string;
     email_verified_at: string | null;
+    // Can open /admin
+    is_admin: boolean;
+    // Premium while this is in the future
+    premium_until: string | null;
     created_at: string;
     updated_at: string;
 }

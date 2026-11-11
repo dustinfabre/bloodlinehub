@@ -101,7 +101,7 @@ defineProps<{
 
         <p class="text-center text-sm text-muted-foreground">
             No account yet?
-            <TextLink :href="register()">Request an invite</TextLink>
+            <TextLink :href="register()">Sign up free</TextLink>
         </p>
         <p class="text-center text-xs text-muted-foreground">
             <TextLink :href="privacy()">Privacy</TextLink>

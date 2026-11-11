@@ -25,7 +25,7 @@ class LoftCheckTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->premium()->create();
     }
 
     private function bird(string $ring, string $status = 'racing', array $attributes = [], ?User $owner = null): Pigeon
@@ -311,7 +311,8 @@ class LoftCheckTest extends TestCase
         $this->actingAs($this->user)->post(route('loft-checks.store'), ['missing' => [$lost->id]]);
         $check = LoftCheck::first();
 
-        $other = User::factory()->create();
+        // Premium, so it's the ownership check that turns them away
+        $other = User::factory()->premium()->create();
         $this->actingAs($other)->get(route('loft-checks.show', $check))->assertNotFound();
         $this->actingAs($other)->delete(route('loft-checks.destroy', $check))->assertNotFound();
 

@@ -38,23 +38,28 @@ class PedigreeService
      *
      * Remarks are included because they are meant for the pedigree; notes are private and never included.
      * Public charts also omit internal pigeon IDs. Pass the owner's loft graph if the caller has built it already.
+     *
+     * Without Premium the sheet has no QR code or online link (it says where it was generated instead), no contact
+     * details and no COI (see PremiumFeature).
      */
     public function chart(Pigeon $pigeon, bool $public = false, ?LoftGraph $graph = null): array
     {
         $pedigree = $pigeon->pedigreeRecord();
-        $shareUrl = route('pedigrees.shared', $pedigree->serial);
+        $premium = $pigeon->user->hasPremium();
+        $shareUrl = $premium ? route('pedigrees.shared', $pedigree->serial) : '';
 
         return [
             'tree' => $this->tree($pigeon, $public),
             'meta' => [
                 'serial' => $pedigree->serial,
+                'premium' => $premium,
                 'is_public' => $pedigree->is_public,
                 'visibility' => $pedigree->visibility(),
                 'share_url' => $shareUrl,
-                'qr_svg' => $this->qrSvg($shareUrl),
+                'qr_svg' => $premium ? $this->qrSvg($shareUrl) : '',
                 ...$this->breeder($pigeon->user),
                 ...$this->breeding($pigeon),
-                'coi' => $this->coi($pigeon, $graph ?? $this->lineage->graph($pigeon->user_id)),
+                'coi' => $premium ? $this->coi($pigeon, $graph ?? $this->lineage->graph($pigeon->user_id)) : null,
                 'photo_url' => $pigeon->photo_url,
                 // Below the chart: photos and certificates of the bird and its loft parents, and notable relatives
                 ...$this->showcase->for($pigeon, $public),
@@ -96,6 +101,7 @@ class PedigreeService
             'tree' => $tree,
             'meta' => [
                 'serial' => 'SAMPLE',
+                'premium' => $breeder->hasPremium(),
                 'is_public' => false,
                 'visibility' => 'private',
                 'share_url' => '',
@@ -134,10 +140,12 @@ class PedigreeService
     private function breeder(User $user): array
     {
         $profile = $user->breederProfile;
+        $none = ['phone' => null, 'email' => null, 'address' => null];
 
         return [
             'breeder' => $profile?->display_name ?: $user->name,
-            'contact' => $profile?->pedigreeContact() ?? ['phone' => null, 'email' => null, 'address' => null],
+            // Contact details on pedigrees are a Premium feature; the loft name is always shown
+            'contact' => $user->hasPremium() ? ($profile?->pedigreeContact() ?? $none) : $none,
         ];
     }
 

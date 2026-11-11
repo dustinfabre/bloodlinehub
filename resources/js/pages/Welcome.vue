@@ -51,7 +51,7 @@ import { ArrowRight } from 'lucide-vue-next';
                             {{
                                 $page.props.auth.user
                                     ? 'Go to your dashboard'
-                                    : 'Request an invite'
+                                    : 'Create a free account'
                             }}
                             <ArrowRight
                                 class="size-4 transition-transform duration-150 group-hover:translate-x-0.5"

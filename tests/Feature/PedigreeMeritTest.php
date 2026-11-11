@@ -22,7 +22,7 @@ class PedigreeMeritTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->premium()->create();
     }
 
     private function pigeon(string $ring, array $attributes = []): Pigeon

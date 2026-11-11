@@ -22,7 +22,7 @@ class LineageTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->premium()->create();
     }
 
     private function bird(string $ring, ?Pigeon $sire = null, ?Pigeon $dam = null, array $attributes = []): Pigeon

@@ -21,7 +21,7 @@ class PedigreeSharingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->premium()->create();
         $this->pigeon = Pigeon::create([
             'user_id' => $this->user->id,
             'status' => 'stock',

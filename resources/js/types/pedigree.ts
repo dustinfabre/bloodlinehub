@@ -32,6 +32,9 @@ export interface PedigreeContact {
 
 export interface PedigreeMeta {
     serial: string;
+    // The owner has Premium. Without it the sheet has no QR code, online link, contact details or COI, and says
+    // where it was generated instead.
+    premium: boolean;
     is_public: boolean;
     visibility: PedigreeVisibility;
     share_url: string;

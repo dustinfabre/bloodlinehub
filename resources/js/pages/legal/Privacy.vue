@@ -65,8 +65,8 @@ const sections: LegalSection[] = [
                     recovery codes in encrypted form.
                 </li>
                 <li>
-                    <strong>Invite requests:</strong> the email address you
-                    leave on the "Request an invite" page.
+                    <strong>Waiting list:</strong> the email address you left
+                    on our "Request an invite" page before sign-up opened.
                 </li>
                 <li>
                     <strong>Your loft records:</strong> everything you enter
@@ -89,8 +89,20 @@ const sections: LegalSection[] = [
                     <a href="#google-drive">Google Drive and your photos</a>.
                 </li>
                 <li>
-                    <strong>Messages:</strong> anything you send us when you
-                    contact us.
+                    <strong>Payments:</strong> if you buy Premium, the plan you
+                    chose, the amount, the date you paid, the account you paid
+                    to, the reference number, any note you add, and the receipt
+                    you upload. A receipt can show your name, your bank or
+                    e-wallet and part of your account number. We also keep the
+                    name and email address on your account at the time you
+                    paid.
+                </li>
+                <li>
+                    <strong>Messages and feedback:</strong> anything you send us
+                    by email or on the feedback page, including a screenshot if
+                    you add one. With feedback we also record the page you sent
+                    it from and your browser and device type, to help us find
+                    the problem.
                 </li>
             </ul>
 
@@ -116,8 +128,10 @@ const sections: LegalSection[] = [
             </ul>
 
             <p>
-                We do not use analytics or advertising trackers, and we do not
-                collect payment details: BloodlineHub does not take payments.
+                We do not use analytics or advertising trackers. We do not
+                process card payments or ask for your bank or e-wallet login:
+                you pay for Premium by bank transfer or e-wallet yourself, and
+                only tell us about the payment.
                 We do not ask for sensitive personal information such as
                 government ID numbers, health information or religious beliefs,
                 and you should not enter it in your records.
@@ -140,11 +154,19 @@ const sections: LegalSection[] = [
                     repeated attempts;
                 </li>
                 <li>
-                    send emails about your account, such as invitations, email
-                    address verification and password reset links;
+                    send emails about your account, such as email address
+                    verification, password reset links and the result of a
+                    payment you sent;
+                </li>
+                <li>
+                    check that your payment arrived, switch on Premium, and keep
+                    payment records as tax and accounting rules require;
                 </li>
                 <li>publish the pedigrees and listings you choose to share;</li>
-                <li>answer your questions and requests;</li>
+                <li>
+                    answer your questions, requests and feedback, and improve
+                    BloodlineHub based on it;
+                </li>
                 <li>find and fix problems, and prevent fraud and abuse;</li>
                 <li>meet our legal obligations.</li>
             </ul>
@@ -319,6 +341,11 @@ const sections: LegalSection[] = [
                     database and content delivery network;
                 </li>
                 <li>
+                    <strong>Cloudflare</strong>, whose R2 storage holds payment
+                    receipts and feedback screenshots in a private store that
+                    only our staff can open;
+                </li>
+                <li>
                     <strong>an email delivery provider</strong> that sends
                     account emails;
                 </li>
@@ -382,18 +409,24 @@ const sections: LegalSection[] = [
                 <li>
                     <strong>Your account and records</strong> are kept while
                     your account is open. When you delete your account in
-                    Settings → Profile, we delete your account and your loft
-                    records. Copies in our backups are removed as the backups
-                    are replaced.
+                    Settings → Profile, we delete your account, your loft
+                    records and your feedback. Copies in our backups are removed
+                    as the backups are replaced.
+                </li>
+                <li>
+                    <strong>Payment records</strong>, including receipts, are
+                    kept for as long as Philippine tax and accounting rules
+                    require, even after you delete your account, and then
+                    deleted.
                 </li>
                 <li>
                     <strong>Sign-in sessions</strong> expire after 30 days
                     without activity.
                 </li>
                 <li>
-                    <strong>Invite requests</strong> are kept until we send your
-                    invitation or close the waiting list, or sooner if you ask
-                    us to remove yours.
+                    <strong>Waiting list emails</strong> are kept until we have
+                    told you that sign-up is open, then deleted, or sooner if
+                    you ask us to remove yours.
                 </li>
                 <li>
                     <strong>Server logs</strong> are kept for a limited time for

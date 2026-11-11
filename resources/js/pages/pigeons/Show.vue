@@ -505,7 +505,8 @@ const childDetails = (child: Child) => {
                             <div>
                                 <p class="font-medium">5-generation pedigree chart</p>
                                 <p class="text-sm text-muted-foreground">
-                                    View it with a photo showcase of the bird and its ancestors, save it as an image or print it, and share it with a QR code.
+                                    <template v-if="$page.props.auth.premium">View it with a photo showcase of the bird and its ancestors, save it as an image or print it, and share it with a QR code.</template>
+                                    <template v-else>View it with a photo showcase of the bird and its ancestors and print it. With Premium, also save it as an image and share it with a QR code.</template>
                                     <template v-if="pigeon.pedigree">No. <span class="font-mono">{{ pigeon.pedigree.serial }}</span></template>
                                 </p>
                             </div>

@@ -3,6 +3,7 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import BetaNotice from '@/components/BetaNotice.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import PedigreePrivacyPrompt from '@/components/pedigree/PedigreePrivacyPrompt.vue';
 import PwaStatus from '@/components/PwaStatus.vue';
@@ -23,6 +24,7 @@ withDefaults(defineProps<Props>(), {
         <AppSidebar />
         <AppContent variant="sidebar" class="overflow-x-clip">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
+            <BetaNotice />
             <slot />
         </AppContent>
         <MobileBottomNav />

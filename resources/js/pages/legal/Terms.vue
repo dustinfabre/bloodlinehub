@@ -33,24 +33,23 @@ const sections: LegalSection[] = [
     <LegalDocument
         title="Terms and Conditions"
         description="The rules for using BloodlineHub: your account, your records, sharing pedigrees, selling birds, and our responsibilities."
-        updated="November 10, 2026"
+        updated="November 11, 2026"
         :sections="sections"
     >
         <template #intro>
             <p>
                 These terms are an agreement between you and BloodlineHub ("we",
                 "us"). They cover the BloodlineHub website, the installable app
-                and everything you do with them. Please read them before you
-                use BloodlineHub.
+                and everything you do with them. Please read them before you use
+                BloodlineHub.
             </p>
         </template>
 
         <section>
             <h2 id="agreement">Agreeing to these terms</h2>
             <p>
-                By creating an account, requesting an invite or using
-                BloodlineHub, you agree to these terms. If you do not agree, do
-                not use BloodlineHub. Our
+                By creating an account or using BloodlineHub, you agree to these
+                terms. If you do not agree, do not use BloodlineHub. Our
                 <Link :href="privacy()">Privacy Policy</Link> explains how we
                 handle your personal information and forms part of these terms.
             </p>
@@ -78,14 +77,17 @@ const sections: LegalSection[] = [
         <section>
             <h2 id="account">Your account</h2>
             <ul>
-                <li>Give accurate details when you sign up and keep them current.</li>
+                <li>
+                    Give accurate details when you sign up and keep them
+                    current.
+                </li>
                 <li>
                     Keep your password secret. We recommend turning on
                     two-factor authentication in Settings.
                 </li>
                 <li>
-                    You are responsible for what happens in your account. Tell us
-                    straight away at
+                    You are responsible for what happens in your account. Tell
+                    us straight away at
                     <a :href="mailto">{{ LEGAL_CONTACT_EMAIL }}</a> if you think
                     someone else has used it.
                 </li>
@@ -108,12 +110,12 @@ const sections: LegalSection[] = [
                     <strong>You let us use it to run the service.</strong> You
                     give us a non-exclusive, worldwide, royalty-free permission
                     to store, copy, process and display your content only as
-                    needed to operate BloodlineHub for you. That includes showing
-                    it to other people when you share a pedigree or publish a
-                    listing. This permission ends when you delete the content or
-                    your account, apart from copies other people already made of
-                    content you shared and copies in backups until they are
-                    replaced.
+                    needed to operate BloodlineHub for you. That includes
+                    showing it to other people when you share a pedigree or
+                    publish a listing. This permission ends when you delete the
+                    content or your account, apart from copies other people
+                    already made of content you shared and copies in backups
+                    until they are replaced.
                 </li>
                 <li>
                     <strong>You are responsible for it.</strong> Make sure your
@@ -131,8 +133,8 @@ const sections: LegalSection[] = [
                 BloodlineHub creates. Your Google account is governed by
                 Google's own terms, and the photos count toward your Google
                 storage. If you disconnect Google Drive, remove BloodlineHub's
-                access in your Google account, delete the photos from your Drive,
-                or Google is unavailable, your photos may stop showing in
+                access in your Google account, delete the photos from your
+                Drive, or Google is unavailable, your photos may stop showing in
                 BloodlineHub and on anything you have shared. We are not
                 responsible for Google's service.
             </p>
@@ -155,17 +157,16 @@ const sections: LegalSection[] = [
             <h2 id="sales">Buying and selling birds</h2>
             <p>
                 BloodlineHub lets breeders list birds and show their pedigrees,
-                but we are not a party to any sale between users. In
-                particular:
+                but we are not a party to any sale between users. In particular:
             </p>
             <ul>
                 <li>
-                    we do not check birds, ring numbers, pedigrees, race results,
-                    ownership, health or the people listing them;
+                    we do not check birds, ring numbers, pedigrees, race
+                    results, ownership, health or the people listing them;
                 </li>
                 <li>
-                    we do not handle payment, delivery or shipping, and we do not
-                    act as an agent for buyers or sellers;
+                    we do not handle payment, delivery or shipping, and we do
+                    not act as an agent for buyers or sellers;
                 </li>
                 <li>
                     buyers and sellers deal with each other directly and are
@@ -182,12 +183,12 @@ const sections: LegalSection[] = [
         <section>
             <h2 id="records">Pedigree and breeding information</h2>
             <p>
-                Relationship and inbreeding figures, lineage, merit
-                suggestions, standings and other results are worked out from the
-                information users enter. They can be wrong if that information
-                is incomplete or incorrect. They are tools to help you keep and
-                read your records, not a guarantee of a bird's ancestry, ability
-                or value, and not veterinary or professional advice.
+                Relationship and inbreeding figures, lineage, merit suggestions,
+                standings and other results are worked out from the information
+                users enter. They can be wrong if that information is incomplete
+                or incorrect. They are tools to help you keep and read your
+                records, not a guarantee of a bird's ancestry, ability or value,
+                and not veterinary or professional advice.
             </p>
             <p>
                 Race results and merits are recorded by users and are not
@@ -242,15 +243,46 @@ const sections: LegalSection[] = [
         <section>
             <h2 id="service">The service and fees</h2>
             <p>
-                BloodlineHub is currently free to use. If we introduce paid
-                plans, we will tell you the price and terms first, and we will
-                not charge you unless you agree to them.
+                BloodlineHub has a free plan and a paid Premium plan. What
+                Premium adds, and its prices, are shown in the app under Plan
+                &amp; billing. Prices may change, but a change never affects a
+                period you have already paid for.
+            </p>
+            <p>
+                <strong>When Premium ends.</strong> Your records stay and the
+                free features keep working. Premium features lock again until
+                you renew, and pedigrees you shared online, including through a
+                printed QR code, stop opening for other people.
+            </p>
+            <p>
+                <strong>Paying for Premium.</strong> You pay by bank transfer or
+                e-wallet to one of the accounts shown on the Plan &amp; billing
+                page, then upload your receipt there. Premium starts once we
+                have confirmed that the money arrived, and lasts for the period
+                of the plan you paid for. If you pay while Premium is still
+                active, the new period starts when the current one ends. Premium
+                does not renew by itself: you are never charged unless you send
+                another payment.
+            </p>
+            <p>
+                Send the amount shown for your plan. You pay any fees your bank
+                or e-wallet charges. If we cannot confirm a payment, for example
+                because the amount or reference does not match, we will tell you
+                why, and we will return any money we received but cannot match
+                to a plan.
+            </p>
+            <p>
+                <strong>Refunds.</strong> Once Premium has started, payments are
+                not refundable, except where the law requires a refund, or where
+                we stop offering Premium or close your account without you
+                having broken these terms. In those cases we refund the unused
+                part of the period you paid for.
             </p>
             <p>
                 We keep improving BloodlineHub, so features may be added,
-                changed or removed, and some, like the marketplace, may be
-                shown as "coming soon" before they open. We may suspend or stop
-                part or all of the service. When a change takes away something
+                changed or removed, and some, like the marketplace, may be shown
+                as "coming soon" before they open. We may suspend or stop part
+                or all of the service. When a change takes away something
                 important to you, we will give reasonable notice where we can so
                 you have time to keep copies of your records.
             </p>
@@ -300,17 +332,17 @@ const sections: LegalSection[] = [
             <ul>
                 <li>
                     we are not liable for indirect, incidental, special or
-                    consequential losses, or for lost profits, lost sales or lost
-                    data;
+                    consequential losses, or for lost profits, lost sales or
+                    lost data;
                 </li>
                 <li>
                     we are not liable for dealings between users, including the
                     sale, purchase, health, ancestry or performance of any bird;
                 </li>
                 <li>
-                    our total liability for any claim relating to BloodlineHub is
-                    limited to the greater of the amount you paid us in the 12
-                    months before the claim and ₱5,000.
+                    our total liability for any claim relating to BloodlineHub
+                    is limited to the greater of the amount you paid us in the
+                    12 months before the claim and ₱5,000.
                 </li>
             </ul>
             <p>
@@ -324,9 +356,9 @@ const sections: LegalSection[] = [
             <h2 id="indemnity">Your responsibility for claims</h2>
             <p>
                 If someone makes a claim against us because of your content,
-                your sales or purchases, or your breach of these terms, you agree
-                to cover our reasonable costs and losses from that claim, to the
-                extent the law allows.
+                your sales or purchases, or your breach of these terms, you
+                agree to cover our reasonable costs and losses from that claim,
+                to the extent the law allows.
             </p>
         </section>
 
@@ -335,11 +367,11 @@ const sections: LegalSection[] = [
             <p>
                 These terms are governed by the laws of the Republic of the
                 Philippines. If you have a dispute with us, please contact us
-                first at <a :href="mailto">{{ LEGAL_CONTACT_EMAIL }}</a> so we can
-                try to resolve it informally. If we cannot resolve it within 30
-                days, either of us may bring it before the proper courts of the
-                Philippines. This does not take away any rights you have under
-                consumer protection laws that cannot be waived.
+                first at <a :href="mailto">{{ LEGAL_CONTACT_EMAIL }}</a> so we
+                can try to resolve it informally. If we cannot resolve it within
+                30 days, either of us may bring it before the proper courts of
+                the Philippines. This does not take away any rights you have
+                under consumer protection laws that cannot be waived.
             </p>
         </section>
 
@@ -349,9 +381,9 @@ const sections: LegalSection[] = [
                 We may update these terms. We will post the new version on this
                 page and update the date at the top. If a change is significant,
                 we will tell you by email or in the app before it takes effect.
-                If you keep using BloodlineHub after the change takes effect, you
-                accept the new terms. If you do not agree, you can delete your
-                account.
+                If you keep using BloodlineHub after the change takes effect,
+                you accept the new terms. If you do not agree, you can delete
+                your account.
             </p>
         </section>
 
@@ -363,8 +395,8 @@ const sections: LegalSection[] = [
                     between you and us about BloodlineHub.
                 </li>
                 <li>
-                    If any part of these terms cannot be enforced, the rest still
-                    applies.
+                    If any part of these terms cannot be enforced, the rest
+                    still applies.
                 </li>
                 <li>
                     If we do not enforce a term straight away, we can still

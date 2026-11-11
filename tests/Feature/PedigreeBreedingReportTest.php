@@ -25,7 +25,7 @@ class PedigreeBreedingReportTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->me = User::factory()->create();
+        $this->me = User::factory()->premium()->create();
     }
 
     private function bird(string $ring, string $gender, ?Pigeon $sire = null, ?Pigeon $dam = null, array $attributes = []): Pigeon

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Toaster } from '@/components/ui/sonner';
 import { home, login } from '@/routes';
+import { index as billing } from '@/routes/billing';
 import { unlock } from '@/routes/pedigrees';
 import {
     editPedigree,
@@ -29,15 +30,16 @@ import type {
     PedigreeReportLinks,
 } from '@/types/pedigree';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { Clock, KeyRound, LoaderCircle, Lock } from 'lucide-vue-next';
+import { Clock, Crown, KeyRound, LoaderCircle, Lock } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-// tree/meta are null while the pedigree is locked: 'private' (owner only) or 'password' (needs the share password)
+// tree/meta are null while the pedigree is locked: 'private' (owner only), 'password' (needs the share password) or
+// 'premium' (shown to the owner when their account doesn't have Premium, which online pedigrees need)
 const props = defineProps<{
     serial: string;
     isOwner: boolean;
     pigeonId?: number | null;
-    locked: 'private' | 'password' | null;
+    locked: 'private' | 'password' | 'premium' | null;
     accessExpiresAt?: string | null;
     tree: PedigreeNode | null;
     meta: PedigreeMeta | null;
@@ -84,7 +86,9 @@ const accessUntil = computed(() =>
                 ? `Pedigree ${subjectLabel}`
                 : locked === 'password'
                   ? 'Password protected pedigree'
-                  : 'Private pedigree'
+                  : locked === 'premium'
+                    ? 'Online pedigrees need Premium'
+                    : 'Private pedigree'
         "
     >
         <!-- Never in search engines, so a lost bird can't be traced to its pedigree (also sent as X-Robots-Tag) -->
@@ -241,6 +245,38 @@ const accessUntil = computed(() =>
                     >
                 </p>
             </form>
+
+            <div
+                v-else-if="locked === 'premium'"
+                class="mx-auto mt-10 max-w-md rounded-xl border bg-background p-8 text-center shadow-sm"
+            >
+                <div
+                    class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300"
+                >
+                    <Crown class="h-6 w-6" />
+                </div>
+                <h1 class="text-xl font-semibold">
+                    Online pedigrees need Premium
+                </h1>
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Pedigree <span class="font-mono">{{ serial }}</span> is
+                    yours, but other people can't open it here: without Premium,
+                    pedigrees are print-only. Get Premium to share it online
+                    again.
+                </p>
+                <div
+                    class="mt-6 flex flex-col justify-center gap-2 sm:flex-row"
+                >
+                    <Button as-child>
+                        <Link :href="billing().url">Get Premium</Link>
+                    </Button>
+                    <Button v-if="pigeonId" variant="outline" as-child>
+                        <Link :href="pedigreeRoute({ pigeon: pigeonId }).url"
+                            >Open it in the app</Link
+                        >
+                    </Button>
+                </div>
+            </div>
 
             <div
                 v-else

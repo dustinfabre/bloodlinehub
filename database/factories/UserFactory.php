@@ -46,6 +46,16 @@ class UserFactory extends Factory
     }
 
     /**
+     * A paid Premium account (a year left).
+     */
+    public function premium(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'premium_until' => now()->addYear(),
+        ]);
+    }
+
+    /**
      * Indicate that the model does not have two-factor authentication configured.
      */
     public function withoutTwoFactor(): static

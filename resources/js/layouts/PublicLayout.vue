@@ -40,10 +40,17 @@ const year = new Date().getFullYear();
                     </Link>
                     <InstallAppButton tone="dark" size="sm" />
                     <Link
-                        :href="$page.props.auth.user ? dashboard() : login()"
+                        v-if="!$page.props.auth.user"
+                        :href="login()"
+                        class="hidden min-h-10 items-center px-3 text-sm font-medium text-ivory/70 transition-colors duration-150 hover:text-ivory sm:inline-flex"
+                    >
+                        Log in
+                    </Link>
+                    <Link
+                        :href="$page.props.auth.user ? dashboard() : register()"
                         class="inline-flex min-h-11 items-center rounded-md bg-gold px-4 text-sm font-semibold text-navy transition-colors duration-150 hover:bg-gold/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold md:min-h-10"
                     >
-                        {{ $page.props.auth.user ? 'Dashboard' : 'Log in' }}
+                        {{ $page.props.auth.user ? 'Dashboard' : 'Sign up' }}
                     </Link>
                 </nav>
             </div>
@@ -72,7 +79,7 @@ const year = new Date().getFullYear();
                         :href="register()"
                         class="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-ivory md:min-h-0"
                     >
-                        Request an invite
+                        Sign up
                     </Link>
                     <Link
                         :href="$page.props.auth.user ? dashboard() : login()"
