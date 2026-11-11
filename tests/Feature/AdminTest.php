@@ -205,16 +205,30 @@ class AdminTest extends TestCase
     {
         $this->actingAs($this->admin)->post(route('admin.bank-accounts.store'), [
             'region' => 'international',
-            'bank_name' => 'Wise',
+            'bank_name' => 'Community Federal Savings Bank',
             'account_name' => 'BloodlineHub',
-            'account_number' => '123',
-            'swift_code' => 'TRWIBEB1XXX',
+            'account_number' => '8312345678',
+            'account_type' => 'checking',
+            'routing_number' => '026073150',
+            'bank_address' => '89-16 Jamaica Ave, Woodhaven, NY 11421, United States',
             'is_active' => true,
             'qr' => UploadedFile::fake()->image('qr.png', 400, 400),
         ])->assertSessionHasNoErrors();
 
         $account = PaymentAccount::sole();
         $this->assertSame('USD', $account->currency);
+        $this->assertSame('checking', $account->account_type);
+        $this->assertSame('026073150', $account->routing_number);
+        $this->assertEquals([
+            'account_name' => 'BloodlineHub',
+            'account_number' => '8312345678',
+            'account_type' => 'checking',
+            'routing_number' => '026073150',
+            'bank_name' => 'Community Federal Savings Bank',
+            'bank_address' => '89-16 Jamaica Ave, Woodhaven, NY 11421, United States',
+        ], array_intersect_key($account->toPayerArray(), array_flip([
+            'account_name', 'account_number', 'account_type', 'routing_number', 'bank_name', 'bank_address',
+        ])));
         Storage::disk('r2')->assertExists($account->qr_path);
         $oldQr = $account->qr_path;
 
@@ -223,12 +237,18 @@ class AdminTest extends TestCase
             'bank_name' => 'GCash',
             'account_name' => 'BloodlineHub',
             'account_number' => '0917 000 0000',
+            // Left over from the international form; a local account doesn't keep them
+            'account_type' => 'savings',
+            'routing_number' => '026073150',
             'is_active' => false,
             'remove_qr' => true,
         ])->assertSessionHasNoErrors();
 
         $account->refresh();
         $this->assertSame('PHP', $account->currency);
+        $this->assertNull($account->account_type);
+        $this->assertNull($account->routing_number);
+        $this->assertNull($account->bank_address);
         $this->assertSame('GCash', $account->bank_name);
         $this->assertFalse($account->is_active);
         $this->assertNull($account->qr_path);
@@ -236,6 +256,47 @@ class AdminTest extends TestCase
 
         $this->actingAs($this->admin)->delete(route('admin.bank-accounts.destroy', $account));
         $this->assertSame(0, PaymentAccount::count());
+    }
+
+    public function test_paypal_is_an_international_account_with_an_email(): void
+    {
+        $this->actingAs($this->admin)->post(route('admin.bank-accounts.store'), [
+            'region' => 'international', 'method' => 'paypal', 'account_name' => 'BloodlineHub', 'account_number' => 'not-an-email',
+        ])->assertSessionHasErrors('account_number');
+
+        $this->actingAs($this->admin)->post(route('admin.bank-accounts.store'), [
+            'region' => 'international',
+            'method' => 'paypal',
+            'account_name' => 'BloodlineHub',
+            'account_number' => 'pay@bloodlinehub.test',
+            // Bank details left over in the form are dropped
+            'routing_number' => '026073150',
+            'swift_code' => 'TRWIBEB1XXX',
+            'is_active' => true,
+        ])->assertSessionHasNoErrors();
+
+        $paypal = PaymentAccount::sole();
+        $this->assertSame('paypal', $paypal->method);
+        $this->assertSame('PayPal', $paypal->bank_name);
+        $this->assertSame('international', $paypal->region);
+        $this->assertSame('USD', $paypal->currency);
+        $this->assertNull($paypal->routing_number);
+        $this->assertNull($paypal->swift_code);
+        $this->assertSame('PayPal · pay@bloodlinehub.test', $paypal->label());
+        $this->assertSame('paypal', $paypal->toPayerArray()['method']);
+
+        // Switching it back to a bank account needs a bank name
+        $this->actingAs($this->admin)->post(route('admin.bank-accounts.update', $paypal), [
+            'region' => 'international', 'method' => 'bank', 'account_name' => 'BloodlineHub', 'account_number' => '123',
+        ])->assertSessionHasErrors('bank_name');
+    }
+
+    public function test_the_account_type_must_be_checking_or_savings(): void
+    {
+        $this->actingAs($this->admin)->post(route('admin.bank-accounts.store'), [
+            'region' => 'international', 'bank_name' => 'Bank', 'account_name' => 'X', 'account_number' => '1',
+            'account_type' => 'brokerage',
+        ])->assertSessionHasErrors('account_type');
     }
 
     public function test_plans_can_be_managed_and_payments_keep_their_copy(): void

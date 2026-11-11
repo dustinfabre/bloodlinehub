@@ -11,10 +11,17 @@ interface Props {
     imageSrc: string | null;
     // Name for the cropped file
     fileName?: string;
+    title?: string;
+    // Crop shape to start with: NaN (free) or an aspect ratio such as 1 (square)
+    initialAspect?: number;
+    cancelLabel?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     fileName: 'photo.jpg',
+    title: 'Crop photo',
+    initialAspect: NaN,
+    cancelLabel: 'Cancel',
 });
 
 // The cropped photo is kept large; the server sizes it down for display
@@ -35,7 +42,7 @@ const imageRef = ref<HTMLImageElement | null>(null);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cropper = ref<any>(null);
 const isProcessing = ref(false);
-const aspect = ref(NaN);
+const aspect = ref(props.initialAspect);
 
 const setAspect = (value: number) => {
     aspect.value = value;
@@ -155,7 +162,7 @@ onUnmounted(() => {
     <Dialog :open="open" @update:open="closeDialog">
         <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
-                <DialogTitle>Crop photo</DialogTitle>
+                <DialogTitle>{{ title }}</DialogTitle>
             </DialogHeader>
             
             <div class="flex-1 min-h-0 overflow-hidden">
@@ -216,7 +223,7 @@ onUnmounted(() => {
             
             <DialogFooter class="gap-2 sm:gap-0 mt-4">
                 <Button variant="outline" type="button" @click="handleCancel" :disabled="isProcessing">
-                    Cancel
+                    {{ cancelLabel }}
                 </Button>
                 <Button type="button" @click="handleCrop" :disabled="isProcessing">
                     <span v-if="isProcessing" class="flex items-center gap-2">

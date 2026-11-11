@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ImageCropper from '@/components/ImageCropper.vue';
 import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,12 +26,18 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/composables/useToast';
 import AdminLayout from '@/layouts/admin/AdminLayout.vue';
+import { ACCOUNT_TYPES } from '@/lib/billing';
 import { destroy, store, update } from '@/routes/admin/bank-accounts';
 import { qr } from '@/routes/billing/accounts';
-import type { PayerAccount, PaymentRegion } from '@/types/billing';
+import type {
+    PayerAccount,
+    PaymentMethod,
+    PaymentRegion,
+} from '@/types/billing';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
     Banknote,
+    Crop,
     Globe,
     Landmark,
     Pencil,
@@ -88,9 +95,12 @@ const showForm = ref(false);
 
 const form = useForm({
     region: 'local' as PaymentRegion,
+    method: 'bank' as PaymentMethod,
     bank_name: '',
     account_name: '',
     account_number: '',
+    account_type: 'checking' as 'checking' | 'savings',
+    routing_number: '',
     swift_code: '',
     bank_address: '',
     instructions: '',
@@ -101,39 +111,70 @@ const form = useForm({
 });
 
 const isInternational = computed(() => form.region === 'international');
+// PayPal is international only: picking it switches the region
+const isPaypal = computed(
+    () => isInternational.value && form.method === 'paypal',
+);
 
 const qrPreview = ref<string | null>(null);
 const qrInput = ref<HTMLInputElement | null>(null);
+// The image as picked, so it can be cropped again from scratch; form.qr holds the (cropped) file to upload
+const qrOriginal = ref<File | null>(null);
+const qrOriginalUrl = ref<string | null>(null);
+const qrCropOpen = ref(false);
 
 const clearPreview = () => {
     if (qrPreview.value) URL.revokeObjectURL(qrPreview.value);
     qrPreview.value = null;
 };
 
-onBeforeUnmount(clearPreview);
+const clearOriginal = () => {
+    if (qrOriginalUrl.value) URL.revokeObjectURL(qrOriginalUrl.value);
+    qrOriginalUrl.value = null;
+    qrOriginal.value = null;
+};
 
-const onQrChange = (event: Event) => {
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+onBeforeUnmount(() => {
+    clearPreview();
+    clearOriginal();
+});
+
+const useQrFile = (file: File) => {
     clearPreview();
     form.qr = file;
-    if (file) {
-        qrPreview.value = URL.createObjectURL(file);
-        form.remove_qr = false;
+    qrPreview.value = URL.createObjectURL(file);
+};
+
+// A picked image opens in the cropper straight away (square, as QR codes are); "Use as is" keeps it uncropped
+const onQrChange = (event: Event) => {
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    clearOriginal();
+    if (!file) {
+        clearPreview();
+        form.qr = null;
+        return;
     }
+    qrOriginal.value = file;
+    qrOriginalUrl.value = URL.createObjectURL(file);
+    useQrFile(file);
+    form.remove_qr = false;
+    qrCropOpen.value = true;
 };
 
 const clearQrChoice = () => {
     clearPreview();
+    clearOriginal();
     form.qr = null;
     if (qrInput.value) qrInput.value.value = '';
 };
 
-const openCreate = (region: PaymentRegion) => {
+const openCreate = (region: PaymentRegion, method: PaymentMethod = 'bank') => {
     editing.value = null;
     form.reset();
     form.clearErrors();
     clearQrChoice();
     form.region = region;
+    form.method = method;
     showForm.value = true;
 };
 
@@ -142,9 +183,12 @@ const openEdit = (account: AdminAccount) => {
     form.clearErrors();
     clearQrChoice();
     form.region = account.region;
+    form.method = account.method;
     form.bank_name = account.bank_name;
     form.account_name = account.account_name;
     form.account_number = account.account_number;
+    form.account_type = account.account_type ?? 'checking';
+    form.routing_number = account.routing_number ?? '';
     form.swift_code = account.swift_code ?? '';
     form.bank_address = account.bank_address ?? '';
     form.instructions = account.instructions ?? '';
@@ -160,7 +204,11 @@ const submit = () => {
 
     form.transform((data) => ({
         ...data,
-        // SWIFT and bank address are for international transfers only
+        method: data.region === 'international' ? data.method : 'bank',
+        // Account type, routing number, SWIFT and bank address are for international transfers only
+        account_type: data.region === 'international' ? data.account_type : '',
+        routing_number:
+            data.region === 'international' ? data.routing_number : '',
         swift_code: data.region === 'international' ? data.swift_code : '',
         bank_address: data.region === 'international' ? data.bank_address : '',
     })).post(url, {
@@ -228,14 +276,28 @@ const confirmDelete = () => {
                             {{ section.description }}
                         </p>
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        class="shrink-0"
-                        @click="openCreate(section.region)"
-                    >
-                        <Plus class="size-4" /> Add account
-                    </Button>
+                    <div class="flex shrink-0 flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            @click="openCreate(section.region)"
+                        >
+                            <Plus class="size-4" />
+                            {{
+                                section.region === 'international'
+                                    ? 'Add bank account'
+                                    : 'Add account'
+                            }}
+                        </Button>
+                        <Button
+                            v-if="section.region === 'international'"
+                            variant="outline"
+                            size="sm"
+                            @click="openCreate(section.region, 'paypal')"
+                        >
+                            <Plus class="size-4" /> Add PayPal
+                        </Button>
+                    </div>
                 </div>
 
                 <div
@@ -301,10 +363,40 @@ const confirmDelete = () => {
                                     </div>
                                     <div class="flex flex-wrap gap-x-2">
                                         <dt class="text-muted-foreground">
-                                            Number
+                                            {{
+                                                account.method === 'paypal'
+                                                    ? 'PayPal email'
+                                                    : 'Number'
+                                            }}
                                         </dt>
                                         <dd class="min-w-0 font-mono break-all">
                                             {{ account.account_number }}
+                                        </dd>
+                                    </div>
+                                    <div
+                                        v-if="account.account_type"
+                                        class="flex flex-wrap gap-x-2"
+                                    >
+                                        <dt class="text-muted-foreground">
+                                            Type
+                                        </dt>
+                                        <dd>
+                                            {{
+                                                ACCOUNT_TYPES[
+                                                    account.account_type
+                                                ]
+                                            }}
+                                        </dd>
+                                    </div>
+                                    <div
+                                        v-if="account.routing_number"
+                                        class="flex flex-wrap gap-x-2"
+                                    >
+                                        <dt class="text-muted-foreground">
+                                            Routing
+                                        </dt>
+                                        <dd class="font-mono break-all">
+                                            {{ account.routing_number }}
                                         </dd>
                                     </div>
                                     <div
@@ -383,12 +475,27 @@ const confirmDelete = () => {
             </section>
         </div>
 
+        <!-- Opens over the form when a QR image is picked -->
+        <ImageCropper
+            v-model:open="qrCropOpen"
+            :image-src="qrOriginalUrl"
+            :file-name="qrOriginal?.name ?? 'qr.jpg'"
+            title="Crop the QR code"
+            :initial-aspect="1"
+            cancel-label="Use as is"
+            @crop="useQrFile"
+        />
+
         <!-- Create / edit -->
         <Dialog v-model:open="showForm">
             <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{{
-                        editing ? 'Edit account' : 'Add account'
+                        editing
+                            ? 'Edit account'
+                            : isPaypal
+                              ? 'Add PayPal'
+                              : 'Add account'
                     }}</DialogTitle>
                     <DialogDescription>
                         {{
@@ -418,64 +525,188 @@ const confirmDelete = () => {
                         <InputError :message="form.errors.region" />
                     </div>
 
-                    <div class="grid gap-2">
-                        <Label for="account-bank">Bank or wallet</Label>
-                        <Input
-                            id="account-bank"
-                            v-model="form.bank_name"
-                            required
-                            :placeholder="
-                                isInternational
-                                    ? 'Wise, Payoneer, a bank…'
-                                    : 'BDO, BPI, GCash, Maya…'
-                            "
-                        />
-                        <InputError :message="form.errors.bank_name" />
+                    <div v-if="isInternational" class="grid gap-2">
+                        <Label for="account-method">Paid with</Label>
+                        <Select v-model="form.method">
+                            <SelectTrigger id="account-method" class="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="bank"
+                                    >Bank transfer</SelectItem
+                                >
+                                <SelectItem value="paypal">PayPal</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <InputError :message="form.errors.method" />
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <!-- PayPal: whose account, and its email -->
+                    <template v-if="isPaypal">
                         <div class="grid gap-2">
-                            <Label for="account-name">Account name</Label>
+                            <Label for="account-name">Name</Label>
                             <Input
                                 id="account-name"
                                 v-model="form.account_name"
                                 required
+                                placeholder="Name on the PayPal account"
                             />
                             <InputError :message="form.errors.account_name" />
                         </div>
                         <div class="grid gap-2">
-                            <Label for="account-number">Account number</Label>
+                            <Label for="account-number">PayPal email</Label>
                             <Input
                                 id="account-number"
                                 v-model="form.account_number"
+                                type="email"
+                                inputmode="email"
                                 required
-                                :placeholder="
-                                    isInternational
-                                        ? 'Account no. or IBAN'
-                                        : 'Account or mobile no.'
-                                "
+                                placeholder="payments@bloodlinehub.com"
                             />
                             <InputError :message="form.errors.account_number" />
                         </div>
-                    </div>
+                    </template>
 
-                    <template v-if="isInternational">
+                    <!-- Local: bank or wallet, then whose account it is -->
+                    <template v-else-if="!isInternational">
                         <div class="grid gap-2">
-                            <Label for="account-swift">SWIFT / BIC</Label>
+                            <Label for="account-bank">Bank or wallet</Label>
+                            <Input
+                                id="account-bank"
+                                v-model="form.bank_name"
+                                required
+                                placeholder="BDO, BPI, GCash, Maya…"
+                            />
+                            <InputError :message="form.errors.bank_name" />
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-2">
+                                <Label for="account-name">Account name</Label>
+                                <Input
+                                    id="account-name"
+                                    v-model="form.account_name"
+                                    required
+                                />
+                                <InputError
+                                    :message="form.errors.account_name"
+                                />
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="account-number"
+                                    >Account number</Label
+                                >
+                                <Input
+                                    id="account-number"
+                                    v-model="form.account_number"
+                                    required
+                                    placeholder="Account or mobile no."
+                                />
+                                <InputError
+                                    :message="form.errors.account_number"
+                                />
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- International: in the order the receiving details are given (e.g. by Wise or Payoneer) -->
+                    <template v-else>
+                        <div class="grid gap-2">
+                            <Label for="account-name">Name</Label>
+                            <Input
+                                id="account-name"
+                                v-model="form.account_name"
+                                required
+                                placeholder="Name on the account"
+                            />
+                            <InputError :message="form.errors.account_name" />
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-2">
+                                <Label for="account-number"
+                                    >Account number</Label
+                                >
+                                <Input
+                                    id="account-number"
+                                    v-model="form.account_number"
+                                    required
+                                />
+                                <InputError
+                                    :message="form.errors.account_number"
+                                />
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="account-type">Account type</Label>
+                                <Select v-model="form.account_type">
+                                    <SelectTrigger
+                                        id="account-type"
+                                        class="w-full"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="(
+                                                label, value
+                                            ) in ACCOUNT_TYPES"
+                                            :key="value"
+                                            :value="value"
+                                            >{{ label }}</SelectItem
+                                        >
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    :message="form.errors.account_type"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="account-routing">Routing number</Label>
+                            <Input
+                                id="account-routing"
+                                v-model="form.routing_number"
+                                inputmode="numeric"
+                                placeholder="e.g. 026073150"
+                            />
+                            <InputError :message="form.errors.routing_number" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="account-bank">Bank name</Label>
+                            <Input
+                                id="account-bank"
+                                v-model="form.bank_name"
+                                required
+                                placeholder="e.g. Community Federal Savings Bank"
+                            />
+                            <InputError :message="form.errors.bank_name" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="account-address">Bank address</Label>
+                            <Textarea
+                                id="account-address"
+                                v-model="form.bank_address"
+                                rows="2"
+                            />
+                            <InputError :message="form.errors.bank_address" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="account-swift"
+                                >SWIFT / BIC
+                                <span class="font-normal text-muted-foreground"
+                                    >(optional, for wires from outside the
+                                    US)</span
+                                ></Label
+                            >
                             <Input
                                 id="account-swift"
                                 v-model="form.swift_code"
-                                placeholder="e.g. BNORPHMM"
                             />
                             <InputError :message="form.errors.swift_code" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="account-address">Bank address</Label>
-                            <Input
-                                id="account-address"
-                                v-model="form.bank_address"
-                            />
-                            <InputError :message="form.errors.bank_address" />
                         </div>
                     </template>
 
@@ -525,16 +756,26 @@ const confirmDelete = () => {
                                 @change="onQrChange"
                             />
                         </div>
-                        <Button
-                            v-if="form.qr"
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            class="w-fit"
-                            @click="clearQrChoice"
-                        >
-                            Don't use this file
-                        </Button>
+                        <div v-if="form.qr" class="flex flex-wrap gap-2">
+                            <Button
+                                v-if="qrOriginal"
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                @click="qrCropOpen = true"
+                            >
+                                <Crop class="size-4" />
+                                Crop
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                @click="clearQrChoice"
+                            >
+                                Don't use this file
+                            </Button>
+                        </div>
                         <Label
                             v-if="editing?.has_qr && !form.qr"
                             for="account-remove-qr"

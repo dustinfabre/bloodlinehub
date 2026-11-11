@@ -105,6 +105,20 @@ class BillingTest extends TestCase
         $this->assertFalse($this->me->fresh()->isPremium());
     }
 
+    public function test_a_paypal_payment_records_the_paypal_account(): void
+    {
+        $paypal = PaymentAccount::create([
+            'region' => 'international', 'method' => 'paypal', 'account_name' => 'BloodlineHub', 'account_number' => 'pay@bloodlinehub.test',
+        ]);
+
+        $this->submit(['payment_account_id' => $paypal->id, 'amount' => '30', 'reference_number' => '8AB12345CD678901E'])
+            ->assertSessionHasNoErrors();
+
+        $payment = Payment::sole();
+        $this->assertSame('PayPal · pay@bloodlinehub.test', $payment->paid_to);
+        $this->assertSame('USD', $payment->currency);
+    }
+
     public function test_a_pdf_receipt_is_kept_as_a_pdf(): void
     {
         $this->submit(['receipt' => UploadedFile::fake()->createWithContent('receipt.pdf', "%PDF-1.4\n%fake\n")])

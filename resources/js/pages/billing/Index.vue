@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/composables/useToast';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
+    ACCOUNT_TYPES,
     PAYMENT_STATUS,
     durationLabel,
     formatDate,
@@ -52,6 +53,7 @@ import {
     Landmark,
     QrCode,
     Upload,
+    Wallet,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
@@ -153,18 +155,85 @@ watch(
     { immediate: true },
 );
 
-const copied = ref<number | null>(null);
-const copyNumber = async (account: PayerAccount) => {
+// The receipt is for a PayPal payment: its reference is the PayPal transaction ID
+const paidWithPaypal = computed(
+    () =>
+        props.accounts.find((a) => a.id === form.payment_account_id)?.method ===
+        'paypal',
+);
+
+// What was copied last ("12-account_number"), to show "Copied" beside it for a moment
+const copied = ref<string | null>(null);
+const copy = async (account: PayerAccount, field: string, value: string) => {
     try {
+        // Numbers are copied without the spaces added to make them readable
+        const numeric = /^[\d\s-]+$/.test(value);
         await navigator.clipboard.writeText(
-            account.account_number.replace(/\s+/g, ''),
+            numeric ? value.replace(/\s+/g, '') : value,
         );
-        copied.value = account.id;
+        copied.value = `${account.id}-${field}`;
         setTimeout(() => (copied.value = null), 2000);
     } catch {
-        error('Could not copy. Select the number and copy it instead.');
+        error('Could not copy. Select the text and copy it instead.');
     }
 };
+const copyNumber = (account: PayerAccount) =>
+    copy(account, 'account_number', account.account_number);
+
+// An international account's receiving details, in the order payers' banks ask for them
+const receivingDetails = (account: PayerAccount) =>
+    account.method === 'paypal'
+        ? [
+              {
+                  field: 'account_name',
+                  label: 'Name',
+                  value: account.account_name,
+                  mono: false,
+              },
+              {
+                  field: 'account_number',
+                  label: 'PayPal email',
+                  value: account.account_number,
+                  mono: false,
+              },
+          ]
+        : bankDetails(account);
+
+const bankDetails = (account: PayerAccount) =>
+    [
+        { field: 'account_name', label: 'Name', value: account.account_name },
+        {
+            field: 'account_number',
+            label: 'Account number',
+            value: account.account_number,
+            mono: true,
+        },
+        {
+            field: 'account_type',
+            label: 'Account type',
+            value: account.account_type
+                ? ACCOUNT_TYPES[account.account_type]
+                : null,
+        },
+        {
+            field: 'routing_number',
+            label: 'Routing number',
+            value: account.routing_number,
+            mono: true,
+        },
+        { field: 'bank_name', label: 'Bank name', value: account.bank_name },
+        {
+            field: 'bank_address',
+            label: 'Bank address',
+            value: account.bank_address,
+        },
+        {
+            field: 'swift_code',
+            label: 'SWIFT/BIC',
+            value: account.swift_code,
+            mono: true,
+        },
+    ].filter((row): row is typeof row & { value: string } => !!row.value);
 
 const qrAccount = ref<PayerAccount | null>(null);
 const qrOpen = computed({
@@ -449,17 +518,79 @@ const submit = () => {
                                 <CardTitle
                                     class="flex items-center gap-2 text-base"
                                 >
+                                    <Wallet
+                                        v-if="account.method === 'paypal'"
+                                        class="size-4 text-muted-foreground"
+                                    />
                                     <Landmark
+                                        v-else
                                         class="size-4 text-muted-foreground"
                                     />
                                     {{ account.bank_name }}
                                 </CardTitle>
-                                <CardDescription>{{
-                                    account.account_name
-                                }}</CardDescription>
+                                <!-- International accounts list the name with the other details -->
+                                <CardDescription
+                                    v-if="account.region === 'local'"
+                                    >{{ account.account_name }}</CardDescription
+                                >
                             </CardHeader>
                             <CardContent class="space-y-3 px-4">
+                                <!-- International: every receiving detail, each with its own copy button -->
+                                <dl
+                                    v-if="account.region === 'international'"
+                                    class="divide-y divide-border overflow-hidden rounded-lg bg-muted text-sm"
+                                >
+                                    <div
+                                        v-for="row in receivingDetails(account)"
+                                        :key="row.field"
+                                        class="flex items-center gap-2 px-3 py-2"
+                                    >
+                                        <div class="min-w-0 flex-1">
+                                            <dt
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{ row.label }}
+                                            </dt>
+                                            <dd
+                                                :class="
+                                                    cn(
+                                                        'font-medium wrap-break-word',
+                                                        row.mono &&
+                                                            'font-mono tracking-wide break-all',
+                                                    )
+                                                "
+                                            >
+                                                {{ row.value }}
+                                            </dd>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            class="shrink-0"
+                                            :aria-label="`Copy ${row.label.toLowerCase()}`"
+                                            @click="
+                                                copy(
+                                                    account,
+                                                    row.field,
+                                                    row.value,
+                                                )
+                                            "
+                                        >
+                                            <Check
+                                                v-if="
+                                                    copied ===
+                                                    `${account.id}-${row.field}`
+                                                "
+                                                class="size-4"
+                                            />
+                                            <Copy v-else class="size-4" />
+                                        </Button>
+                                    </div>
+                                </dl>
+
+                                <!-- Local: the number to send to -->
                                 <div
+                                    v-else
                                     class="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2"
                                 >
                                     <span
@@ -474,47 +605,21 @@ const submit = () => {
                                         @click="copyNumber(account)"
                                     >
                                         <Check
-                                            v-if="copied === account.id"
+                                            v-if="
+                                                copied ===
+                                                `${account.id}-account_number`
+                                            "
                                             class="size-4"
                                         />
                                         <Copy v-else class="size-4" />
                                         {{
-                                            copied === account.id
+                                            copied ===
+                                            `${account.id}-account_number`
                                                 ? 'Copied'
                                                 : 'Copy'
                                         }}
                                     </Button>
                                 </div>
-                                <dl
-                                    v-if="
-                                        account.swift_code ||
-                                        account.bank_address
-                                    "
-                                    class="grid gap-1 text-sm"
-                                >
-                                    <div
-                                        v-if="account.swift_code"
-                                        class="flex gap-2"
-                                    >
-                                        <dt class="text-muted-foreground">
-                                            SWIFT/BIC
-                                        </dt>
-                                        <dd class="font-mono font-medium">
-                                            {{ account.swift_code }}
-                                        </dd>
-                                    </div>
-                                    <div
-                                        v-if="account.bank_address"
-                                        class="flex gap-2"
-                                    >
-                                        <dt
-                                            class="shrink-0 text-muted-foreground"
-                                        >
-                                            Bank address
-                                        </dt>
-                                        <dd>{{ account.bank_address }}</dd>
-                                    </div>
-                                </dl>
                                 <p
                                     v-if="account.instructions"
                                     class="text-sm whitespace-pre-line text-muted-foreground"
@@ -628,7 +733,11 @@ const submit = () => {
 
                                 <div class="grid gap-2">
                                     <Label for="reference_number">
-                                        Reference number
+                                        {{
+                                            paidWithPaypal
+                                                ? 'PayPal transaction ID'
+                                                : 'Reference number'
+                                        }}
                                         <span
                                             class="font-normal text-muted-foreground"
                                             >(if your receipt has one)</span
@@ -638,7 +747,11 @@ const submit = () => {
                                         id="reference_number"
                                         v-model="form.reference_number"
                                         autocomplete="off"
-                                        placeholder="e.g. 1234 567 890123"
+                                        :placeholder="
+                                            paidWithPaypal
+                                                ? 'e.g. 8AB12345CD678901E'
+                                                : 'e.g. 1234 567 890123'
+                                        "
                                     />
                                     <InputError
                                         :message="form.errors.reference_number"

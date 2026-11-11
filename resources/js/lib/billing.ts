@@ -42,6 +42,11 @@ export const durationLabel = (months: number): string =>
         ? `${months / 12} ${months === 12 ? 'year' : 'years'}`
         : `${months} ${months === 1 ? 'month' : 'months'}`;
 
+export const ACCOUNT_TYPES = {
+    checking: 'Checking',
+    savings: 'Savings',
+} as const;
+
 export const isPremium = (premiumUntil: string | null | undefined): boolean =>
     !!premiumUntil && new Date(premiumUntil).getTime() > Date.now();
 

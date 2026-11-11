@@ -2,6 +2,9 @@
 
 export type PaymentRegion = 'local' | 'international';
 
+// A bank or e-wallet account, or PayPal (international only; account_number is the PayPal email)
+export type PaymentMethod = 'bank' | 'paypal';
+
 export type PaymentStatus = 'pending' | 'approved' | 'rejected';
 
 export type FeedbackCategory = 'bug' | 'idea' | 'question' | 'other';
@@ -20,9 +23,13 @@ export interface Plan {
 export interface PayerAccount {
     id: number;
     region: PaymentRegion;
+    method: PaymentMethod;
     bank_name: string;
     account_name: string;
     account_number: string;
+    // International (US-style) receiving details
+    account_type: 'checking' | 'savings' | null;
+    routing_number: string | null;
     swift_code: string | null;
     bank_address: string | null;
     currency: 'PHP' | 'USD';

@@ -64,11 +64,19 @@ class PaymentAccountController extends Controller
      */
     private function validated(Request $request): array
     {
+        $paypal = $request->input('method') === PaymentAccount::PAYPAL;
+
         $validated = $request->validate([
             'region' => ['required', Rule::in(PaymentAccount::REGIONS)],
-            'bank_name' => ['required', 'string', 'max:100'],
+            'method' => ['nullable', Rule::in(PaymentAccount::METHODS)],
+            // PayPal's name is set by the model
+            'bank_name' => [Rule::requiredIf(! $paypal), 'nullable', 'string', 'max:100'],
             'account_name' => ['required', 'string', 'max:150'],
-            'account_number' => ['required', 'string', 'max:100'],
+            // For PayPal: the PayPal email
+            'account_number' => ['required', 'string', 'max:100', ...($paypal ? ['email'] : [])],
+            // International (US-style) receiving details; local accounts don't use them
+            'account_type' => ['nullable', Rule::in(PaymentAccount::ACCOUNT_TYPES)],
+            'routing_number' => ['nullable', 'string', 'max:50'],
             'swift_code' => ['nullable', 'string', 'max:20'],
             'bank_address' => ['nullable', 'string', 'max:255'],
             'instructions' => ['nullable', 'string', 'max:2000'],
@@ -76,10 +84,22 @@ class PaymentAccountController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
             'qr' => ['nullable', ...PrivateFiles::imageRules()],
             'remove_qr' => ['boolean'],
+        ], [
+            'account_number.email' => 'Enter the email address of the PayPal account.',
         ]);
+
+        $international = $validated['region'] === PaymentAccount::INTERNATIONAL;
 
         return [
             ...collect($validated)->except(['qr', 'remove_qr'])->all(),
+            'method' => $paypal ? PaymentAccount::PAYPAL : PaymentAccount::BANK,
+            // The model names PayPal accounts itself
+            'bank_name' => $paypal ? 'PayPal' : $validated['bank_name'],
+            // Kept only on international accounts, so switching an account to local clears them
+            'account_type' => $international ? ($validated['account_type'] ?? null) : null,
+            'routing_number' => $international ? ($validated['routing_number'] ?? null) : null,
+            'swift_code' => $international ? ($validated['swift_code'] ?? null) : null,
+            'bank_address' => $international ? ($validated['bank_address'] ?? null) : null,
             'is_active' => $request->boolean('is_active'),
             'sort_order' => (int) ($validated['sort_order'] ?? 0),
         ];

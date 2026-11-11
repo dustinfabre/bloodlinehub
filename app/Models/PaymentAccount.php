@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * A bank or e-wallet account users send their payment to. Local accounts receive pesos; international accounts
  * receive dollars from payers abroad. Set up by an admin in /admin/bank-accounts.
+ *
+ * An international account can also be PayPal (method "paypal"): its bank_name is "PayPal" and account_number holds
+ * the PayPal email, so it reads "PayPal · you@example.com" on payments like any other account.
  */
 class PaymentAccount extends Model
 {
@@ -18,15 +21,26 @@ class PaymentAccount extends Model
 
     public const REGIONS = [self::LOCAL, self::INTERNATIONAL];
 
+    public const ACCOUNT_TYPES = ['checking', 'savings'];
+
+    public const BANK = 'bank';
+
+    public const PAYPAL = 'paypal';
+
+    public const METHODS = [self::BANK, self::PAYPAL];
+
     public const CURRENCY_LOCAL = 'PHP';
 
     public const CURRENCY_INTERNATIONAL = 'USD';
 
     protected $fillable = [
         'region',
+        'method',
         'bank_name',
         'account_name',
         'account_number',
+        'account_type',
+        'routing_number',
         'swift_code',
         'bank_address',
         'instructions',
@@ -47,6 +61,16 @@ class PaymentAccount extends Model
     {
         // The currency follows the region: local accounts take pesos, international accounts dollars
         static::saving(function (PaymentAccount $account) {
+            // PayPal is for payers abroad and has no bank details
+            if ($account->method === self::PAYPAL) {
+                $account->region = self::INTERNATIONAL;
+                $account->bank_name = 'PayPal';
+                $account->account_type = null;
+                $account->routing_number = null;
+                $account->swift_code = null;
+                $account->bank_address = null;
+            }
+
             $account->currency = self::currencyFor($account->region);
         });
     }
@@ -84,9 +108,12 @@ class PaymentAccount extends Model
         return [
             'id' => $this->id,
             'region' => $this->region,
+            'method' => $this->method ?? self::BANK,
             'bank_name' => $this->bank_name,
             'account_name' => $this->account_name,
             'account_number' => $this->account_number,
+            'account_type' => $this->account_type,
+            'routing_number' => $this->routing_number,
             'swift_code' => $this->swift_code,
             'bank_address' => $this->bank_address,
             'currency' => $this->currency,
