@@ -21,7 +21,7 @@ class AdminSeeder extends Seeder
     public const NAME = 'BloodlineHub Admin';
 
     // Change this before running the seeder. It is refused in production while it is still this placeholder.
-    public const PASSWORD = 'change-this-password';
+    public const PASSWORD = '#P1tik1992';
 
     public function run(): void
     {
