@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\FeedbackLabelController;
 use App\Http\Controllers\Admin\InboxController;
 use App\Http\Controllers\Admin\PaymentAccountController;
 use App\Http\Controllers\Admin\PaymentController;
@@ -28,8 +29,22 @@ Route::middleware(['auth', 'verified', 'admin', NoIndex::class])
         // Feedback inbox
         Route::get('inbox', [InboxController::class, 'index'])
             ->name('inbox.index');
+        // For "Same as…": earlier messages to pick from (JSON)
+        Route::get('inbox/lookup', [InboxController::class, 'lookup'])
+            ->name('inbox.lookup');
+        Route::post('inbox/labels', [FeedbackLabelController::class, 'store'])
+            ->name('inbox.labels.store');
+        Route::patch('inbox/labels/{label}', [FeedbackLabelController::class, 'update'])
+            ->name('inbox.labels.update');
+        Route::delete('inbox/labels/{label}', [FeedbackLabelController::class, 'destroy'])
+            ->name('inbox.labels.destroy');
         Route::patch('inbox/{feedback}', [InboxController::class, 'update'])
+            ->whereNumber('feedback')
             ->name('inbox.update');
+        Route::post('inbox/{feedback}/status', [InboxController::class, 'status'])
+            ->name('inbox.status');
+        Route::post('inbox/{feedback}/duplicate', [InboxController::class, 'duplicate'])
+            ->name('inbox.duplicate');
         Route::delete('inbox/{feedback}', [InboxController::class, 'destroy'])
             ->name('inbox.destroy');
         Route::get('inbox/{feedback}/screenshot', [InboxController::class, 'screenshot'])

@@ -112,6 +112,6 @@ class AdminNotificationTest extends TestCase
         $this->submitPayment()->assertSessionHasNoErrors()->assertRedirect();
 
         $this->assertSame(1, Payment::count());
-        Log::shouldHaveReceived('warning')->withArgs(fn ($message) => $message === 'Could not email the admins')->once();
+        Log::shouldHaveReceived('warning')->withArgs(fn ($message) => $message === 'Could not send an email')->once();
     }
 }

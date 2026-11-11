@@ -24,12 +24,15 @@ class FeedbackController extends Controller
             // The page the user came from, when the link passed it (?from=/pigeons/12)
             'from' => self::appPath($request->query('from')),
             'recent' => $request->user()->feedback()->latest()->latest('id')->take(5)
-                ->get(['id', 'category', 'message', 'read_at', 'created_at'])
+                ->get(['id', 'category', 'status', 'message', 'read_at', 'created_at'])
                 ->map(fn (Feedback $feedback) => [
                     'id' => $feedback->id,
                     'category' => $feedback->category,
                     'message' => Str::limit($feedback->message, 160),
                     'seen' => $feedback->read_at !== null,
+                    // Where it stands, once an admin has moved it on (e.g. "Fixed", "Planned")
+                    'status' => $feedback->status === Feedback::NEW ? null : $feedback->statusLabel(),
+                    'closed' => $feedback->isClosed(),
                     'created_at' => $feedback->created_at->toIso8601String(),
                 ]),
         ]);

@@ -32,6 +32,9 @@ const props = defineProps<{
         category: FeedbackCategory;
         message: string;
         seen: boolean;
+        // Where it stands once we've moved it on, e.g. "Fixed" or "Planned" (null while new)
+        status: string | null;
+        closed: boolean;
         created_at: string;
     }[];
 }>();
@@ -266,7 +269,17 @@ const submit = () => {
                             <span aria-hidden="true">·</span>
                             <span>{{ formatDate(item.created_at) }}</span>
                             <Badge
-                                v-if="item.seen"
+                                v-if="item.status"
+                                variant="outline"
+                                :class="
+                                    item.closed
+                                        ? 'ml-auto border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                        : 'ml-auto border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+                                "
+                                >{{ item.status }}</Badge
+                            >
+                            <Badge
+                                v-else-if="item.seen"
                                 variant="secondary"
                                 class="ml-auto"
                                 >Read</Badge
