@@ -13,6 +13,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:10,1')
         ->name('billing.payments.store');
     // Private files on R2, streamed only to who may see them (the payer and admins; any signed-in user for a QR)
+    Route::post('billing/trial', [BillingController::class, 'startTrial'])
+        ->name('billing.trial.store');
     Route::get('billing/payments/{payment}/receipt', [BillingController::class, 'receipt'])
         ->name('billing.payments.receipt');
     Route::get('billing/accounts/{paymentAccount}/qr', [BillingController::class, 'qr'])

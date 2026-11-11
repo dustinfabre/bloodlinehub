@@ -35,6 +35,9 @@ const props = defineProps<Props>();
 
 const page = usePage<AppPageProps>();
 const premium = computed(() => isPremium(props.user.premium_until));
+const onTrial = computed(
+    () => !premium.value && isPremium(props.user.trial_ends_at),
+);
 // What's waiting for an admin: payments to review and unread feedback
 const adminWaiting = computed(
     () =>
@@ -61,22 +64,22 @@ const feedbackHref = computed(() => feedback({ query: { from: page.url } }));
         </DropdownMenuItem>
         <DropdownMenuItem :as-child="true">
             <Link
-                class="flex w-full items-center"
+                class="flex w-full items-center text-left"
                 :href="billing()"
                 as="button"
             >
                 <Crown class="mr-2 h-4 w-4" />
                 <span class="flex-1">Plan & billing</span>
                 <span
-                    v-if="premium"
+                    v-if="premium || onTrial"
                     class="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                    >Premium</span
+                    >{{ premium ? 'Premium' : 'Trial' }}</span
                 >
             </Link>
         </DropdownMenuItem>
         <DropdownMenuItem :as-child="true">
             <Link
-                class="flex w-full items-center"
+                class="flex w-full items-center text-left"
                 :href="feedbackHref"
                 as="button"
             >
@@ -86,7 +89,7 @@ const feedbackHref = computed(() => feedback({ query: { from: page.url } }));
         </DropdownMenuItem>
         <DropdownMenuItem v-if="user.is_admin" :as-child="true">
             <Link
-                class="flex w-full items-center"
+                class="flex w-full items-center text-left"
                 :href="adminDashboard()"
                 as="button"
             >

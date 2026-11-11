@@ -39,6 +39,15 @@ export interface PayerAccount {
     qr_version: number | null;
 }
 
+// Premium's price and free trial as the public pages show them (prices null while it isn't on sale)
+export interface Pricing {
+    on_sale: boolean;
+    duration_months: number;
+    trial_days: number;
+    price_php: string | null;
+    price_usd: string | null;
+}
+
 // A Laravel paginator as Inertia receives it
 export interface Paginated<T> {
     data: T[];

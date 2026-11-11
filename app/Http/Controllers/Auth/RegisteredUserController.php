@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,9 @@ class RegisteredUserController extends Controller
 {
     public function create(): Response
     {
-        return Inertia::render('auth/Register');
+        return Inertia::render('auth/Register', [
+            'trialDays' => Plan::premium()?->trial_days ?? 0,
+        ]);
     }
 
     public function store(Request $request, CreatesNewUsers $creator): RedirectResponse
@@ -35,6 +38,9 @@ class RegisteredUserController extends Controller
         );
 
         $user = $creator->create($request->only(['name', 'email', 'password', 'password_confirmation']));
+
+        // New accounts start with the free trial of Premium, when there is one
+        $user->startTrial(Plan::premium()?->trial_days ?? 0);
 
         event(new Registered($user));
 

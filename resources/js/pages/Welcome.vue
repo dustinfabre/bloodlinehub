@@ -3,10 +3,18 @@ import FeatureChapters from '@/components/landing/FeatureChapters.vue';
 import InstallAppButton from '@/components/landing/InstallAppButton.vue';
 import InstallSection from '@/components/landing/InstallSection.vue';
 import PedigreeSpecimen from '@/components/landing/PedigreeSpecimen.vue';
+import PricingPlans from '@/components/landing/PricingPlans.vue';
 import PublicLayout from '@/layouts/PublicLayout.vue';
-import { dashboard, login, register } from '@/routes';
+import { vReveal } from '@/lib/reveal';
+import { dashboard, login, pricing as pricingRoute, register } from '@/routes';
+import type { Pricing } from '@/types/billing';
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight } from 'lucide-vue-next';
+
+defineProps<{
+    // Premium's price and free trial (Plan::publicPricing())
+    pricing: Pricing;
+}>();
 </script>
 
 <template>
@@ -14,7 +22,7 @@ import { ArrowRight } from 'lucide-vue-next';
         <meta
             head-key="description"
             name="description"
-            content="Keep ring numbers, pedigrees, pairings, clutches and race results for every bird in your loft. Share pedigrees by QR code and see what a bloodline has proven."
+            content="Keep ring numbers, pedigrees, pairings, clutches and race results for every bird in your loft, free. Premium adds QR code pedigrees, Pairing Analysis and Loft Check."
         />
     </Head>
 
@@ -81,6 +89,34 @@ import { ArrowRight } from 'lucide-vue-next';
         </section>
 
         <FeatureChapters />
+
+        <section
+            id="pricing"
+            v-reveal
+            aria-labelledby="pricing-heading"
+            class="mx-auto max-w-6xl scroll-mt-24 px-4 pb-20 sm:px-6 sm:pb-28"
+        >
+            <div class="mb-10 max-w-2xl">
+                <h2
+                    id="pricing-heading"
+                    class="font-display text-3xl leading-tight font-semibold tracking-[-0.01em] text-balance text-navy sm:text-4xl"
+                >
+                    Free for your whole loft.
+                </h2>
+                <p
+                    class="mt-4 text-base leading-relaxed text-pretty text-muted-foreground"
+                >
+                    Unlimited pigeons and pairings cost nothing. Premium adds
+                    the tools for breeding and selling.
+                    <Link
+                        :href="pricingRoute()"
+                        class="font-medium text-navy underline decoration-gold underline-offset-4 hover:decoration-navy"
+                        >See pricing details</Link
+                    >
+                </p>
+            </div>
+            <PricingPlans :pricing="pricing" />
+        </section>
 
         <InstallSection />
     </PublicLayout>

@@ -41,6 +41,7 @@ interface RecentUser {
     name: string;
     email: string;
     premium_until: string | null;
+    trial_ends_at: string | null;
     created_at: string;
 }
 
@@ -50,6 +51,8 @@ const props = defineProps<{
         users_7d: number;
         users_30d: number;
         premium: number;
+        // On the free trial and not paying
+        trial: number;
         pending_payments: number;
         unread_feedback: number;
         // Approved in the last 30 days, per currency (an empty list when there were none)
@@ -72,7 +75,7 @@ const cards = computed(() => [
     {
         title: 'Users',
         value: props.stats.users,
-        note: `${props.stats.users_7d} this week · ${props.stats.users_30d} in 30 days`,
+        note: `${props.stats.users_7d} this week · ${props.stats.users_30d} in 30 days · ${props.stats.trial} on trial`,
         icon: Users,
         href: users().url,
     },
@@ -269,6 +272,14 @@ const copyWaitlist = async () => {
                                         variant="secondary"
                                     >
                                         Premium
+                                    </Badge>
+                                    <Badge
+                                        v-else-if="
+                                            isPremium(user.trial_ends_at)
+                                        "
+                                        variant="outline"
+                                    >
+                                        Trial
                                     </Badge>
                                     <span class="text-xs text-muted-foreground">
                                         {{ formatDate(user.created_at) }}

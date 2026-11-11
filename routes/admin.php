@@ -51,12 +51,9 @@ Route::middleware(['auth', 'verified', 'admin', NoIndex::class])
         Route::delete('bank-accounts/{paymentAccount}', [PaymentAccountController::class, 'destroy'])
             ->name('bank-accounts.destroy');
 
+        // Free and Premium: Premium's prices and free trial
         Route::get('plans', [PlanController::class, 'index'])
             ->name('plans.index');
-        Route::post('plans', [PlanController::class, 'store'])
-            ->name('plans.store');
-        Route::patch('plans/{plan}', [PlanController::class, 'update'])
+        Route::patch('plans', [PlanController::class, 'update'])
             ->name('plans.update');
-        Route::delete('plans/{plan}', [PlanController::class, 'destroy'])
-            ->name('plans.destroy');
     });

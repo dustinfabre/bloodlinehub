@@ -3,386 +3,270 @@ import InputError from '@/components/InputError.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/composables/useToast';
 import AdminLayout from '@/layouts/admin/AdminLayout.vue';
-import { durationLabel, formatMoney } from '@/lib/billing';
-import { destroy, store, update } from '@/routes/admin/plans';
-import type { Plan } from '@/types/billing';
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { Pencil, Plus, Tag, Trash2 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { durationLabel, formatMoney, perPeriod } from '@/lib/billing';
+import { FREE_FEATURES, PREMIUM_FEATURES } from '@/lib/premium';
+import { update } from '@/routes/admin/plans';
+import { Head, useForm } from '@inertiajs/vue3';
+import { Check, Crown } from 'lucide-vue-next';
+import { computed } from 'vue';
 
-type AdminPlan = Plan & {
-    is_active: boolean;
-    sort_order: number;
-    payments_count: number;
-};
-
-defineProps<{
-    plans: AdminPlan[];
+const props = defineProps<{
+    premium: {
+        // Null until a price is set (Premium isn't on sale before then)
+        price_php: string | null;
+        price_usd: string | null;
+        duration_months: number;
+        trial_days: number;
+        on_sale: boolean;
+        payments_count: number;
+    };
+    durations: number[];
 }>();
 
-const { success, error } = useToast();
-
-// Create / edit
-const editing = ref<AdminPlan | null>(null);
-const showForm = ref(false);
+const { success } = useToast();
 
 const form = useForm({
-    name: '',
-    description: '',
-    duration_months: 1 as number | string,
-    price_php: '' as number | string,
-    price_usd: '' as number | string,
-    is_active: true,
-    sort_order: 0 as number | string,
+    price_php: props.premium.price_php
+        ? String(Number(props.premium.price_php))
+        : '',
+    price_usd: props.premium.price_usd
+        ? String(Number(props.premium.price_usd))
+        : '',
+    duration_months: String(props.premium.duration_months),
+    trial_days: String(props.premium.trial_days),
 });
 
-const openCreate = () => {
-    editing.value = null;
-    form.reset();
-    form.clearErrors();
-    showForm.value = true;
-};
-
-const openEdit = (plan: AdminPlan) => {
-    editing.value = plan;
-    form.clearErrors();
-    form.name = plan.name;
-    form.description = plan.description ?? '';
-    form.duration_months = plan.duration_months;
-    form.price_php = plan.price_php;
-    form.price_usd = plan.price_usd ?? '';
-    form.is_active = plan.is_active;
-    form.sort_order = plan.sort_order;
-    showForm.value = true;
-};
+const period = computed(() => perPeriod(Number(form.duration_months)));
 
 const submit = () => {
-    const plan = editing.value;
-    const options = {
+    form.transform((data) => ({
+        ...data,
+        duration_months: Number(data.duration_months),
+        trial_days: Number(data.trial_days || 0),
+    })).patch(update().url, {
         preserveScroll: true,
-        onSuccess: () => {
-            showForm.value = false;
-            success(plan ? 'Plan updated.' : 'Plan added.');
-        },
-    };
-
-    if (plan) {
-        form.patch(update(plan.id).url, options);
-    } else {
-        form.post(store().url, options);
-    }
-};
-
-// Delete
-const deleting = ref<AdminPlan | null>(null);
-const showDelete = computed({
-    get: () => deleting.value !== null,
-    set: (open: boolean) => {
-        if (!open) deleting.value = null;
-    },
-});
-
-const confirmDelete = () => {
-    const plan = deleting.value;
-    if (!plan) return;
-    router.delete(destroy(plan.id).url, {
-        preserveScroll: true,
-        onSuccess: () => {
-            deleting.value = null;
-            success('Plan deleted.');
-        },
-        onError: () => error('Could not delete this plan.'),
+        onSuccess: () => success('Premium updated.'),
     });
 };
 </script>
 
 <template>
-    <Head title="Plans & prices · Admin" />
+    <Head title="Plans & prices" />
 
     <AdminLayout
         title="Plans & prices"
-        description="What users can pay for. A price change only affects new payments."
+        description="Free and Premium. Set Premium's price and free trial; a change applies to new payments only."
     >
-        <div class="space-y-5">
-            <div class="flex justify-end">
-                <Button @click="openCreate"
-                    ><Plus class="size-4" /> Add plan</Button
-                >
-            </div>
+        <div class="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <!-- Free: nothing to set -->
+            <Card class="py-0">
+                <CardContent class="space-y-5 p-5 sm:p-6">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold">Free</h2>
+                            <p class="text-sm text-muted-foreground">
+                                Every account, always.
+                            </p>
+                        </div>
+                        <p class="text-2xl font-bold tabular-nums">₱0</p>
+                    </div>
+                    <ul class="space-y-1.5 text-sm text-muted-foreground">
+                        <li
+                            v-for="item in FREE_FEATURES"
+                            :key="item"
+                            class="flex gap-2"
+                        >
+                            <Check class="mt-0.5 size-4 shrink-0" />
+                            {{ item }}
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
 
-            <div
-                v-if="plans.length === 0"
-                class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-4 py-16 text-center"
-            >
-                <Tag class="mb-3 size-10 text-muted-foreground/40" />
-                <p class="font-medium">No plans yet</p>
-                <p class="mt-1 max-w-md text-sm text-muted-foreground">
-                    Users can't pay until there is at least one. Start with, for
-                    example,
-                    <span class="font-medium text-foreground"
-                        >Premium · 1 month</span
-                    >
-                    and
-                    <span class="font-medium text-foreground"
-                        >Premium · 1 year</span
-                    >, with a peso price and a dollar price for payers abroad.
-                </p>
-                <Button class="mt-4" @click="openCreate"
-                    ><Plus class="size-4" /> Add plan</Button
-                >
-            </div>
+            <!-- Premium: prices, period and trial -->
+            <Card class="py-0">
+                <CardContent class="space-y-6 p-5 sm:p-6">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h2
+                                class="flex items-center gap-2 text-lg font-semibold"
+                            >
+                                <Crown
+                                    class="size-5 text-amber-600 dark:text-amber-300"
+                                />
+                                Premium
+                            </h2>
+                            <p class="text-sm text-muted-foreground">
+                                Everything in Free, plus the Premium features.
+                            </p>
+                        </div>
+                        <Badge
+                            :variant="premium.on_sale ? 'secondary' : 'outline'"
+                            class="shrink-0"
+                        >
+                            {{
+                                premium.on_sale ? 'On sale' : 'Not on sale yet'
+                            }}
+                        </Badge>
+                    </div>
 
-            <div v-else class="grid gap-3 lg:grid-cols-2">
-                <Card
-                    v-for="plan in plans"
-                    :key="plan.id"
-                    :class="['py-0', plan.is_active ? '' : 'opacity-70']"
-                >
-                    <CardContent class="space-y-3 p-4 sm:p-5">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <p class="font-semibold wrap-break-word">
-                                        {{ plan.name }}
-                                    </p>
-                                    <Badge
-                                        :variant="
-                                            plan.is_active
-                                                ? 'secondary'
-                                                : 'outline'
-                                        "
+                    <form class="grid gap-5" @submit.prevent="submit">
+                        <div class="grid gap-4 sm:grid-cols-[1fr_auto]">
+                            <div class="grid gap-2">
+                                <Label for="price_php"
+                                    >Price in pesos (₱)</Label
+                                >
+                                <Input
+                                    id="price_php"
+                                    v-model="form.price_php"
+                                    type="number"
+                                    inputmode="decimal"
+                                    min="1"
+                                    step="0.01"
+                                    required
+                                    placeholder="e.g. 1499"
+                                />
+                                <InputError :message="form.errors.price_php" />
+                            </div>
+                            <div class="grid gap-2">
+                                <Label for="duration">Per</Label>
+                                <Select v-model="form.duration_months">
+                                    <SelectTrigger
+                                        id="duration"
+                                        class="w-full sm:w-36"
                                     >
-                                        {{
-                                            plan.is_active
-                                                ? 'On sale'
-                                                : 'Hidden'
-                                        }}
-                                    </Badge>
-                                </div>
-                                <p class="text-sm text-muted-foreground">
-                                    {{ durationLabel(plan.duration_months) }}
-                                </p>
-                            </div>
-                            <div class="shrink-0 text-right">
-                                <p class="text-xl font-bold tabular-nums">
-                                    {{ formatMoney(plan.price_php, 'PHP') }}
-                                </p>
-                                <p
-                                    class="text-sm text-muted-foreground tabular-nums"
-                                >
-                                    {{
-                                        plan.price_usd
-                                            ? formatMoney(plan.price_usd, 'USD')
-                                            : 'Not sold abroad'
-                                    }}
-                                </p>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="months in durations"
+                                            :key="months"
+                                            :value="String(months)"
+                                            >{{
+                                                durationLabel(months)
+                                            }}</SelectItem
+                                        >
+                                    </SelectContent>
+                                </Select>
+                                <InputError
+                                    :message="form.errors.duration_months"
+                                />
                             </div>
                         </div>
-                        <p
-                            v-if="plan.description"
-                            class="text-sm wrap-break-word text-muted-foreground"
-                        >
-                            {{ plan.description }}
-                        </p>
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3"
-                        >
-                            <span class="text-xs text-muted-foreground">
-                                {{ plan.payments_count }}
-                                {{
-                                    plan.payments_count === 1
-                                        ? 'payment'
-                                        : 'payments'
-                                }}
-                                · order {{ plan.sort_order }}
-                            </span>
-                            <div class="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    @click="openEdit(plan)"
-                                >
-                                    <Pencil class="size-4" /> Edit
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    class="text-destructive hover:text-destructive"
-                                    @click="deleting = plan"
-                                >
-                                    <Trash2 class="size-4" /> Delete
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
 
-        <!-- Create / edit -->
-        <Dialog v-model:open="showForm">
-            <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{{
-                        editing ? 'Edit plan' : 'Add plan'
-                    }}</DialogTitle>
-                    <DialogDescription>
-                        Approving a payment for this plan adds its length to the
-                        payer's Premium.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <form class="space-y-4" @submit.prevent="submit">
-                    <div class="grid gap-2">
-                        <Label for="plan-name">Name</Label>
-                        <Input
-                            id="plan-name"
-                            v-model="form.name"
-                            required
-                            placeholder="e.g. Premium · 1 year"
-                        />
-                        <InputError :message="form.errors.name" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="plan-description"
-                            >Short description (optional)</Label
-                        >
-                        <Input
-                            id="plan-description"
-                            v-model="form.description"
-                            placeholder="e.g. Two months free compared with monthly"
-                        />
-                        <InputError :message="form.errors.description" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="plan-duration">Length in months</Label>
-                        <Input
-                            id="plan-duration"
-                            v-model="form.duration_months"
-                            type="number"
-                            min="1"
-                            max="120"
-                            required
-                        />
-                        <InputError :message="form.errors.duration_months" />
-                    </div>
-
-                    <div class="grid gap-4 sm:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label for="plan-php">Price in pesos (PHP)</Label>
+                            <Label for="price_usd">
+                                Price in dollars (US$)
+                                <span class="font-normal text-muted-foreground"
+                                    >for payers abroad</span
+                                >
+                            </Label>
                             <Input
-                                id="plan-php"
-                                v-model="form.price_php"
-                                type="number"
-                                min="1"
-                                step="0.01"
-                                inputmode="decimal"
-                                required
-                            />
-                            <InputError :message="form.errors.price_php" />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="plan-usd">Price in dollars (USD)</Label>
-                            <Input
-                                id="plan-usd"
+                                id="price_usd"
                                 v-model="form.price_usd"
                                 type="number"
+                                inputmode="decimal"
                                 min="1"
                                 step="0.01"
-                                inputmode="decimal"
-                                placeholder="Optional"
+                                placeholder="e.g. 29.99"
                             />
                             <p class="text-xs text-muted-foreground">
-                                Leave blank if payers abroad can't buy it.
+                                Leave blank and payers abroad can't buy Premium.
                             </p>
                             <InputError :message="form.errors.price_usd" />
                         </div>
-                    </div>
 
-                    <div class="grid gap-4 sm:grid-cols-2 sm:items-end">
-                        <Label
-                            for="plan-active"
-                            class="flex items-start gap-2 font-normal"
-                        >
-                            <Checkbox
-                                id="plan-active"
-                                v-model="form.is_active"
-                                class="mt-0.5"
-                            />
-                            <span>
-                                On sale
-                                <span
-                                    class="block text-xs text-muted-foreground"
-                                    >Untick to hide it from the billing
-                                    page.</span
-                                >
-                            </span>
-                        </Label>
                         <div class="grid gap-2">
-                            <Label for="plan-order">Order</Label>
+                            <Label for="trial_days">Free trial (days)</Label>
                             <Input
-                                id="plan-order"
-                                v-model="form.sort_order"
+                                id="trial_days"
+                                v-model="form.trial_days"
                                 type="number"
+                                inputmode="numeric"
                                 min="0"
-                                max="999"
+                                max="365"
+                                class="w-32"
                             />
-                            <InputError :message="form.errors.sort_order" />
+                            <p class="text-xs text-muted-foreground">
+                                Full Premium, free. New accounts start it when
+                                they sign up; accounts that never had one can
+                                start it from Plan &amp; billing. Once per
+                                account. 0 turns the trial off.
+                            </p>
+                            <InputError :message="form.errors.trial_days" />
                         </div>
-                    </div>
 
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            @click="showForm = false"
-                            >Cancel</Button
+                        <div
+                            class="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between"
                         >
-                        <Button type="submit" :disabled="form.processing">
-                            <Spinner v-if="form.processing" />
-                            {{ editing ? 'Save' : 'Add plan' }}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+                            <p class="text-sm text-muted-foreground">
+                                <template v-if="form.price_php">
+                                    {{ formatMoney(form.price_php, 'PHP') }} /
+                                    {{ period
+                                    }}<template v-if="form.price_usd">
+                                        ·
+                                        {{ formatMoney(form.price_usd, 'USD') }}
+                                        / {{ period }}</template
+                                    >
+                                </template>
+                                <template v-else
+                                    >Set a peso price to put Premium on
+                                    sale.</template
+                                >
+                            </p>
+                            <Button
+                                type="submit"
+                                class="shrink-0"
+                                :disabled="form.processing"
+                            >
+                                <Spinner v-if="form.processing" />
+                                Save
+                            </Button>
+                        </div>
+                    </form>
 
-        <!-- Delete -->
-        <Dialog v-model:open="showDelete">
-            <DialogContent class="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Delete {{ deleting?.name }}?</DialogTitle>
-                    <DialogDescription>
-                        It can no longer be bought. Past payments keep the
-                        plan's name and length. To stop selling it for a while,
-                        edit it and untick "On sale" instead.
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                    <Button variant="outline" @click="deleting = null"
-                        >Cancel</Button
-                    >
-                    <Button variant="destructive" @click="confirmDelete">
-                        <Trash2 class="size-4" /> Delete
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <div class="border-t border-border pt-5">
+                        <p class="mb-2 text-sm font-semibold">Premium adds</p>
+                        <ul class="space-y-1.5 text-sm text-muted-foreground">
+                            <li
+                                v-for="item in PREMIUM_FEATURES"
+                                :key="item.key"
+                                class="flex gap-2"
+                            >
+                                <Crown
+                                    class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300"
+                                />
+                                {{ item.title }}
+                            </li>
+                        </ul>
+                        <p
+                            v-if="premium.payments_count"
+                            class="mt-4 text-xs text-muted-foreground"
+                        >
+                            {{ premium.payments_count }}
+                            {{
+                                premium.payments_count === 1
+                                    ? 'payment'
+                                    : 'payments'
+                            }}
+                            so far. Each keeps the price and period it was paid
+                            at.
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     </AdminLayout>
 </template>

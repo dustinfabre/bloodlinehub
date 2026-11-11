@@ -27,14 +27,24 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $plan = Plan::premium();
 
         return Inertia::render('billing/Index', [
             'premium' => [
                 'active' => $user->isPremium(),
                 'until' => $user->premium_until?->toIso8601String(),
             ],
-            'plans' => Plan::where('is_active', true)->ordered()
-                ->get(['id', 'name', 'description', 'duration_months', 'price_php', 'price_usd']),
+            'trial' => [
+                'active' => $user->isOnTrial(),
+                'ends_at' => $user->trial_ends_at?->toIso8601String(),
+                // Offered to accounts that never had one, while trials are on
+                'available' => $user->canStartTrial() && ($plan?->trial_days ?? 0) > 0,
+                'days' => $plan?->trial_days ?? 0,
+            ],
+            // Premium is the only paid plan; empty until it has a price
+            'plans' => $plan?->isOnSale()
+                ? [$plan->only(['id', 'name', 'description', 'duration_months', 'price_php', 'price_usd'])]
+                : [],
             'accounts' => PaymentAccount::where('is_active', true)->ordered()->get()
                 ->map->toPayerArray()->values(),
             'payments' => $user->payments()->latest()->latest('id')->get()
@@ -60,7 +70,7 @@ class BillingController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
+            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)->where('key', Plan::PREMIUM)],
             'payment_account_id' => ['required', 'integer', Rule::exists('payment_accounts', 'id')->where('is_active', true)],
             'amount' => ['required', 'numeric', 'min:1', 'max:99999999'],
             'reference_number' => ['nullable', 'string', 'max:100'],
@@ -107,6 +117,22 @@ class BillingController extends Controller
             'receipt_path' => $receipt['path'],
             'receipt_mime' => $receipt['mime'],
         ]);
+
+        return back();
+    }
+
+    /**
+     * Start the free trial (accounts that signed up before trials, or before this one was on, start it here).
+     */
+    public function startTrial(Request $request): RedirectResponse
+    {
+        $days = Plan::premium()?->trial_days ?? 0;
+
+        if (! $request->user()->startTrial($days)) {
+            throw ValidationException::withMessages([
+                'trial' => $days < 1 ? 'There is no free trial at the moment.' : 'This account has already had its free trial.',
+            ]);
+        }
 
         return back();
     }

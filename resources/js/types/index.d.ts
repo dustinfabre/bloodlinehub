@@ -57,6 +57,8 @@ export interface User {
     is_admin: boolean;
     // Premium while this is in the future
     premium_until: string | null;
+    // The free trial (full Premium) runs until this; null if the account never had one
+    trial_ends_at: string | null;
     created_at: string;
     updated_at: string;
 }

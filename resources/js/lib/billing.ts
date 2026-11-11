@@ -36,6 +36,19 @@ export const formatDateTime = (value: string | null | undefined): string =>
           })
         : '';
 
+// "month", "year", "3 months": what one payment of the price covers, after "per" or "/"
+export const perPeriod = (months: number): string =>
+    months === 1 ? 'month' : months === 12 ? 'year' : `${months} months`;
+
+// Whole days from now until a date, at least 0
+export const daysLeft = (until: string | null | undefined): number =>
+    until
+        ? Math.max(
+              0,
+              Math.ceil((new Date(until).getTime() - Date.now()) / 86_400_000),
+          )
+        : 0;
+
 // "1 month", "12 months"
 export const durationLabel = (months: number): string =>
     months % 12 === 0 && months >= 12

@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import AppLogoWordmark from '@/components/AppLogoWordmark.vue';
 import InstallAppButton from '@/components/landing/InstallAppButton.vue';
-import { dashboard, home, login, privacy, register, terms } from '@/routes';
+import {
+    dashboard,
+    home,
+    login,
+    pricing,
+    privacy,
+    register,
+    terms,
+} from '@/routes';
 import { index as marketplace } from '@/routes/marketplace';
 import { Head, Link } from '@inertiajs/vue3';
 
@@ -32,6 +40,12 @@ const year = new Date().getFullYear();
                 </Link>
 
                 <nav class="flex items-center gap-2 sm:gap-3" aria-label="Main">
+                    <Link
+                        :href="pricing()"
+                        class="hidden min-h-10 items-center px-3 text-sm font-medium text-ivory/70 transition-colors duration-150 hover:text-ivory md:inline-flex"
+                    >
+                        Pricing
+                    </Link>
                     <Link
                         :href="marketplace()"
                         class="hidden min-h-10 items-center px-3 text-sm font-medium text-ivory/70 transition-colors duration-150 hover:text-ivory md:inline-flex"
@@ -68,6 +82,12 @@ const year = new Date().getFullYear();
             >
                 <AppLogoWordmark class="h-8" />
                 <nav class="flex flex-wrap gap-x-6" aria-label="Footer">
+                    <Link
+                        :href="pricing()"
+                        class="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-ivory md:min-h-0"
+                    >
+                        Pricing
+                    </Link>
                     <Link
                         :href="marketplace()"
                         class="inline-flex min-h-11 items-center transition-colors duration-150 hover:text-ivory md:min-h-0"

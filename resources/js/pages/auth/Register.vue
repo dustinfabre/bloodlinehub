@@ -9,6 +9,12 @@ import { login, privacy, terms } from '@/routes';
 import { store } from '@/routes/register';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Check } from 'lucide-vue-next';
+import { computed } from 'vue';
+
+const props = defineProps<{
+    // Days of free Premium a new account starts with (0: no trial)
+    trialDays: number;
+}>();
 
 const form = useForm({
     name: '',
@@ -26,11 +32,17 @@ const submit = () => {
     });
 };
 
-const included = [
-    'Your loft register, with photos saved to your own Google Drive',
-    'Pedigrees you can print, save as an image or share with a QR code',
-    'Pairings, clutches, loft checks and race results',
-];
+// What the free plan includes (the trial adds Premium on top for its first days)
+const included = computed(() => [
+    'Unlimited pigeons, with photos saved to your own Google Drive',
+    'Unlimited pairings and clutches, and printable pedigrees',
+    'Lineage, locations, clubs, one-loft races and sales',
+    ...(props.trialDays > 0
+        ? [
+              `Every Premium feature free for your first ${props.trialDays} days: Pairing Analysis, Loft Check, QR code pedigrees and more`,
+          ]
+        : []),
+]);
 
 const inputClass = 'h-11 bg-card text-[15px] text-navy';
 </script>
@@ -53,7 +65,10 @@ const inputClass = 'h-11 bg-card text-[15px] text-navy';
                     style="--rise-delay: 80ms"
                 >
                     Create a free account and add your first birds in minutes.
-                    No card needed.
+                    No card needed<template v-if="trialDays > 0"
+                        >, and Premium is free for your first
+                        {{ trialDays }} days</template
+                    >.
                 </p>
                 <ul
                     class="mt-8 animate-rise space-y-3"

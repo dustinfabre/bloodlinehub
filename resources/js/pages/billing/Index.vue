@@ -24,10 +24,11 @@ import { useToast } from '@/composables/useToast';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
     ACCOUNT_TYPES,
-    PAYMENT_STATUS,
+    daysLeft,
     durationLabel,
     formatDate,
     formatMoney,
+    PAYMENT_STATUS,
 } from '@/lib/billing';
 import { shrinkImage } from '@/lib/images';
 import { FREE_FEATURES, PREMIUM_FEATURES, usePremium } from '@/lib/premium';
@@ -35,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { index as billingIndex } from '@/routes/billing';
 import { qr } from '@/routes/billing/accounts';
 import { receipt, store } from '@/routes/billing/payments';
+import { store as startTrialRoute } from '@/routes/billing/trial';
 import { create as feedback } from '@/routes/feedback';
 import type { BreadcrumbItem } from '@/types';
 import type {
@@ -73,11 +75,30 @@ interface PaymentRow {
 
 const props = defineProps<{
     premium: { active: boolean; until: string | null };
+    // The free trial (full Premium): running, when it ends, and whether this account can still start one
+    trial: {
+        active: boolean;
+        ends_at: string | null;
+        available: boolean;
+        days: number;
+    };
     plans: Plan[];
     accounts: PayerAccount[];
     payments: PaymentRow[];
     maxPending: number;
 }>();
+
+const trialForm = useForm({});
+const startTrial = () =>
+    trialForm.post(startTrialRoute().url, {
+        preserveScroll: true,
+        onSuccess: () =>
+            success(
+                `Your ${props.trial.days}-day free trial has started. Every Premium feature is unlocked.`,
+            ),
+        onError: (errors) =>
+            error(errors.trial ?? 'Could not start the trial.'),
+    });
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Plan & billing', href: billingIndex().url },
@@ -311,7 +332,7 @@ const submit = () => {
                         :class="
                             cn(
                                 'flex size-12 shrink-0 items-center justify-center rounded-full',
-                                premium.active
+                                premium.active || trial.active
                                     ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
                                     : 'bg-muted text-muted-foreground',
                             )
@@ -321,7 +342,13 @@ const submit = () => {
                     </div>
                     <div class="min-w-0 flex-1">
                         <p class="text-lg font-semibold">
-                            {{ premium.active ? 'Premium' : 'Free plan' }}
+                            {{
+                                premium.active
+                                    ? 'Premium'
+                                    : trial.active
+                                      ? 'Premium free trial'
+                                      : 'Free plan'
+                            }}
                         </p>
                         <p class="text-sm text-muted-foreground">
                             <template v-if="premium.active">
@@ -329,15 +356,45 @@ const submit = () => {
                                 Paying again adds the new period after this
                                 date.
                             </template>
+                            <template v-else-if="trial.active">
+                                Every Premium feature is unlocked until
+                                {{ formatDate(trial.ends_at) }}
+                                ({{ daysLeft(trial.ends_at) }}
+                                {{
+                                    daysLeft(trial.ends_at) === 1
+                                        ? 'day'
+                                        : 'days'
+                                }}
+                                left). Pay now to keep Premium: your paid time
+                                starts when the trial ends.
+                            </template>
                             <template v-else-if="premium.until">
                                 Your Premium ended on
                                 {{ formatDate(premium.until) }}.
+                            </template>
+                            <template v-else-if="trial.ends_at">
+                                Your free trial ended on
+                                {{ formatDate(trial.ends_at) }}.
+                            </template>
+                            <template v-else-if="trial.available">
+                                You're on the free plan. Try every Premium
+                                feature free for {{ trial.days }} days, no
+                                payment needed.
                             </template>
                             <template v-else>
                                 You're on the free plan.
                             </template>
                         </p>
                     </div>
+                    <Button
+                        v-if="trial.available && !premium.active"
+                        class="shrink-0"
+                        :disabled="trialForm.processing"
+                        @click="startTrial"
+                    >
+                        <Spinner v-if="trialForm.processing" />
+                        Start {{ trial.days }}-day free trial
+                    </Button>
                     <Badge
                         v-if="pendingCount"
                         variant="outline"
@@ -408,7 +465,7 @@ const submit = () => {
                 <!-- 1. Plan -->
                 <section class="space-y-3" aria-labelledby="step-plan">
                     <h2 id="step-plan" class="text-lg font-semibold">
-                        1. Choose a plan
+                        1. {{ plans.length > 1 ? 'Choose a plan' : 'Premium' }}
                     </h2>
 
                     <div

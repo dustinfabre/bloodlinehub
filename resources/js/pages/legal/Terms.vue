@@ -255,14 +255,22 @@ const sections: LegalSection[] = [
                 printed QR code, stop opening for other people.
             </p>
             <p>
+                <strong>Free trial.</strong> When we offer one, a new account
+                gets Premium free for the number of days shown when you sign up.
+                Each person gets one trial; making extra accounts to get more
+                trials is not allowed. You don't pay or enter payment details
+                for the trial, and when it ends your account simply goes back to
+                the free plan unless you pay for Premium.
+            </p>
+            <p>
                 <strong>Paying for Premium.</strong> You pay by bank transfer or
                 e-wallet to one of the accounts shown on the Plan &amp; billing
                 page, then upload your receipt there. Premium starts once we
                 have confirmed that the money arrived, and lasts for the period
-                of the plan you paid for. If you pay while Premium is still
-                active, the new period starts when the current one ends. Premium
-                does not renew by itself: you are never charged unless you send
-                another payment.
+                of the plan you paid for. If you pay while Premium or your free
+                trial is still active, the new period starts when the current
+                one ends. Premium does not renew by itself: you are never
+                charged unless you send another payment.
             </p>
             <p>
                 Send the amount shown for your plan. You pay any fees your bank

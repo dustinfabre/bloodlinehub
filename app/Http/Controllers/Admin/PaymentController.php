@@ -78,7 +78,9 @@ class PaymentController extends Controller
             $this->ensurePending($payment);
 
             $user = $payment->user_id ? User::lockForUpdate()->find($payment->user_id) : null;
-            $from = $user?->isPremium() ? $user->premium_until->copy() : now();
+            // Paid time starts when the Premium or free trial they have now ends, so paying early loses nothing
+            $from = collect([now(), $user?->isPremium() ? $user->premium_until : null, $user?->isOnTrial() ? $user->trial_ends_at : null])
+                ->filter()->max()->copy();
             $until = $from->copy()->addMonthsNoOverflow($payment->duration_months);
 
             if ($user) {

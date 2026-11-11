@@ -20,7 +20,7 @@ class UserController extends Controller
     public function index(Request $request): Response
     {
         $search = Str::limit(trim((string) $request->query('search', '')), 100, '');
-        $plan = in_array($request->query('plan'), ['premium', 'free'], true) ? $request->query('plan') : null;
+        $plan = in_array($request->query('plan'), ['premium', 'trial', 'free'], true) ? $request->query('plan') : null;
 
         $users = User::query()
             ->when($search !== '', function ($query) use ($search) {
@@ -30,8 +30,10 @@ class UserController extends Controller
                     ->orWhereRaw('lower(email) like ?', [$like]));
             })
             ->when($plan === 'premium', fn ($query) => $query->where('premium_until', '>', now()))
-            ->when($plan === 'free', fn ($query) => $query->where(fn ($query) => $query
-                ->whereNull('premium_until')->orWhere('premium_until', '<=', now())))
+            ->when($plan === 'trial', fn ($query) => $query->where('trial_ends_at', '>', now()))
+            ->when($plan === 'free', fn ($query) => $query
+                ->where(fn ($query) => $query->whereNull('premium_until')->orWhere('premium_until', '<=', now()))
+                ->where(fn ($query) => $query->whereNull('trial_ends_at')->orWhere('trial_ends_at', '<=', now())))
             ->withCount('pigeons')
             ->latest()->latest('id')
             ->paginate(25)
@@ -43,6 +45,8 @@ class UserController extends Controller
                 'is_admin' => $user->is_admin,
                 'premium_until' => $user->premium_until?->toIso8601String(),
                 'premium' => $user->isPremium(),
+                'trial_ends_at' => $user->trial_ends_at?->toIso8601String(),
+                'on_trial' => $user->isOnTrial(),
                 'pigeons_count' => $user->pigeons_count,
                 'created_at' => $user->created_at->toIso8601String(),
             ]);

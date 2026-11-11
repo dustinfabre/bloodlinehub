@@ -7,6 +7,7 @@ import BetaNotice from '@/components/BetaNotice.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import PedigreePrivacyPrompt from '@/components/pedigree/PedigreePrivacyPrompt.vue';
 import PwaStatus from '@/components/PwaStatus.vue';
+import TrialNotice from '@/components/TrialNotice.vue';
 import { Toaster } from '@/components/ui/sonner';
 import type { BreadcrumbItemType } from '@/types';
 
@@ -24,6 +25,7 @@ withDefaults(defineProps<Props>(), {
         <AppSidebar />
         <AppContent variant="sidebar" class="overflow-x-clip">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
+            <TrialNotice />
             <BetaNotice />
             <slot />
         </AppContent>

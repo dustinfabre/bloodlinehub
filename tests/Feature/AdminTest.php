@@ -299,24 +299,85 @@ class AdminTest extends TestCase
         ])->assertSessionHasErrors('account_type');
     }
 
-    public function test_plans_can_be_managed_and_payments_keep_their_copy(): void
+    public function test_premium_starts_off_sale_until_it_has_a_price(): void
     {
-        $this->actingAs($this->admin)->post(route('admin.plans.store'), [
-            'name' => 'Premium 1 month', 'duration_months' => 1, 'price_php' => 199, 'price_usd' => '', 'is_active' => true,
+        $premium = Plan::premium();
+        $this->assertNotNull($premium);
+        $this->assertFalse($premium->isOnSale());
+        $this->assertSame(14, $premium->trial_days);
+
+        $this->actingAs($this->admin)->get(route('admin.plans.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/Plans')
+                ->where('premium.price_php', null)
+                ->where('premium.on_sale', false)
+                ->where('premium.trial_days', 14));
+
+        $this->actingAs($this->payer)->get(route('billing.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('plans', []));
+    }
+
+    public function test_only_premium_prices_and_trial_can_be_changed(): void
+    {
+        $premium = Plan::premium();
+        $payment = $this->payment(['plan_id' => $premium->id, 'plan_name' => 'Premium', 'duration_months' => 12, 'amount' => 1500]);
+
+        $this->actingAs($this->admin)->patch(route('admin.plans.update'), [
+            'price_php' => '',
+            'duration_months' => 5,
+            'trial_days' => -1,
+        ])->assertSessionHasErrors(['price_php', 'duration_months', 'trial_days']);
+
+        $this->actingAs($this->admin)->patch(route('admin.plans.update'), [
+            'price_php' => 249, 'price_usd' => '', 'duration_months' => 1, 'trial_days' => 7,
+            // Not editable here
+            'name' => 'Gold',
         ])->assertSessionHasNoErrors();
 
-        $plan = Plan::sole();
-        $this->assertNull($plan->price_usd);
-        $payment = $this->payment(['plan_id' => $plan->id, 'plan_name' => $plan->name, 'duration_months' => 1]);
+        $premium->refresh();
+        $this->assertSame('249.00', $premium->price_php);
+        $this->assertNull($premium->price_usd);
+        $this->assertSame(1, $premium->duration_months);
+        $this->assertSame(7, $premium->trial_days);
+        $this->assertSame('Premium', $premium->name);
+        $this->assertTrue($premium->isOnSale());
 
-        $this->actingAs($this->admin)->patch(route('admin.plans.update', $plan), [
-            'name' => 'Monthly', 'duration_months' => 1, 'price_php' => 249, 'price_usd' => 5, 'is_active' => true,
-        ])->assertSessionHasNoErrors();
-        $this->assertSame('249.00', $plan->fresh()->price_php);
+        // Past payments keep what they paid for
+        $this->assertSame(12, $payment->fresh()->duration_months);
+        $this->assertSame('1500.00', $payment->fresh()->amount);
 
-        $this->actingAs($this->admin)->delete(route('admin.plans.destroy', $plan));
-        $this->assertNull($payment->fresh()->plan_id);
-        $this->assertSame('Premium 1 month', $payment->fresh()->plan_name);
+        // There is no adding or deleting plans
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('admin.plans.store'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('admin.plans.destroy'));
+        $this->assertSame(1, Plan::count());
+    }
+
+    public function test_approving_during_the_trial_adds_the_paid_time_after_it(): void
+    {
+        $this->payer->forceFill(['trial_ends_at' => now()->addDays(10)])->save();
+        $trialEnd = $this->payer->trial_ends_at;
+
+        $this->actingAs($this->admin)->post(route('admin.payments.approve', $this->payment(['duration_months' => 12])));
+
+        $this->assertSame($trialEnd->copy()->addMonthsNoOverflow(12)->toDateString(), $this->payer->fresh()->premium_until->toDateString());
+    }
+
+    public function test_the_users_list_shows_trials(): void
+    {
+        $this->payer->forceFill(['trial_ends_at' => now()->addDays(5)])->save();
+
+        $this->actingAs($this->admin)->get(route('admin.users.index', ['plan' => 'trial']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('users.data', 1)
+                ->where('users.data.0.on_trial', true)
+                ->where('users.data.0.premium', false));
+
+        $this->actingAs($this->admin)->get(route('admin.users.index', ['plan' => 'free']))
+            ->assertInertia(fn (Assert $page) => $page->has('users.data', 1)->where('users.data.0.id', $this->admin->id));
+
+        $this->actingAs($this->admin)->get(route('admin.dashboard'))
+            ->assertInertia(fn (Assert $page) => $page->where('stats.trial', 1));
     }
 
     public function test_premium_can_be_set_by_hand(): void

@@ -26,12 +26,20 @@ use App\Http\Controllers\PigeonMeritController;
 use App\Http\Controllers\PlannedPairingController;
 use App\Http\Controllers\SalesController;
 use App\Http\Middleware\NoIndex;
+use App\Models\PaymentAccount;
+use App\Models\Plan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('Welcome'))
+Route::get('/', fn () => Inertia::render('Welcome', ['pricing' => Plan::publicPricing()]))
     ->name('home');
+Route::get('pricing', fn () => Inertia::render('Pricing', [
+    'pricing' => Plan::publicPricing(),
+    // How payers can pay, from the accounts shown on the billing page (e.g. "BDO", "GCash", "PayPal")
+    'paymentMethods' => PaymentAccount::where('is_active', true)->ordered()->pluck('bank_name')->unique()->values(),
+]))
+    ->name('pricing');
 // Legal pages, public (also the privacy policy URL on the Google OAuth consent screen)
 Route::get('privacy', fn () => Inertia::render('legal/Privacy'))
     ->name('privacy');

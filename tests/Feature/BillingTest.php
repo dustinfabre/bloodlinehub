@@ -34,7 +34,9 @@ class BillingTest extends TestCase
         Storage::fake('r2');
 
         $this->me = User::factory()->create(['name' => 'Juan dela Cruz', 'email' => 'juan@example.test']);
-        $this->plan = Plan::create(['name' => 'Premium 1 year', 'duration_months' => 12, 'price_php' => 1500, 'price_usd' => 30]);
+        // Premium (made by the migration) put on sale
+        $this->plan = Plan::premium();
+        $this->plan->update(['duration_months' => 12, 'price_php' => 1500, 'price_usd' => 30, 'is_active' => true]);
         $this->local = PaymentAccount::create([
             'region' => 'local', 'bank_name' => 'BDO', 'account_name' => 'BloodlineHub', 'account_number' => '0012 3456 7890',
         ]);
@@ -77,7 +79,7 @@ class BillingTest extends TestCase
                 ->component('billing/Index')
                 ->where('premium.active', false)
                 ->has('plans', 1)
-                ->where('plans.0.name', 'Premium 1 year')
+                ->where('plans.0.name', 'Premium')
                 ->has('accounts', 2)
                 ->where('accounts.0.bank_name', 'BDO')
                 ->where('accounts.0.has_qr', false)
@@ -93,7 +95,7 @@ class BillingTest extends TestCase
         $this->assertSame($this->me->id, $payment->user_id);
         $this->assertSame('Juan dela Cruz', $payment->payer_name);
         $this->assertSame('juan@example.test', $payment->payer_email);
-        $this->assertSame('Premium 1 year', $payment->plan_name);
+        $this->assertSame('Premium', $payment->plan_name);
         $this->assertSame(12, $payment->duration_months);
         $this->assertSame('BDO · 0012 3456 7890', $payment->paid_to);
         $this->assertSame('PHP', $payment->currency);

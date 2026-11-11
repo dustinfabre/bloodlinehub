@@ -51,6 +51,7 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
             'is_admin' => 'boolean',
             'premium_until' => 'datetime',
+            'trial_ends_at' => 'datetime',
         ];
     }
 
@@ -72,11 +73,40 @@ class User extends Authenticatable
     }
 
     /**
-     * Can use Premium features: paid Premium, or an admin (who needs to see everything to support users).
+     * In the free trial, which is full Premium.
+     */
+    public function isOnTrial(): bool
+    {
+        return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
+    }
+
+    /**
+     * Never had a free trial (each account gets one).
+     */
+    public function canStartTrial(): bool
+    {
+        return $this->trial_ends_at === null;
+    }
+
+    /**
+     * Start the free trial: $days of full Premium from now. Does nothing if the account already had one.
+     */
+    public function startTrial(int $days): bool
+    {
+        if ($days < 1 || ! $this->canStartTrial()) {
+            return false;
+        }
+
+        return $this->forceFill(['trial_ends_at' => now()->addDays($days)])->save();
+    }
+
+    /**
+     * Can use Premium features: paid Premium, the free trial, or an admin (who needs to see everything to support
+     * users).
      */
     public function hasPremium(): bool
     {
-        return $this->is_admin || $this->isPremium();
+        return $this->is_admin || $this->isPremium() || $this->isOnTrial();
     }
 
     public function pigeons(): HasMany

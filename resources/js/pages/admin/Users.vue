@@ -40,11 +40,13 @@ interface AdminUser {
     is_admin: boolean;
     premium_until: string | null;
     premium: boolean;
+    trial_ends_at: string | null;
+    on_trial: boolean;
     pigeons_count: number;
     created_at: string;
 }
 
-type PlanFilter = 'premium' | 'free' | null;
+type PlanFilter = 'premium' | 'trial' | 'free' | null;
 
 const props = defineProps<{
     users: Paginated<AdminUser>;
@@ -61,6 +63,7 @@ const query = (search: string, plan: PlanFilter) => ({
 const plans: { value: PlanFilter; label: string }[] = [
     { value: null, label: 'All' },
     { value: 'premium', label: 'Premium' },
+    { value: 'trial', label: 'Trial' },
     { value: 'free', label: 'Free' },
 ];
 
@@ -92,8 +95,11 @@ const tomorrow = computed(() => {
 
 const planLabel = (user: AdminUser) => {
     if (user.premium) return `Premium until ${formatDate(user.premium_until)}`;
+    if (user.on_trial) return `Trial until ${formatDate(user.trial_ends_at)}`;
     if (user.premium_until)
         return `Free · expired ${formatDate(user.premium_until)}`;
+    if (user.trial_ends_at)
+        return `Free · trial ended ${formatDate(user.trial_ends_at)}`;
     return 'Free';
 };
 
@@ -233,6 +239,12 @@ const savePremium = (turnOff = false) => {
                                 class="shrink-0"
                                 >Premium</Badge
                             >
+                            <Badge
+                                v-else-if="user.on_trial"
+                                variant="outline"
+                                class="shrink-0"
+                                >Trial</Badge
+                            >
                         </div>
                         <p class="mt-2 text-sm text-muted-foreground">
                             Joined {{ formatDate(user.created_at) }} ·
@@ -303,7 +315,7 @@ const savePremium = (turnOff = false) => {
                                 <TableCell class="whitespace-nowrap">
                                     <span
                                         :class="
-                                            user.premium
+                                            user.premium || user.on_trial
                                                 ? 'font-medium'
                                                 : 'text-muted-foreground'
                                         "
