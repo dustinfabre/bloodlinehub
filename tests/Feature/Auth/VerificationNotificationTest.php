@@ -14,6 +14,8 @@ class VerificationNotificationTest extends TestCase
 
     public function test_sends_verification_notification(): void
     {
+        // Sent after the response (User::sendEmailVerificationNotification); run it straight away
+        $this->withoutDefer();
         Notification::fake();
 
         $user = User::factory()->unverified()->create();

@@ -41,6 +41,9 @@ class TrialAndPricingTest extends TestCase
         $this->signUp();
 
         $user = User::sole();
+        // Signed in, but the app opens only once the email is verified
+        $user->markEmailAsVerified();
+        $this->actingAs($user);
         $this->assertTrue($user->isOnTrial());
         $this->assertFalse($user->isPremium());
         $this->assertTrue($user->hasPremium());
@@ -58,7 +61,9 @@ class TrialAndPricingTest extends TestCase
         $this->signUp();
 
         $this->assertNull(User::sole()->trial_ends_at);
-        $this->get(route('loft-checks.index'))->assertForbidden();
+        $user = User::sole();
+        $user->markEmailAsVerified();
+        $this->actingAs($user)->get(route('loft-checks.index'))->assertForbidden();
     }
 
     public function test_the_trial_ends(): void

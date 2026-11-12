@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\MailInBackground;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -10,7 +12,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
-class User extends Authenticatable
+/**
+ * Accounts must verify their email before using the app: the 'verified' route middleware sends unverified users to
+ * the "check your email" page (auth/VerifyEmail).
+ */
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
@@ -62,6 +68,15 @@ class User extends Authenticatable
         static::deleting(function (User $user) {
             $user->feedback()->get()->each->delete();
         });
+    }
+
+    /**
+     * The verification link (on sign-up, an email change, or "Resend"), sent after the response: a slow or failing
+     * mail server must not break sign-up, and a failure is logged.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        app(MailInBackground::class)->send($this, new VerifyEmail);
     }
 
     /**

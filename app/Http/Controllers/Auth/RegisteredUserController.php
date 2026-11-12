@@ -42,12 +42,14 @@ class RegisteredUserController extends Controller
         // New accounts start with the free trial of Premium, when there is one
         $user->startTrial(Plan::premium()?->trial_days ?? 0);
 
+        // Sends the verification email (Laravel's SendEmailVerificationNotification listener)
         event(new Registered($user));
 
         // Remembered, like the login form's default, so the installed app stays signed in
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard');
+        // The app opens once they click the link in that email
+        return redirect()->route('verification.notice');
     }
 }

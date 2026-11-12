@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -46,13 +49,57 @@ class RegistrationTest extends TestCase
 
     public function test_a_new_account_is_created_and_signed_in(): void
     {
-        $this->signUp(['email' => '  Juan@Example.TEST '])->assertRedirect(route('dashboard'));
+        $this->signUp(['email' => '  Juan@Example.TEST '])->assertRedirect(route('verification.notice'));
 
         $user = User::sole();
         $this->assertSame('juan@example.test', $user->email);
         $this->assertFalse($user->is_admin);
         $this->assertFalse($user->isPremium());
         $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_a_new_account_is_emailed_a_verification_link(): void
+    {
+        $this->withoutDefer();
+        Notification::fake();
+
+        $this->signUp();
+
+        $user = User::sole();
+        $this->assertFalse($user->hasVerifiedEmail());
+        Notification::assertSentTo($user, VerifyEmail::class, function (VerifyEmail $notification) use ($user) {
+            $mail = $notification->toMail($user);
+
+            return $mail->subject === 'Verify your email for BloodlineHub'
+                && $mail->greeting === 'Hi Juan,'
+                && str_contains($mail->actionUrl, '/email/verify/'.$user->id.'/');
+        });
+    }
+
+    public function test_a_new_account_cannot_use_the_app_until_its_email_is_verified(): void
+    {
+        $this->withoutDefer();
+        Notification::fake();
+        $this->signUp();
+        $user = User::sole();
+
+        foreach (['dashboard', 'pigeons.index', 'billing.index'] as $route) {
+            $this->get(route($route))->assertRedirect(route('verification.notice'));
+        }
+        $this->get(route('verification.notice'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('auth/VerifyEmail'));
+        // Still allowed: fixing a mistyped address
+        $this->get(route('profile.edit'))->assertOk();
+
+        // The link from the email opens the app, on the page they were trying to reach
+        $this->get(URL::temporarySignedRoute('verification.verify', now()->addHour(), [
+            'id' => $user->id,
+            'hash' => sha1($user->email),
+        ]))->assertRedirect(route('billing.index'));
+
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
+        $this->get(route('dashboard'))->assertOk();
     }
 
     public function test_the_new_account_can_log_in_with_any_casing(): void

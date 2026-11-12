@@ -4,27 +4,38 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { logout } from '@/routes';
+import { edit as editProfile } from '@/routes/profile';
 import { send } from '@/routes/verification';
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 defineProps<{
     status?: string;
 }>();
+
+const email = computed(() => usePage().props.auth.user?.email);
 </script>
 
 <template>
     <AuthLayout
-        title="Verify email"
-        description="Please verify your email address by clicking on the link we just emailed to you."
+        title="Verify your email"
+        description="We emailed you a link. Click it to confirm your email address and open your account."
     >
         <Head title="Email verification" />
 
+        <p v-if="email" class="text-center text-sm text-muted-foreground">
+            Sent to
+            <span class="font-medium break-all text-foreground">{{
+                email
+            }}</span
+            >. Not there? Check your spam folder.
+        </p>
+
         <div
             v-if="status === 'verification-link-sent'"
-            class="mb-4 text-center text-sm font-medium text-green-600"
+            class="text-center text-sm font-medium text-green-600 dark:text-green-500"
         >
-            A new verification link has been sent to the email address you
-            provided during registration.
+            A new verification link has been sent to your email address.
         </div>
 
         <Form
@@ -36,6 +47,11 @@ defineProps<{
                 <Spinner v-if="processing" />
                 Resend verification email
             </Button>
+
+            <p class="text-sm text-muted-foreground">
+                Wrong address?
+                <TextLink :href="editProfile()">Change your email</TextLink>
+            </p>
 
             <TextLink
                 :href="logout()"

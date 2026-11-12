@@ -107,4 +107,13 @@ class EmailVerificationTest extends TestCase
         Event::assertNotDispatched(Verified::class);
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
     }
+
+    public function test_accounts_made_before_verification_was_required_count_as_verified(): void
+    {
+        $old = User::factory()->unverified()->create();
+
+        (require database_path('migrations/2026_11_12_000002_verify_existing_users_emails.php'))->up();
+
+        $this->assertTrue($old->fresh()->hasVerifiedEmail());
+    }
 }
