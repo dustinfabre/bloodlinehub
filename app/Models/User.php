@@ -67,6 +67,8 @@ class User extends Authenticatable implements MustVerifyEmail
         // one by one first. Payments are kept: they are business records (see Payment).
         static::deleting(function (User $user) {
             $user->feedback()->get()->each->delete();
+            // Uploaded pedigree sheets are on R2 too
+            PedigreeImport::where('user_id', $user->id)->get()->each->delete();
         });
     }
 

@@ -17,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * Copy part of a pedigree from another loft bird: a bird up to great-grandparent level and everything recorded behind
  * it, e.g. the whole sire side from a full sibling, or a great-grandsire's line from a bird related only through him.
+ * The pigeon's own pedigree is a source too: an inbred bird has the same ancestor in two places, so the line recorded in
+ * one place can be copied into the other.
  *
  * Each copy takes the bird at position "from" in the other pigeon's pedigree (e.g. "SSS", its sire's sire's sire) and
  * puts it at position "to" in this pigeon's pedigree. Outside ancestors are copied with their ring numbers unchanged,
@@ -56,9 +58,10 @@ class PedigreeCopyController extends Controller
     ) {}
 
     /**
-     * Birds to copy from (JSON), in the standard pigeon search format. Birds related to this one come first, with
-     * where they share an ancestor: "related" pairs the position in their pedigree ("from") with the position of the
-     * same bird in this one ("to"), matched by loft bird or ring number.
+     * Birds to copy from (JSON), in the standard pigeon search format. This pigeon itself comes first ("own"), then birds
+     * related to it, with where they share an ancestor: "related" pairs the position in their pedigree ("from") with
+     * the position of the same bird in this one ("to"), matched by loft bird or ring number. For this pigeon itself,
+     * "related" pairs the places where the same bird appears twice in its own pedigree.
      */
     public function sources(Request $request, Pigeon $pigeon): JsonResponse
     {
@@ -71,7 +74,6 @@ class PedigreeCopyController extends Controller
 
         $candidates = Pigeon::query()
             ->where('user_id', $pigeon->user_id)
-            ->whereKeyNot($pigeon->id)
             // Only birds with something recorded on at least one side
             ->where(function ($query) {
                 foreach (array_keys(self::SIDES) as $side) {
@@ -87,23 +89,28 @@ class PedigreeCopyController extends Controller
             ))
             ->with(Pigeon::SEARCH_RELATIONS)
             ->get(Pigeon::SEARCH_COLUMNS)
-            ->map(function (Pigeon $candidate) use ($graph, $here) {
-                $related = $this->related($this->positions($graph, $candidate), $here);
+            ->map(function (Pigeon $candidate) use ($graph, $here, $pigeon) {
+                $own = $candidate->id === $pigeon->id;
+                $related = $own
+                    ? $this->related($here, $here, own: true)
+                    : $this->related($this->positions($graph, $candidate), $here);
 
                 return [
                     'pigeon' => $candidate,
+                    'own' => $own,
                     'related' => $related,
                     // The closer the shared ancestor, the closer the relation: a shared parent counts most
                     'closeness' => array_sum(array_map(fn (array $pair) => 2 ** -strlen($pair['to']), $related)),
                 ];
             })
-            ->sort(fn (array $a, array $b) => [$b['closeness'], $b['pigeon']->id] <=> [$a['closeness'], $a['pigeon']->id])
+            ->sort(fn (array $a, array $b) => [$b['own'], $b['closeness'], $b['pigeon']->id] <=> [$a['own'], $a['closeness'], $a['pigeon']->id])
             ->take(self::SOURCE_LIMIT)
             ->values();
 
         return response()->json([
             'pigeons' => $candidates->map(fn (array $row) => [
                 ...$row['pigeon']->searchSummary(),
+                'own' => $row['own'],
                 'related' => $row['related'],
             ]),
         ]);
@@ -133,11 +140,11 @@ class PedigreeCopyController extends Controller
         $errorKey = $bySide ? 'sides' : 'copies';
 
         $validated = $request->validate([
+            // This pigeon itself too, to copy from one place in its pedigree into another
             'source_id' => [
                 'required',
                 'integer',
                 Rule::exists('pigeons', 'id')->where('user_id', $pigeon->user_id),
-                Rule::notIn([$pigeon->id]),
             ],
             'sides' => ['required_without:copies', 'array', 'min:1'],
             'sides.*' => ['distinct', Rule::in(array_keys(self::SIDES))],
@@ -145,30 +152,37 @@ class PedigreeCopyController extends Controller
             'copies.*.from' => ['required', 'string', 'regex:/^[SD]{1,'.self::MAX_COPY_PATH.'}$/'],
             'copies.*.to' => ['required', 'string', 'distinct', 'regex:/^[SD]{1,'.self::MAX_COPY_PATH.'}$/'],
         ], [
-            'source_id.not_in' => 'Choose a different pigeon to copy from.',
             'sides.required_without' => 'Choose the sire side, the dam side or both.',
             'copies.required_without' => 'Choose what to copy.',
             'copies.*.to.distinct' => 'Choose a different place for each bird.',
         ]);
 
         $source = Pigeon::findOrFail($validated['source_id']);
+        $own = $source->id === $pigeon->id;
         $copies = $bySide
             ? array_map(fn (string $side) => ['from' => self::SIDES[$side], 'to' => self::SIDES[$side]], $validated['sides'])
             : array_map(fn (array $copy) => ['from' => $copy['from'], 'to' => $copy['to']], $validated['copies']);
 
         // Check every copy first so a problem with one never leaves the others half done
         $fail = fn (string $message) => throw ValidationException::withMessages([$errorKey => $message]);
-        $this->ensureNoOverlap($copies, $fail);
+        $this->ensureNoOverlap($copies, $own, $fail);
         $plans = array_values(array_filter(array_map(
             fn (array $copy) => $this->plan($pigeon, $source, $copy['from'], $copy['to'], $fail),
             $copies,
         )));
+        $this->ensureSourcesKept($plans, $fail);
 
         DB::transaction(function () use ($plans) {
             foreach ($plans as $plan) {
                 $this->write($plan);
             }
         });
+
+        if ($own) {
+            return back()->with('success', count($copies) === 1
+                ? 'Copied the '.self::relation($copies[0]['from']).' as the '.self::relation($copies[0]['to']).'.'
+                : 'Copied '.count($copies).' birds within this pedigree.');
+        }
 
         $from = $source->ring_number ?: $source->name ?: 'the other pigeon';
         $what = match (true) {
@@ -185,7 +199,7 @@ class PedigreeCopyController extends Controller
      * Work out one copy: where the bird goes, and what to write there. Null when there is nothing to change.
      *
      * @param  callable(string): never  $fail
-     * @return array{anchor: Pigeon, path: string, bird: array, link: bool}|null
+     * @return array{anchor: Pigeon, path: string, bird: array, link: bool, from: array{0: int, 1: string}|null}|null
      */
     private function plan(Pigeon $target, Pigeon $source, string $from, string $to, callable $fail): ?array
     {
@@ -238,11 +252,18 @@ class PedigreeCopyController extends Controller
             $fail('That part of the pedigree includes this pigeon itself, so it can\'t be copied here.');
         }
 
-        return ['anchor' => $anchor, 'path' => $path, 'bird' => $whole, 'link' => $link];
+        return [
+            'anchor' => $anchor,
+            'path' => $path,
+            'bird' => $whole,
+            'link' => $link,
+            // Where an outside bird being copied is stored: [loft bird id, path from it]
+            'from' => $bird['external'] ? [$bird['anchor_id'], $bird['path']] : null,
+        ];
     }
 
     /**
-     * @param  array{anchor: Pigeon, path: string, bird: array, link: bool}  $plan
+     * @param  array{anchor: Pigeon, path: string, bird: array, link: bool, from: array{0: int, 1: string}|null}  $plan
      */
     private function write(array $plan): void
     {
@@ -277,17 +298,49 @@ class PedigreeCopyController extends Controller
     }
 
     /**
-     * Two copies can't go into the same branch: one would overwrite the other.
+     * Two copies can't go into the same branch: one would overwrite the other. Within the pigeon's own pedigree, a bird
+     * can't go into its own line either, and a place being copied from can't be replaced at the same time.
      *
      * @param  list<array{from: string, to: string}>  $copies
      * @param  callable(string): never  $fail
      */
-    private function ensureNoOverlap(array $copies, callable $fail): void
+    private function ensureNoOverlap(array $copies, bool $own, callable $fail): void
     {
         foreach ($copies as $a) {
             foreach ($copies as $b) {
                 if ($a !== $b && str_starts_with($b['to'], $a['to'])) {
                     $fail('The '.self::relation($b['to']).' is already copied along with the '.self::relation($a['to']).'. Choose one of them.');
+                }
+
+                if (! $own || ! (str_starts_with($b['from'], $a['to']) || str_starts_with($a['to'], $b['from']))) {
+                    continue;
+                }
+
+                $fail(match (true) {
+                    $a !== $b => 'The '.self::relation($b['from']).' is copied from a line that another copy replaces. Copy one of them first, then the other.',
+                    $a['from'] === $a['to'] => 'The '.self::relation($a['from']).' is already in that place. Choose another place for it.',
+                    default => 'The '.self::relation($a['from']).' can\'t go into its own line. Choose another place for it.',
+                });
+            }
+        }
+    }
+
+    /**
+     * No copy may write over the records another copy (or itself) is taken from, e.g. when a loft bird appears twice
+     * in a pedigree, so the same records show in two places.
+     *
+     * @param  list<array{anchor: Pigeon, path: string, from: array{0: int, 1: string}|null}>  $plans
+     * @param  callable(string): never  $fail
+     */
+    private function ensureSourcesKept(array $plans, callable $fail): void
+    {
+        foreach ($plans as $into) {
+            foreach ($plans as $copied) {
+                [$anchorId, $path] = $copied['from'] ?? [null, null];
+
+                if ($anchorId === $into['anchor']->id
+                    && (str_starts_with($path, $into['path']) || str_starts_with($into['path'], $path))) {
+                    $fail('That would write over the ancestors being copied. Copy one place at a time.');
                 }
             }
         }
@@ -320,19 +373,25 @@ class PedigreeCopyController extends Controller
 
     /**
      * Where two pedigrees hold the same bird, leaving out pairs that follow from a closer shared bird
-     * (if the sire is shared, so are his parents).
+     * (if the sire is shared, so are his parents). With $own, both are this pigeon's pedigree: the places where the same
+     * bird appears twice, both ways round.
      *
      * @param  array<string, string>  $there  positions in the other bird's pedigree
      * @param  array<string, string>  $here  positions in this pigeon's pedigree
      * @return list<array{from: string, to: string}>
      */
-    private function related(array $there, array $here): array
+    private function related(array $there, array $here, bool $own = false): array
     {
         $pairs = [];
 
         foreach ($there as $from => $key) {
             foreach (array_keys($here, $key, true) as $to) {
-                $pairs[] = ['from' => (string) $from, 'to' => (string) $to];
+                $pair = ['from' => (string) $from, 'to' => (string) $to];
+
+                // In its own pedigree a bird is never related to itself or to its own line
+                if (! $own || ! (str_starts_with($pair['from'], $pair['to']) || str_starts_with($pair['to'], $pair['from']))) {
+                    $pairs[] = $pair;
+                }
             }
         }
 

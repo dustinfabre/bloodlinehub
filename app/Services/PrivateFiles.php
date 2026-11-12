@@ -88,6 +88,20 @@ class PrivateFiles
     }
 
     /**
+     * The contents of a file, or null when it can't be read.
+     */
+    public function get(string $path): ?string
+    {
+        try {
+            return $this->disk()->get($path);
+        } catch (Throwable $e) {
+            Log::warning('Could not read a private file', ['path' => $path, 'message' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
      * Delete a file. A failure is logged, not thrown: the record it belonged to is going anyway.
      */
     public function delete(?string $path): void

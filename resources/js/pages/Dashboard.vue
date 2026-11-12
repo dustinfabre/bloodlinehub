@@ -2,9 +2,10 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { index as pigeons } from '@/routes/pigeons';
+import { index as pedigreeImports } from '@/routes/pedigree-imports';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
-import { Bird, TrendingUp, Users, ArrowRight, Plus } from 'lucide-vue-next';
+import { Bird, TrendingUp, Users, ArrowRight, Plus, ScanLine } from 'lucide-vue-next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -249,14 +250,23 @@ const formatDate = (date: string) => {
                         </div>
                         <h3 class="mt-4 text-lg font-semibold text-foreground">No pigeons yet</h3>
                         <p class="mt-2 max-w-sm text-sm text-muted-foreground">
-                            Start building your collection by adding your first pigeon to the system
+                            Add your first pigeon, or upload photos of your pedigree sheets and bring in your
+                            birds with all their ancestors at once
                         </p>
-                        <Button as-child class="mt-6">
-                            <Link :href="pigeons().url">
-                                <Plus class="mr-2 h-4 w-4" />
-                                Add your first pigeon
-                            </Link>
-                        </Button>
+                        <div class="mt-6 flex flex-col gap-2 sm:flex-row">
+                            <Button as-child>
+                                <Link :href="pedigreeImports().url">
+                                    <ScanLine class="mr-2 h-4 w-4" />
+                                    Import pedigree sheets
+                                </Link>
+                            </Button>
+                            <Button as-child variant="outline">
+                                <Link :href="pigeons().url">
+                                    <Plus class="mr-2 h-4 w-4" />
+                                    Add your first pigeon
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

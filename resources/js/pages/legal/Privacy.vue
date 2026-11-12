@@ -27,7 +27,7 @@ const sections: LegalSection[] = [
     <LegalDocument
         title="Privacy Policy"
         description="What BloodlineHub collects, why, who can see it, and how to access or delete your information."
-        updated="November 11, 2026"
+        updated="November 12, 2026"
         :sections="sections"
     >
         <template #intro>
@@ -89,6 +89,14 @@ const sections: LegalSection[] = [
                     <a href="#google-drive">Google Drive and your photos</a>.
                 </li>
                 <li>
+                    <strong>Pedigree sheets you import:</strong> photos, scans
+                    and PDFs of pedigrees you upload on the Import pedigrees
+                    page, and the birds read from them. A pedigree sheet can
+                    show the names and contact details of other fanciers who
+                    bred or owned the birds. We never copy those contact details
+                    into your records.
+                </li>
+                <li>
                     <strong>Payments:</strong> if you buy Premium, the plan you
                     chose, the amount, the date you paid, the account you paid
                     to, the reference number, any note you add, and the receipt
@@ -146,6 +154,10 @@ const sections: LegalSection[] = [
                     pedigrees, trace lineage, calculate relationships and
                     inbreeding, suggest merits from your race results, and show
                     your photos;
+                </li>
+                <li>
+                    read the pedigree sheets you import, so you can check the
+                    birds on them and save them to your records;
                 </li>
                 <li>
                     sign you in and keep your account secure, including
@@ -341,8 +353,9 @@ const sections: LegalSection[] = [
                 </li>
                 <li>
                     <strong>Cloudflare</strong>, whose R2 storage holds payment
-                    receipts and feedback screenshots in a private store that
-                    only our staff can open;
+                    receipts, feedback screenshots and pedigree sheets waiting
+                    to be imported, in a private store that only our staff can
+                    open;
                 </li>
                 <li>
                     <strong>an email delivery provider</strong> that sends
@@ -352,6 +365,13 @@ const sections: LegalSection[] = [
                 <li>
                     <strong>Google</strong>, when you connect Google Drive, to
                     store your photos;
+                </li>
+                <li>
+                    <strong>Anthropic</strong>, when you import pedigrees: each
+                    sheet you upload is sent to Anthropic's Claude service,
+                    which reads the birds on it and sends them back to us.
+                    Anthropic processes the sheets for us under its commercial
+                    terms and does not use them to train its models;
                 </li>
                 <li>
                     <strong>Bunny Fonts</strong> (fonts.bunny.net), which
@@ -411,6 +431,13 @@ const sections: LegalSection[] = [
                     Settings → Profile, we delete your account, your loft
                     records and your feedback. Copies in our backups are removed
                     as the backups are replaced.
+                </li>
+                <li>
+                    <strong>Pedigree sheets you import</strong> are kept until
+                    you save or remove the import, then deleted. If you choose
+                    to keep a sheet with the pigeon's certificates, it is saved
+                    in your Google Drive like your other photos. What you save
+                    becomes part of your records.
                 </li>
                 <li>
                     <strong>Payment records</strong>, including receipts, are

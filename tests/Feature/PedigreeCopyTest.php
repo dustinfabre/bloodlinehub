@@ -82,21 +82,25 @@ class PedigreeCopyTest extends TestCase
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySources', $target))
             ->assertOk()
-            ->assertJsonCount(4, 'pigeons')
-            ->assertJsonPath('pigeons.0.id', $sibling->id)
-            ->assertJsonPath('pigeons.0.name', 'BLUE BOY')
-            ->assertJsonPath('pigeons.0.bloodline', 'Janssen')
-            ->assertJsonPath('pigeons.0.color', 'BB')
-            ->assertJsonPath('pigeons.0.notes', 'Private')
-            ->assertJsonPath('pigeons.0.remarks', 'Fast')
-            ->assertJsonPath('pigeons.0.sire', ['ring_number' => 'nl2019-1234', 'name' => 'OLD COCK'])
-            ->assertJsonPath('pigeons.0.dam', null)
+            ->assertJsonCount(5, 'pigeons')
+            // Its own pedigree first, to copy from one place in it into another
+            ->assertJsonPath('pigeons.0.id', $target->id)
+            ->assertJsonPath('pigeons.0.own', true)
+            ->assertJsonPath('pigeons.0.related', [])
+            ->assertJsonPath('pigeons.1.id', $sibling->id)
+            ->assertJsonPath('pigeons.1.name', 'BLUE BOY')
+            ->assertJsonPath('pigeons.1.bloodline', 'Janssen')
+            ->assertJsonPath('pigeons.1.color', 'BB')
+            ->assertJsonPath('pigeons.1.notes', 'Private')
+            ->assertJsonPath('pigeons.1.remarks', 'Fast')
+            ->assertJsonPath('pigeons.1.sire', ['ring_number' => 'nl2019-1234', 'name' => 'OLD COCK'])
+            ->assertJsonPath('pigeons.1.dam', null)
             // The shared sire, but not his parents, which follow from him
-            ->assertJsonPath('pigeons.0.related', [['from' => 'S', 'to' => 'S']])
-            ->assertJsonPath('pigeons.1.id', $cousin->id)
-            ->assertJsonPath('pigeons.1.related', [['from' => 'DS', 'to' => 'DSS']])
-            ->assertJsonPath('pigeons.2.id', $unrelated->id)
-            ->assertJsonPath('pigeons.2.related', []);
+            ->assertJsonPath('pigeons.1.related', [['from' => 'S', 'to' => 'S']])
+            ->assertJsonPath('pigeons.2.id', $cousin->id)
+            ->assertJsonPath('pigeons.2.related', [['from' => 'DS', 'to' => 'DSS']])
+            ->assertJsonPath('pigeons.3.id', $unrelated->id)
+            ->assertJsonPath('pigeons.3.related', []);
 
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySources', [$target, 'q' => '2023']))
@@ -116,9 +120,10 @@ class PedigreeCopyTest extends TestCase
 
         $this->actingAs($this->user)
             ->getJson(route('pigeons.pedigreeCopySources', $target))
-            ->assertJsonPath('pigeons.0.id', $halfSibling->id)
-            ->assertJsonPath('pigeons.0.related', [['from' => 'S', 'to' => 'S']])
-            ->assertJsonPath('pigeons.0.sire', ['ring_number' => 'BE-2020-500', 'name' => 'KING']);
+            ->assertJsonPath('pigeons.0.id', $target->id)
+            ->assertJsonPath('pigeons.1.id', $halfSibling->id)
+            ->assertJsonPath('pigeons.1.related', [['from' => 'S', 'to' => 'S']])
+            ->assertJsonPath('pigeons.1.sire', ['ring_number' => 'BE-2020-500', 'name' => 'KING']);
     }
 
     public function test_the_pedigree_of_a_bird_to_copy_from_is_available_to_its_owner_only(): void
@@ -380,7 +385,8 @@ class PedigreeCopyTest extends TestCase
         $this->copy($target, $sireOnly, [])->assertSessionHasErrors('sides');
         $this->copy($target, $sireOnly, ['uncle'])->assertSessionHasErrors('sides.0');
         $this->copy($target, $sireOnly, ['sire', 'sire'])->assertSessionHasErrors('sides.0');
-        $this->copy($target, $target, ['sire'])->assertSessionHasErrors('source_id');
+        // Its own sire is already in its own sire's place
+        $this->copy($target, $target, ['sire'])->assertSessionHasErrors('sides');
         $this->copy($target, $theirs, ['sire'])->assertSessionHasErrors('source_id');
         $this->actingAs(User::factory()->premium()->create())
             ->post(route('pigeons.copyPedigree', $target), ['source_id' => $sireOnly->id, 'sides' => ['sire']])
@@ -389,6 +395,106 @@ class PedigreeCopyTest extends TestCase
         // A bird can't become its own parent
         $child = $this->pigeon(['sire_id' => $target->id]);
         $this->copy($target, $child, ['sire'])->assertSessionHasErrors('sides');
+    }
+
+    public function test_sources_offer_its_own_pedigree_first_with_the_places_a_bird_appears_twice(): void
+    {
+        // Inbred: the sire's sire is also the dam's dam's sire, recorded in full only on the sire's side
+        $target = $this->pigeon(['ring_number' => 'BE-2024-10', 'sire_ring_number' => 'NL-1', 'dam_ring_number' => 'NL-2']);
+        $target->pedigreeAncestors()->create(['path' => 'SS', 'ring_number' => 'NL-2015-7']);
+        $target->pedigreeAncestors()->create(['path' => 'SSS', 'ring_number' => 'NL-2010-1']);
+        $target->pedigreeAncestors()->create(['path' => 'DD', 'ring_number' => 'NL-3']);
+        $target->pedigreeAncestors()->create(['path' => 'DDS', 'ring_number' => 'nl 2015 7']);
+        $other = $this->pigeon(['dam_ring_number' => 'X-1']);
+
+        $this->actingAs($this->user)
+            ->getJson(route('pigeons.pedigreeCopySources', $target))
+            ->assertOk()
+            ->assertJsonCount(2, 'pigeons')
+            ->assertJsonPath('pigeons.0.id', $target->id)
+            ->assertJsonPath('pigeons.0.own', true)
+            // Both ways round, but not his sire, who follows from him
+            ->assertJsonPath('pigeons.0.related', [['from' => 'DDS', 'to' => 'SS'], ['from' => 'SS', 'to' => 'DDS']])
+            ->assertJsonPath('pigeons.1.id', $other->id)
+            ->assertJsonPath('pigeons.1.own', false);
+
+        // Searching for another bird leaves it out
+        $this->actingAs($this->user)
+            ->getJson(route('pigeons.pedigreeCopySources', [$target, 'q' => $other->ring_number]))
+            ->assertJsonCount(1, 'pigeons')
+            ->assertJsonPath('pigeons.0.id', $other->id);
+    }
+
+    public function test_a_line_is_copied_within_its_own_pedigree_for_an_inbred_bird(): void
+    {
+        $target = $this->pigeon(['sire_ring_number' => 'NL-1', 'dam_ring_number' => 'NL-2']);
+        $target->pedigreeAncestors()->create(['path' => 'SS', 'ring_number' => 'NL-2015-7', 'name' => 'KING', 'bloodline' => 'Janssen']);
+        $target->pedigreeAncestors()->create(['path' => 'SSS', 'ring_number' => 'NL-2010-1']);
+        $target->pedigreeAncestors()->create(['path' => 'SSD', 'ring_number' => 'NL-2011-2']);
+        $target->pedigreeAncestors()->create(['path' => 'SSSS', 'ring_number' => 'NL-2005-3']);
+        $target->pedigreeAncestors()->create(['path' => 'DD', 'ring_number' => 'NL-3']);
+
+        $this->copyParts($target, $target, ['SS' => 'DDS'])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', "Copied the sire's sire as the dam's dam's sire.");
+
+        $rows = $target->pedigreeAncestors()->get()->keyBy('path');
+        $this->assertSame(
+            ['DD', 'DDS', 'DDSD', 'DDSS', 'SS', 'SSD', 'SSS', 'SSSS'],
+            $rows->keys()->sort()->values()->all(),
+        );
+        $this->assertSame('NL-2015-7', $rows['DDS']->ring_number);
+        $this->assertSame('KING', $rows['DDS']->name);
+        $this->assertSame('Janssen', $rows['DDS']->bloodline);
+        $this->assertSame('NL-2010-1', $rows['DDSS']->ring_number);
+        $this->assertSame('NL-2011-2', $rows['DDSD']->ring_number);
+        // The line it was copied from stays as it was
+        $this->assertSame('NL-2005-3', $rows['SSSS']->ring_number);
+
+        // Lineage sees one bird in both places
+        $graph = app(LineageService::class)->graph($this->user->id);
+        $this->assertGreaterThan(0.0, $graph->inbreeding(LoftGraph::pigeonKey($target->id)));
+    }
+
+    public function test_a_loft_sire_is_linked_as_the_dams_sire_within_its_own_pedigree(): void
+    {
+        // Sire mated to his own daughter, whose sire isn't recorded yet
+        $sire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2018-1', 'sire_ring_number' => 'NL-1']);
+        $daughter = $this->pigeon(['gender' => 'female', 'ring_number' => 'BE-2021-2']);
+        $target = $this->pigeon(['sire_id' => $sire->id, 'dam_id' => $daughter->id]);
+
+        $this->copyParts($target, $target, ['S' => 'DS'])->assertSessionHasNoErrors();
+
+        $this->assertSame($sire->id, $daughter->fresh()->sire_id);
+    }
+
+    public function test_copies_within_its_own_pedigree_never_overlap_what_they_copy(): void
+    {
+        $target = $this->pigeon(['sire_ring_number' => 'NL-1', 'dam_ring_number' => 'NL-2']);
+        $this->ancestors($target, ['SS', 'SSS', 'DS', 'DSS', 'DD']);
+        $before = $this->paths($target);
+
+        $fails = fn (array $copies) => $this->copyParts($target, $target, $copies)->assertSessionHasErrors('copies');
+
+        $fails(['SS' => 'SS']); // already there
+        $fails(['S' => 'SSS']); // behind itself
+        $fails(['SSS' => 'S']); // in front of itself
+        $fails(['SS' => 'DS', 'DSS' => 'DDS']); // the second is copied from where the first goes
+        $fails(['DSS' => 'SS', 'SS' => 'DDS']); // the second is copied from where the first goes
+
+        $this->assertSame($before, $this->paths($target));
+        $this->assertSame('NL-1', $target->fresh()->sire_ring_number);
+
+        // A loft bird twice in the pedigree shows the same records in both places: they can't be copied over each other
+        $loftSire = $this->pigeon(['gender' => 'male', 'ring_number' => 'BE-2018-1', 'sire_ring_number' => 'NL-5']);
+        $loftSire->pedigreeAncestors()->create(['path' => 'SS', 'ring_number' => 'NL-6']);
+        $daughter = $this->pigeon(['gender' => 'female', 'sire_id' => $loftSire->id]);
+        $inbred = $this->pigeon(['sire_id' => $loftSire->id, 'dam_id' => $daughter->id]);
+
+        $this->copyParts($inbred, $inbred, ['SSS' => 'DSS'])
+            ->assertSessionHasErrors(['copies' => 'That would write over the ancestors being copied. Copy one place at a time.']);
+        $this->assertSame('NL-5', $loftSire->fresh()->sire_ring_number);
+        $this->assertSame(['SS'], $this->paths($loftSire));
     }
 
     public function test_lineage_sees_copied_ancestors_as_shared_birds(): void

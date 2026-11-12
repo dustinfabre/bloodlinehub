@@ -79,6 +79,9 @@ const loadingTree = ref(false);
 const choices = ref<PedigreeCopyChoice[]>([]);
 let requestId = 0;
 
+// Copying within this pigeon's own pedigree, for an inbred bird with the same ancestor in two places
+const own = computed(() => !!source.value?.own);
+
 const form = useForm({
     source_id: null as number | null,
     copies: [] as { from: string; to: string }[],
@@ -108,7 +111,21 @@ const relationText = (relation: PedigreeRelation) =>
         ? `Same ${lower(relation.to)}`
         : `Its ${lower(relation.from)} is this pigeon's ${lower(relation.to)}`;
 
+// Where the same bird appears twice in this pigeon's own pedigree, each pair once: the nearer place first
+const repeats = (bird: PedigreeCopySource) =>
+    bird.related.filter(
+        (relation) =>
+            relation.from.length < relation.to.length ||
+            (relation.from.length === relation.to.length &&
+                relation.from < relation.to),
+    );
+
+// "Same bird at Sire › Sire and Dam › Dam › Sire"
+const repeatText = (relation: PedigreeRelation) =>
+    `Same bird at ${lineageSteps(relation.from).join(' › ')} and ${lineageSteps(relation.to).join(' › ')}`;
+
 const relationBadge = (bird: PedigreeCopySource) => {
+    if (bird.own) return 'This pigeon';
     const [closest] = bird.related;
     if (!closest) return null;
     return closest.from === closest.to
@@ -205,6 +222,18 @@ const status = (from: string, to: string): Status => {
     const slot = targetSlots.value.get(to);
 
     if (!bird) return { disabled: true, tone: 'muted', note: '' };
+    if (own.value && overlaps(from, to)) {
+        return {
+            disabled: true,
+            tone: 'muted',
+            note:
+                from === to
+                    ? 'where it is now'
+                    : to.startsWith(from)
+                      ? 'that is behind it'
+                      : 'it is recorded behind that bird',
+        };
+    }
     if (!slot) {
         return {
             disabled: true,
@@ -276,16 +305,28 @@ const status = (from: string, to: string): Status => {
 const placesFor = (from: string) =>
     PLACES.filter((key) => key.endsWith(from.slice(-1)));
 
-const free = (to: string, picks: PedigreeCopyChoice[]) =>
-    !picks.some(
-        (pick) => pick.to && (pick.to.startsWith(to) || to.startsWith(pick.to)),
+// One place is the other or sits behind it
+const overlaps = (a: string, b: string) => a.startsWith(b) || b.startsWith(a);
+
+// Whether a copy goes beside those already picked: never into the same branch and, within this pigeon's own pedigree,
+// never into a line another copy is taken from, or the other way round
+const fits = (
+    copy: { from: string; to: string },
+    picks: PedigreeCopyChoice[],
+) =>
+    picks.every(
+        (pick) =>
+            (!pick.to || !overlaps(pick.to, copy.to)) &&
+            (!own.value ||
+                (!overlaps(pick.from, copy.to) &&
+                    (!pick.to || !overlaps(pick.to, copy.from)))),
     );
 
 // Where a bird most likely belongs here: where the same bird already is, the place that was clicked, or else
 // the same place as in the other pedigree
 const suggestedPlace = (from: string): string | null => {
     const ok = (to: string) =>
-        !status(from, to).disabled && free(to, choices.value);
+        !status(from, to).disabled && fits({ from, to }, choices.value);
     const related = source.value?.related.find(
         (relation) => relation.from === from && ok(relation.to),
     );
@@ -309,14 +350,20 @@ const toggle = (from: string) => {
         : [...choices.value, { from, to: suggestedPlace(from) }];
 };
 
-// Two birds can't go into the same branch: the first would overwrite the second
+// Two birds can't go into the same branch: the first would overwrite the second. Within this pigeon's own pedigree,
+// a place can't be copied from and replaced at once either.
 const overlap = computed(() => {
     for (const a of choices.value) {
         for (const b of choices.value) {
-            if (a === b || !a.to || !b.to || !b.to.startsWith(a.to)) continue;
-            return a.to === b.to
-                ? `Two birds are set to go into the ${lower(a.to)}'s place. Choose another place for one of them.`
-                : `The ${lower(b.to)} is already copied along with the ${lower(a.to)}. Untick one of them.`;
+            if (a === b || !a.to) continue;
+            if (b.to?.startsWith(a.to)) {
+                return a.to === b.to
+                    ? `Two birds are set to go into the ${lower(a.to)}'s place. Choose another place for one of them.`
+                    : `The ${lower(b.to)} is already copied along with the ${lower(a.to)}. Untick one of them.`;
+            }
+            if (own.value && overlaps(a.to, b.from)) {
+                return `The ${lower(b.from)} is copied from a line that another copy replaces. Copy one of them first, then the other.`;
+            }
         }
     }
     return null;
@@ -356,7 +403,7 @@ const preselect = () => {
             sourceByKey.value.has(relation.from) &&
             !status(relation.from, relation.to).disabled &&
             sourceBehind(relation.from) > targetBehind(relation.to) &&
-            free(relation.to, picks)
+            fits(relation, picks)
         ) {
             picks.push({ ...relation });
         }
@@ -366,7 +413,7 @@ const preselect = () => {
             sourceByKey.value.has(key) &&
             !targetSlots.value.get(key)?.node &&
             !status(key, key).disabled &&
-            free(key, picks)
+            fits({ from: key, to: key }, picks)
         ) {
             picks.push({ from: key, to: key });
         }
@@ -380,6 +427,14 @@ const choose = async (bird: PedigreeCopySource) => {
     choices.value = [];
     form.source_id = bird.id;
     form.clearErrors();
+
+    // Its own pedigree is already here, as on the editor
+    if (bird.own) {
+        sourceTree.value = props.tree;
+        preselect();
+        return;
+    }
+
     loadingTree.value = true;
     try {
         const { data } = await axios.get(
@@ -415,20 +470,21 @@ const submitLabel = computed(() => {
 
 const submit = () => {
     if (!source.value || !ready.value) return;
-    const from = sourceLabel(source.value);
     form.copies = choices.value.map((choice) => ({
         from: choice.from,
         to: choice.to!,
     }));
-    const what =
-        form.copies.length === 1
-            ? `the ${lower(form.copies[0].to)}`
-            : plural(form.copies.length, 'bird');
+    const [first] = form.copies;
+    const message = own.value
+        ? form.copies.length === 1
+            ? `Copied ${birdLabel(sourceByKey.value.get(first.from)!.node!)} as the ${lower(first.to)}`
+            : `Copied ${plural(form.copies.length, 'bird')} within this pedigree`
+        : `Copied ${form.copies.length === 1 ? `the ${lower(first.to)}` : plural(form.copies.length, 'bird')} from ${sourceLabel(source.value)}`;
     form.post(copyPedigree({ pigeon: props.pigeonId }).url, {
         preserveScroll: true,
         onSuccess: () => {
             open.value = false;
-            success(`Copied ${what} from ${from}`);
+            success(message);
         },
     });
 };
@@ -438,13 +494,12 @@ const submit = () => {
     <Dialog v-model:open="open">
         <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle class="pr-6"
-                    >Copy pedigree from another pigeon</DialogTitle
-                >
+                <DialogTitle class="pr-6">Copy ancestors</DialogTitle>
                 <DialogDescription>
-                    For related birds: copy a parent, grandparent or
-                    great-grandparent from another pigeon's pedigree, with
-                    everything recorded behind it.
+                    Copy a parent, grandparent or great-grandparent with
+                    everything recorded behind it: from a related pigeon's
+                    pedigree, or, for an inbred bird, from another place in this
+                    pigeon's own pedigree.
                 </DialogDescription>
             </DialogHeader>
 
@@ -486,13 +541,34 @@ const submit = () => {
                                     >{{ relationBadge(bird) }}</Badge
                                 >
                             </template>
-                            <div
-                                v-for="relation in bird.related.slice(0, 2)"
-                                :key="`${relation.from}-${relation.to}`"
-                                class="font-medium text-foreground"
-                            >
-                                {{ relationText(relation) }}
-                            </div>
+                            <template v-if="bird.own">
+                                <div
+                                    v-for="relation in repeats(bird).slice(
+                                        0,
+                                        2,
+                                    )"
+                                    :key="`${relation.from}-${relation.to}`"
+                                    class="font-medium text-foreground"
+                                >
+                                    {{ repeatText(relation) }}
+                                </div>
+                                <div
+                                    v-if="!repeats(bird).length"
+                                    class="font-medium text-foreground"
+                                >
+                                    Copy within its own pedigree, for an inbred
+                                    bird
+                                </div>
+                            </template>
+                            <template v-else>
+                                <div
+                                    v-for="relation in bird.related.slice(0, 2)"
+                                    :key="`${relation.from}-${relation.to}`"
+                                    class="font-medium text-foreground"
+                                >
+                                    {{ relationText(relation) }}
+                                </div>
+                            </template>
                         </PigeonSearchResult>
                     </button>
 
@@ -506,8 +582,8 @@ const submit = () => {
                             }}".</template
                         >
                         <template v-else
-                            >None of your other pigeons has a sire or dam
-                            recorded yet.</template
+                            >None of your pigeons has a sire or dam recorded
+                            yet.</template
                         >
                     </p>
                 </div>
@@ -523,7 +599,13 @@ const submit = () => {
                 <div
                     class="flex items-center justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2"
                 >
-                    <div class="min-w-0 text-sm">
+                    <div v-if="own" class="min-w-0 text-sm">
+                        <span class="text-muted-foreground">Copy within </span>
+                        <span class="font-semibold"
+                            >this pigeon's own pedigree</span
+                        >
+                    </div>
+                    <div v-else class="min-w-0 text-sm">
                         <span class="text-muted-foreground">Copy from </span>
                         <span class="font-semibold tabular-nums">{{
                             sourceLabel(source)
@@ -560,7 +642,12 @@ const submit = () => {
                 </p>
 
                 <template v-else>
-                    <p class="text-sm text-muted-foreground">
+                    <p v-if="own" class="text-sm text-muted-foreground">
+                        For an inbred bird: tick the ancestor that is recorded
+                        in full, and choose the other place it belongs.
+                        Everything recorded behind it comes with it.
+                    </p>
+                    <p v-else class="text-sm text-muted-foreground">
                         Tick the birds to copy, and choose where each one goes.
                         Everything recorded behind a bird comes with it.
                     </p>
@@ -668,7 +755,11 @@ const submit = () => {
                                     class="grid gap-1 text-xs font-medium"
                                     :for="`copy-into-${slot.key}`"
                                 >
-                                    Copy into this pigeon's pedigree as
+                                    {{
+                                        own
+                                            ? 'Also put it in this pedigree as'
+                                            : "Copy into this pigeon's pedigree as"
+                                    }}
                                     <select
                                         :id="`copy-into-${slot.key}`"
                                         v-model="chosen(slot.key)!.to"
@@ -741,11 +832,20 @@ const submit = () => {
                     class="flex gap-2 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground"
                 >
                     <Info class="mt-px size-3.5 shrink-0 text-gold" />
-                    Ring numbers are copied exactly, so these ancestors count as
-                    the same birds in both pedigrees: Lineage and Pairing
-                    Analysis match them, and later edits to one record can
-                    update the others too. Ancestors without a ring number stay
-                    separate.
+                    <template v-if="own"
+                        >Ring numbers are copied exactly, so both places count
+                        as the same bird: Lineage and Pairing Analysis see the
+                        inbreeding, and later edits to one record can update the
+                        other too. Ancestors without a ring number stay
+                        separate.</template
+                    >
+                    <template v-else
+                        >Ring numbers are copied exactly, so these ancestors
+                        count as the same birds in both pedigrees: Lineage and
+                        Pairing Analysis match them, and later edits to one
+                        record can update the others too. Ancestors without a
+                        ring number stay separate.</template
+                    >
                 </p>
             </form>
 

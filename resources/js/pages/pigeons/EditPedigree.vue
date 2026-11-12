@@ -215,10 +215,10 @@ const editorSlots = computed(() =>
 );
 
 const copyOpen = ref(false);
-// The place to fill when "Copy from another pigeon" is opened from a box on the chart
+// The place to fill when "Copy ancestors" is opened from a box on the chart
 const copyFocus = ref<string | null>(null);
 
-// Copying from another bird is Premium; without it this opens the page that explains it
+// Copying ancestors is Premium; without it this opens the page that explains it
 const { premium, withPremium } = usePremium();
 const openCopy = (focus: string | null) =>
     withPremium('pedigree-copy', () => {
@@ -256,7 +256,7 @@ const openEditor = (target: AncestorTarget | null) => {
                 <div class="flex flex-wrap gap-2">
                     <Button variant="outline" @click="openCopy(null)">
                         <Copy class="size-4" />
-                        Copy from another pigeon
+                        Copy ancestors
                         <PremiumBadge v-if="!premium" icon-only />
                     </Button>
                     <Button variant="outline" as-child>
@@ -323,7 +323,8 @@ const openEditor = (target: AncestorTarget | null) => {
                         Ancestors behind a loft bird are saved on that bird, so
                         all of its offspring inherit them. For a related bird,
                         copy a parent, grandparent or great-grandparent's line
-                        from another pigeon.
+                        from another pigeon. For an inbred bird, copy a line
+                        already recorded here into the other place it belongs.
                     </p>
                 </div>
             </div>

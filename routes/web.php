@@ -21,6 +21,7 @@ use App\Http\Controllers\PairingController;
 use App\Http\Controllers\PedigreeAncestorController;
 use App\Http\Controllers\PedigreeController;
 use App\Http\Controllers\PedigreeCopyController;
+use App\Http\Controllers\PedigreeImportController;
 use App\Http\Controllers\PigeonController;
 use App\Http\Controllers\PigeonMeritController;
 use App\Http\Controllers\PlannedPairingController;
@@ -76,6 +77,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('pigeons.check-ring-number');
     Route::get('pigeons/suggest-ring-number', [PigeonController::class, 'suggestRingNumber'])
         ->name('pigeons.suggest-ring-number');
+
+    // Importing pedigrees from photos, scans and PDFs of pedigree sheets
+    Route::get('pedigree-imports', [PedigreeImportController::class, 'index'])
+        ->name('pedigree-imports.index');
+    Route::post('pedigree-imports', [PedigreeImportController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('pedigree-imports.store');
+    Route::get('pedigree-imports/match', [PedigreeImportController::class, 'match'])
+        ->name('pedigree-imports.match');
+    Route::get('pedigree-imports/{import}', [PedigreeImportController::class, 'show'])
+        ->name('pedigree-imports.show');
+    Route::get('pedigree-imports/{import}/file', [PedigreeImportController::class, 'file'])
+        ->name('pedigree-imports.file');
+    Route::post('pedigree-imports/{import}/save', [PedigreeImportController::class, 'save'])
+        ->name('pedigree-imports.save');
+    Route::post('pedigree-imports/{import}/retry', [PedigreeImportController::class, 'retry'])
+        ->middleware('throttle:30,1')
+        ->name('pedigree-imports.retry');
+    Route::delete('pedigree-imports/{import}', [PedigreeImportController::class, 'destroy'])
+        ->name('pedigree-imports.destroy');
 
     Route::resource('pigeons', PigeonController::class);
     Route::patch('pigeons/{pigeon}/status', [PigeonController::class, 'updateStatus'])

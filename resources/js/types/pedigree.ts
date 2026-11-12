@@ -153,8 +153,10 @@ export interface PedigreeRelation {
     to: string;
 }
 
-// A bird offered by "Copy from another pigeon": the standard search details, and where it is related
+// A bird offered by "Copy ancestors": the standard search details, and where it is related. "own" is the pigeon
+// itself, whose related pairs are the places where the same bird appears twice in its own pedigree (inbred birds).
 export interface PedigreeCopySource extends PigeonSearchItem {
+    own: boolean;
     related: PedigreeRelation[];
 }
 

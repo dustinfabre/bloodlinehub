@@ -48,7 +48,7 @@ const meritEditor = ref<InstanceType<typeof MeritListEditor> | null>(null);
 
 const open = defineModel<boolean>('open', { required: true });
 
-// Open "Copy from another pigeon" for this place (a chart key from the pigeon, e.g. "SSS")
+// Open "Copy ancestors" for this place (a chart key from the pigeon, e.g. "SSS")
 const emit = defineEmits<{ copy: [key: string] }>();
 
 const { success, error, warning } = useToast();
@@ -402,7 +402,7 @@ const remove = () => {
                     @click="emit('copy', target.entry.key)"
                 >
                     <Copy class="size-4" />
-                    Copy from another pigeon
+                    Copy from a pedigree
                 </Button>
                 <span v-else />
                 <div class="flex gap-2">

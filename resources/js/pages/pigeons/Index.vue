@@ -19,7 +19,8 @@ import MultiSelectFilter, { type FilterOption, type FilterPreset } from '@/compo
 import MeritBadge from '@/components/MeritBadge.vue';
 import { byImportance, topMerit } from '@/lib/merits';
 import type { Merit, MeritTypeOption } from '@/types/lineage';
-import { Plus, Search, SlidersHorizontal, Bird, X, AlertTriangle, LoaderCircle, MapPin } from 'lucide-vue-next';
+import { Plus, Search, SlidersHorizontal, Bird, X, AlertTriangle, LoaderCircle, MapPin, ScanLine } from 'lucide-vue-next';
+import { index as pedigreeImports } from '@/routes/pedigree-imports';
 import { useToast } from '@/composables/useToast';
 import { useDebounceFn } from '@vueuse/core';
 import axios from 'axios';
@@ -501,6 +502,13 @@ const submitQuickAdd = () => {
                     </p>
                 </div>
                 <div class="flex flex-col gap-2 sm:flex-row">
+                    <!-- Bring a loft in from pedigree sheets instead of typing each bird -->
+                    <Button variant="outline" as-child class="w-full sm:w-auto">
+                        <Link :href="pedigreeImports().url">
+                            <ScanLine class="mr-2 h-4 w-4" />
+                            Import pedigrees
+                        </Link>
+                    </Button>
                     <Button variant="outline" @click="openQuickAddModal" class="w-full sm:w-auto">
                         <Plus class="mr-2 h-4 w-4" />
                         Quick Add
@@ -679,15 +687,24 @@ const submitQuickAdd = () => {
                             Try adjusting your filters or search query.
                         </template>
                         <template v-else>
-                            Get started by adding your first pigeon.
+                            Get started by adding your first pigeon, or import your pedigree sheets to bring in
+                            your birds with their ancestors.
                         </template>
                     </p>
-                    <Button v-if="!activeFilterCount" as-child class="mt-4">
-                        <Link href="/pigeons/create">
-                            <Plus class="mr-2 h-4 w-4" />
-                            Add Pigeon
-                        </Link>
-                    </Button>
+                    <div v-if="!activeFilterCount" class="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+                        <Button as-child>
+                            <Link href="/pigeons/create">
+                                <Plus class="mr-2 h-4 w-4" />
+                                Add Pigeon
+                            </Link>
+                        </Button>
+                        <Button as-child variant="outline">
+                            <Link :href="pedigreeImports().url">
+                                <ScanLine class="mr-2 h-4 w-4" />
+                                Import pedigrees
+                            </Link>
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
