@@ -113,4 +113,88 @@ class PigeonMeritTest extends TestCase
                 ->has('meritLevels')
             );
     }
+
+    public function test_merits_can_be_added_when_creating_a_pigeon(): void
+    {
+        $this->actingAs($this->user)
+            ->get(route('pigeons.create'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('meritTypes', count(MeritType::cases()))
+                ->has('meritLevels')
+            );
+
+        $this->actingAs($this->user)
+            ->post(route('pigeons.store'), [
+                'ring_number' => 'PHA-2025-9',
+                'status' => 'stock',
+                'merits' => [
+                    ['type' => 'overall_winner', 'level' => 'derby', 'year' => 2025, 'detail' => '3rd Overall'],
+                    ['type' => 'super_breeder', 'level' => '', 'year' => '', 'detail' => ''],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pigeon = Pigeon::where('ring_number', 'PHA-2025-9')->sole();
+        $this->assertSame(['OA', 'SB'], $pigeon->merits->map->summary()->pluck('code')->all());
+        $this->assertSame('3rd Overall', $pigeon->merits->first()->detail);
+        $this->assertNull($pigeon->merits->last()->level);
+    }
+
+    public function test_the_edit_form_adds_and_removes_merits_and_keeps_the_rest(): void
+    {
+        $pigeon = $this->pigeon();
+        $kept = $pigeon->merits()->create(['type' => MeritType::RaceWinner, 'year' => 2024]);
+        $removed = $pigeon->merits()->create(['type' => MeritType::Finisher]);
+        $theirs = $this->pigeon('THEIRS', User::factory()->create())
+            ->merits()->create(['type' => MeritType::AcePigeon]);
+
+        $this->actingAs($this->user)
+            ->get(route('pigeons.edit', $pigeon))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('pigeon.merits', 2)
+                ->where('pigeon.merits.0.id', $kept->id)
+                ->has('meritTypes')
+                ->has('meritLevels')
+            );
+
+        $this->actingAs($this->user)
+            ->patch(route('pigeons.update', $pigeon), [
+                'ring_number' => 'PHA-2024-1',
+                'status' => 'racing',
+                'merits' => [['type' => 'superset', 'level' => 'olr', 'year' => 2025]],
+                // Someone else's merit id is ignored
+                'remove_merits' => [$removed->id, $theirs->id],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertModelMissing($removed);
+        $this->assertModelExists($kept);
+        $this->assertModelExists($theirs);
+        $this->assertSame(['superset', 'race_winner'], $pigeon->merits()->get()->map(fn ($merit) => $merit->type->value)->all());
+    }
+
+    public function test_saving_the_edit_form_without_merit_changes_keeps_them(): void
+    {
+        $pigeon = $this->pigeon();
+        $pigeon->merits()->create(['type' => MeritType::RaceWinner]);
+
+        $this->actingAs($this->user)
+            ->patch(route('pigeons.update', $pigeon), ['ring_number' => 'PHA-2024-1', 'status' => 'racing'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1, $pigeon->merits()->count());
+    }
+
+    public function test_form_merits_must_come_from_the_fixed_list(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('pigeons.store'), [
+                'ring_number' => 'PHA-2025-9',
+                'status' => 'stock',
+                'merits' => [['type' => 'my_custom_title']],
+            ])
+            ->assertSessionHasErrors('merits.0.type');
+
+        $this->assertSame(0, Pigeon::count());
+    }
 }

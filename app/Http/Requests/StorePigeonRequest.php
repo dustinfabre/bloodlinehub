@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\RequiresGoogleDriveForImages;
 use App\Models\Pigeon;
+use App\Models\PigeonMerit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -114,6 +115,10 @@ class StorePigeonRequest extends FormRequest
             'dam_ring_number' => ['nullable', 'string', 'max:255'],
             'dam_color' => ['nullable', 'string', 'max:255'],
             'dam_notes' => ['nullable', 'string'],
+
+            // The bird's own merits (fixed list), added on the form
+            ...PigeonMerit::listRules('merits'),
+            'merits' => ['nullable', 'array', 'max:50'],
         ];
     }
 

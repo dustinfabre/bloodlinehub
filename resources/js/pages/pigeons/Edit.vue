@@ -24,7 +24,9 @@ import { computed, ref, watch } from 'vue';
 import { BadgeCheck, Link2, Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import MeritListEditor from '@/components/pedigree/MeritListEditor.vue';
 import type { PigeonSearchItem } from '@/types/pigeon-search';
+import type { Merit, MeritInput, MeritLevelOption, MeritTypeOption } from '@/types/lineage';
 import axios from 'axios';
 
 interface ParentSummary {
@@ -99,7 +101,14 @@ interface Pigeon {
     hide_price: boolean;
     sale_description: string | null;
     location_id: number | null;
+    merits: Merit[];
 }
+
+// A saved merit keeps its id, so the form can send which ones were taken off
+type FormMerit = MeritInput & { id?: number | null };
+
+const savedMerits = (merits: Merit[]): FormMerit[] =>
+    merits.map(({ id, type, level, year, detail }) => ({ id, type, level, year, detail }));
 
 interface LocationOption {
     id: number;
@@ -118,6 +127,8 @@ const props = defineProps<{
     locations: LocationOption[];
     // Images are saved to the user's Google Drive (Settings → Storage)
     driveConnected: boolean;
+    meritTypes: MeritTypeOption[];
+    meritLevels: MeritLevelOption[];
     // Other pedigrees that record the same outside sire or dam (matched by ring number)
     outsideLinks: { sire: string[]; dam: string[] };
     syncReport: PedigreeSyncReport | null;
@@ -147,6 +158,8 @@ const form = useForm({
     photo_items: savedPhotoItems(props.pigeon.photos) as PhotoItem[],
     certificate_items: savedPhotoItems(props.pigeon.pedigree_images, props.pigeon.pedigree_image_relations, props.pigeon.pedigree_images_public) as PhotoItem[],
     bred_by: props.pigeon.bred_by ?? '',
+    // Sent as merits[] (the added ones) and remove_merits[] (ids of saved ones taken off)
+    merits: savedMerits(props.pigeon.merits),
     sire_id: props.pigeon.sire?.id ?? null,
     dam_id: props.pigeon.dam?.id ?? null,
     sire_name: props.pigeon.sire_name ?? '',
@@ -341,15 +354,26 @@ watch(damId, (value) => {
 
 const { success } = useToast();
 
+const meritEditor = ref<InstanceType<typeof MeritListEditor> | null>(null);
+
 const submit = (event?: SubmitEvent) => {
+    // A merit picked but not added yet is saved rather than dropped
+    meritEditor.value?.flush();
     // The "Save & ... pedigree" button continues to the pedigree editor after saving
     const continueToPedigree = (event?.submitter as HTMLElement | null)?.dataset.next === 'pedigree';
-    form.transform(({ photo_items, certificate_items, ...data }) => {
+    form.transform(({ photo_items, certificate_items, merits, ...data }) => {
         const photos = photoFiles(photo_items);
         const pedigreeImages = photoFiles(certificate_items);
         const keptCertificates = new Set(certificate_items.map((item) => item.saved));
+        const keptMerits = new Set(merits.map((merit) => merit.id));
         return {
         ...data,
+        merits: merits
+            .filter((merit) => !merit.id)
+            .map(({ type, level, year, detail }) => ({ type, level, year, detail })),
+        remove_merits: props.pigeon.merits
+            .filter((merit) => merit.id !== null && !keptMerits.has(merit.id))
+            .map((merit) => merit.id),
         photos,
         photo_order: photoOrder(photo_items),
         pedigree_images: pedigreeImages,
@@ -366,6 +390,8 @@ const submit = (event?: SubmitEvent) => {
         preserveScroll: true,
         forceFormData: true,
         onSuccess: (page) => {
+            // The form stays on screen: pick up the ids of the merits just saved
+            form.merits = savedMerits((page.props.pigeon as Pigeon).merits);
             const report = page.props.syncReport as PedigreeSyncReport | null;
             success(report?.updated.length
                 ? `Pigeon updated, also in the pedigrees of ${listLabels(report.updated)}`
@@ -513,6 +539,23 @@ const submit = (event?: SubmitEvent) => {
                                 <p class="text-xs text-muted-foreground">Use for longer, detailed history about this pigeon. Notes are never shown on the pedigree.</p>
                                 <InputError :message="form.errors.notes" />
                             </div>
+                        </section>
+
+                        <Separator />
+
+                        <!-- Merits -->
+                        <section class="space-y-6">
+                            <div class="space-y-2">
+                                <h2 class="text-lg font-semibold text-foreground">Merits</h2>
+                                <p class="text-sm text-muted-foreground">Standard titles shared by every loft, so Lineage and Pairing Analysis can rank proven birds.</p>
+                            </div>
+                            <MeritListEditor
+                                ref="meritEditor"
+                                v-model="form.merits"
+                                :merit-types="meritTypes"
+                                :merit-levels="meritLevels"
+                                :error="fieldError('merits')"
+                            />
                         </section>
 
                         <Separator />

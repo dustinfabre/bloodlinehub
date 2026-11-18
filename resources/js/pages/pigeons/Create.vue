@@ -21,7 +21,9 @@ import { computed, ref, watch } from 'vue';
 import { BadgeCheck, Network } from 'lucide-vue-next';
 import { type BreadcrumbItem } from '@/types';
 import PigeonSearchResult from '@/components/PigeonSearchResult.vue';
+import MeritListEditor from '@/components/pedigree/MeritListEditor.vue';
 import type { PigeonSearchItem } from '@/types/pigeon-search';
+import type { MeritInput, MeritLevelOption, MeritTypeOption } from '@/types/lineage';
 import axios from 'axios';
 
 type ParentOption = PigeonSearchItem;
@@ -67,6 +69,8 @@ const props = defineProps<{
     locations: LocationOption[];
     // Images are saved to the user's Google Drive (Settings → Storage)
     driveConnected: boolean;
+    meritTypes: MeritTypeOption[];
+    meritLevels: MeritLevelOption[];
     prefill?: {
         sire_id?: string;
         dam_id?: string;
@@ -94,6 +98,7 @@ const form = useForm({
     remarks: '',
     notes: '',
     bred_by: '',
+    merits: [] as MeritInput[],
     // Sent as photos[] (the first is the main photo) and pedigree_images[]
     photo_items: [] as PhotoItem[],
     certificate_items: [] as PhotoItem[],
@@ -289,7 +294,11 @@ watch(damId, (value) => {
 
 const { success } = useToast();
 
+const meritEditor = ref<InstanceType<typeof MeritListEditor> | null>(null);
+
 const submit = (event?: SubmitEvent) => {
+    // A merit picked but not added yet is saved rather than dropped
+    meritEditor.value?.flush();
     // The "Save & ... pedigree" button continues to the pedigree editor after saving
     const continueToPedigree = (event?.submitter as HTMLElement | null)?.dataset.next === 'pedigree';
     form.transform(({ photo_items, certificate_items, ...data }) => {
@@ -454,6 +463,23 @@ const submit = (event?: SubmitEvent) => {
                                 <p class="text-xs text-muted-foreground">Use for longer, detailed history about this pigeon. Notes are never shown on the pedigree.</p>
                                 <InputError :message="form.errors.notes" />
                             </div>
+                        </section>
+
+                        <Separator />
+
+                        <!-- Merits -->
+                        <section class="space-y-6">
+                            <div class="space-y-2">
+                                <h2 class="text-lg font-semibold text-foreground">Merits</h2>
+                                <p class="text-sm text-muted-foreground">Standard titles shared by every loft, so Lineage and Pairing Analysis can rank proven birds.</p>
+                            </div>
+                            <MeritListEditor
+                                ref="meritEditor"
+                                v-model="form.merits"
+                                :merit-types="meritTypes"
+                                :merit-levels="meritLevels"
+                                :error="fieldError('merits')"
+                            />
                         </section>
 
                         <Separator />

@@ -10,6 +10,7 @@ use App\Models\Bloodline;
 use App\Models\GoogleDriveConnection;
 use App\Models\Location;
 use App\Models\Pigeon;
+use App\Models\PigeonMerit;
 use App\Models\PigeonStatusChange;
 use App\Services\GoogleDrive\GoogleDriveException;
 use App\Services\ImageUploadService;
@@ -225,6 +226,8 @@ class PigeonController extends Controller
             'locations' => $locations,
             'prefill' => $prefill,
             'driveConnected' => GoogleDriveConnection::where('user_id', $user->id)->exists(),
+            'meritTypes' => MeritType::options(),
+            'meritLevels' => MeritLevel::options(),
         ]);
     }
 
@@ -236,6 +239,9 @@ class PigeonController extends Controller
         // Extract bloodlines data before creating pigeon
         $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
+
+        $merits = PigeonMerit::cleanList($data['merits'] ?? null) ?? [];
+        unset($data['merits']);
 
         $this->ensureUploadsArrived($request);
         unset($data['photos'], $data['upload_count'], $data['pedigree_image_details']);
@@ -265,6 +271,7 @@ class PigeonController extends Controller
         }
 
         $pigeon = Pigeon::create($data);
+        $pigeon->merits()->createMany($merits);
 
         // Sync bloodlines with pivot data
         $this->syncBloodlines($pigeon, $bloodlinesData, $request->user()->id);
@@ -344,7 +351,7 @@ class PigeonController extends Controller
         $user = $request->user();
         
         // Load pigeon with bloodlines relationship
-        $pigeon->load('bloodlines');
+        $pigeon->load(['bloodlines', 'merits']);
         
         // Get unique bloodlines from the bloodlines table for the user
         $bloodlines = Bloodline::where('user_id', $user->id)
@@ -368,6 +375,8 @@ class PigeonController extends Controller
             'colors' => $colors,
             'locations' => $locations,
             'driveConnected' => GoogleDriveConnection::where('user_id', $user->id)->exists(),
+            'meritTypes' => MeritType::options(),
+            'meritLevels' => MeritLevel::options(),
             // Other pedigrees that record the same outside sire or dam (matched by ring number)
             'outsideLinks' => collect(self::PARENT_SIDES)->map(fn (string $letter, string $side) => $pigeon->hasExternalParent($side)
                 ? $outsideBirds->otherLabels($user->id, $pigeon->{"{$side}_ring_number"}, $pigeon->id, $letter)
@@ -388,6 +397,12 @@ class PigeonController extends Controller
         // Extract bloodlines data before updating pigeon
         $bloodlinesData = (array) $request->input('bloodlines', []);
         unset($data['bloodlines']);
+
+        // The form sends only the merits it added and the saved ones it took off, so merits added elsewhere
+        // meanwhile (Show page, accepted suggestions) are kept
+        $newMerits = PigeonMerit::cleanList($data['merits'] ?? null) ?? [];
+        $removedMerits = $data['remove_merits'] ?? [];
+        unset($data['merits'], $data['remove_merits']);
 
         $this->ensureUploadsArrived($request);
         unset($data['photos'], $data['photo_order'], $data['upload_count'], $data['pedigree_image_details']);
@@ -453,6 +468,11 @@ class PigeonController extends Controller
 
         // Sync bloodlines with pivot data
         $this->syncBloodlines($pigeon, $bloodlinesData, $request->user()->id);
+
+        if ($removedMerits) {
+            PigeonMerit::where('pigeon_id', $pigeon->id)->whereKey($removedMerits)->delete();
+        }
+        $pigeon->merits()->createMany($newMerits);
 
         // An outside sire or dam is the same bird wherever its ring number appears: update its other records too
         $syncedTo = [];
