@@ -29,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
         // because the media route has no session to find a user in.
         RateLimiter::for('media', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
+        // Pedigree link previews (/p/{serial}/preview.png): fetched by social media and chat apps when a link is
+        // posted, and drawn on the server when not cached, so kept lower than plain images
+        RateLimiter::for('pedigree-preview', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+
         // The "verify your email" message sent on sign-up (see User::sendEmailVerificationNotification)
         VerifyEmail::toMailUsing(fn (object $notifiable, string $url) => (new MailMessage)
             ->subject('Verify your email for BloodlineHub')

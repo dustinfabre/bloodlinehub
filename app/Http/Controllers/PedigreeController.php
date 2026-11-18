@@ -7,6 +7,7 @@ use App\Models\Pigeon;
 use App\Services\Lineage\LineageService;
 use App\Services\Lineage\LoftGraph;
 use App\Services\Lineage\PairingAnalysis;
+use App\Services\Pedigree\PedigreePreview;
 use App\Services\PedigreeService;
 use App\Support\PremiumFeature;
 use Illuminate\Http\RedirectResponse;
@@ -34,6 +35,7 @@ class PedigreeController extends Controller
         private PedigreeService $pedigrees,
         private LineageService $lineage,
         private PairingAnalysis $analysis,
+        private PedigreePreview $preview,
     ) {}
 
     public function show(Request $request, Pigeon $pigeon): Response
@@ -159,7 +161,7 @@ class PedigreeController extends Controller
                 'locked' => $isOwner ? 'premium' : 'private',
                 'tree' => null,
                 'meta' => null,
-            ])->toResponse($request)->setStatusCode(403);
+            ])->withViewData('og', $this->openGraph($pedigree, password: false))->toResponse($request)->setStatusCode(403);
         }
 
         if (! $pedigree->is_public && ! $isOwner && ! $unlocked) {
@@ -174,10 +176,11 @@ class PedigreeController extends Controller
                 'locked' => $pedigree->hasActivePassword() ? 'password' : 'private',
                 'tree' => null,
                 'meta' => null,
-            ])->toResponse($request)->setStatusCode(403);
+            ])->withViewData('og', $this->openGraph($pedigree, password: $pedigree->hasActivePassword()))->toResponse($request)->setStatusCode(403);
         }
 
         $graph = $this->lineage->graph($pigeon->user_id);
+        $chart = $this->pedigrees->chart($pigeon, public: true, graph: $graph);
 
         return Inertia::render('pedigrees/Shared', [
             'serial' => $pedigree->serial,
@@ -188,9 +191,49 @@ class PedigreeController extends Controller
             'accessExpiresAt' => ! $isOwner && ! $pedigree->is_public
                 ? $pedigree->password_expires_at?->toIso8601String()
                 : null,
-            ...$this->pedigrees->chart($pigeon, public: true, graph: $graph),
+            ...$chart,
             ...$this->breedingReport($graph, $pigeon, public: true, links: $isOwner),
-        ]);
+        ])->withViewData('og', $this->openGraph(
+            $pedigree,
+            password: $pedigree->hasActivePassword(),
+            chart: $pedigree->is_public ? $chart : null,
+        ));
+    }
+
+    /**
+     * The link preview (Open Graph tags in the page's HTML, see app.blade.php) that social media and chat apps show
+     * when a pedigree's link is posted. Their crawlers see the page as a visitor would: a public pedigree shows its
+     * bird, parents and grandparents (PedigreePreview); any other only says it is private, whoever is viewing it.
+     *
+     * @param  bool  $password  Whether visitors can open it with a password
+     * @param  array{tree: array<string, mixed>, meta: array<string, mixed>}|null  $chart  A public pedigree's chart
+     * @return array<string, mixed>
+     */
+    private function openGraph(Pedigree $pedigree, bool $password, ?array $chart = null): array
+    {
+        $url = route('pedigrees.shared', $pedigree->serial);
+
+        if (! $chart) {
+            return [
+                'url' => $url,
+                'title' => "Pedigree {$pedigree->serial}",
+                'description' => $password
+                    ? 'This pedigree is password protected. Enter the password the owner gave you to view it.'
+                    : 'This pedigree is private.',
+            ];
+        }
+
+        $card = $this->preview->card($chart['tree'], $chart['meta']);
+
+        return [
+            'url' => $url,
+            ...$this->preview->describe($card),
+            ...(PedigreePreview::available() ? [
+                'image' => route('pedigrees.preview', ['serial' => $pedigree->serial, 'v' => $this->preview->version($card)]),
+                'image_width' => PedigreePreview::WIDTH,
+                'image_height' => PedigreePreview::HEIGHT,
+            ] : []),
+        ];
     }
 
     /**

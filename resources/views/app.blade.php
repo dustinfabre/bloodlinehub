@@ -37,6 +37,26 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
+        {{-- Link previews on social media and chat apps (shared pedigrees: PedigreeController::openGraph()). Written
+             here rather than with <Head> because their crawlers read the server's HTML and don't run JavaScript. --}}
+        @isset($og)
+            <meta property="og:site_name" content="BloodlineHub">
+            <meta property="og:type" content="website">
+            <meta property="og:url" content="{{ $og['url'] }}">
+            <meta property="og:title" content="{{ $og['title'] }}">
+            <meta property="og:description" content="{{ $og['description'] }}">
+            @isset($og['image'])
+                <meta property="og:image" content="{{ $og['image'] }}">
+                <meta property="og:image:type" content="image/png">
+                <meta property="og:image:width" content="{{ $og['image_width'] }}">
+                <meta property="og:image:height" content="{{ $og['image_height'] }}">
+                <meta property="og:image:alt" content="{{ $og['image_alt'] }}">
+                <meta name="twitter:card" content="summary_large_image">
+            @else
+                <meta name="twitter:card" content="summary">
+            @endisset
+        @endisset
+
         <link rel="icon" href="/favicon.ico" sizes="32x32">
         <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192">
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">

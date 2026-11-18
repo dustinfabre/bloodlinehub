@@ -122,6 +122,16 @@ class PedigreeService
     }
 
     /**
+     * Who a pedigree names, as in chart()'s meta: the loft name (shown as Breeder or Owner) and who bred the bird.
+     *
+     * @return array{breeder: string, role: 'breeder'|'owner', bred_by: ?string}
+     */
+    public function credits(Pigeon $pigeon): array
+    {
+        return ['breeder' => $this->breeder($pigeon->user)['breeder'], ...$this->breeding($pigeon)];
+    }
+
+    /**
      * The bird's inbreeding coefficient as printed on its pedigree, or null when either parent is unknown.
      */
     private function coi(Pigeon $pigeon, LoftGraph $graph): ?array
