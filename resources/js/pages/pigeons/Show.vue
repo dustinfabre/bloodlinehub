@@ -259,11 +259,12 @@ const childDetails = (child: Child) => {
                     <CardContent class="space-y-4">
                         <!-- Photos: the main one large, the rest underneath -->
                         <div v-if="pigeon.photos.length" class="mb-4 space-y-2">
-                            <a :href="pigeon.photos[0]" target="_blank" class="block overflow-hidden rounded-lg border">
+                            <!-- The whole photo, never cropped: birds are often shot upright or in the hand -->
+                            <a :href="pigeon.photos[0]" target="_blank" class="block overflow-hidden rounded-lg border bg-muted">
                                 <img
                                     :src="pigeon.photos[0]"
                                     :alt="pigeonLabel"
-                                    class="h-48 w-full object-cover transition-transform hover:scale-105"
+                                    class="aspect-[4/3] w-full object-contain transition-transform hover:scale-105"
                                 />
                             </a>
                             <div v-if="pigeon.photos.length > 1" class="grid grid-cols-4 gap-2">
