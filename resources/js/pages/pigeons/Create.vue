@@ -338,7 +338,7 @@ const submit = (event?: SubmitEvent) => {
                     <CardTitle>Add a new pigeon</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form class="space-y-8 pb-20 md:pb-0" @submit.prevent="submit">
+                    <form class="space-y-8 pb-32 md:pb-0" @submit.prevent="submit">
                         <!-- Identification -->
                         <section class="space-y-6">
                             <div class="space-y-2">
@@ -498,7 +498,7 @@ const submit = (event?: SubmitEvent) => {
                                         <p class="text-muted-foreground">Birds you link from your loft bring their own pedigree. For external parents, you can add grandparents up to great-great-grandparents in the pedigree editor once this pigeon is saved, or copy a whole side from a related pigeon.</p>
                                     </div>
                                 </div>
-                                <Button type="submit" variant="outline" data-next="pedigree" class="shrink-0" :disabled="form.processing || !!exactDuplicateMatch">Save &amp; add ancestors</Button>
+                                <Button type="submit" variant="outline" data-next="pedigree" class="shrink-0" :disabled="form.processing || !!exactDuplicateMatch">Save &amp; edit pedigree</Button>
                             </div>
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <!-- Sire -->
@@ -708,7 +708,14 @@ const submit = (event?: SubmitEvent) => {
                             submit-label="Save pigeon"
                             :processing="form.processing"
                             :disabled="!!exactDuplicateMatch"
-                        />
+                        >
+                            <template #secondary>
+                                <Button type="submit" variant="outline" data-next="pedigree" :disabled="form.processing || !!exactDuplicateMatch">
+                                    <Network class="size-4" aria-hidden="true" />
+                                    Save &amp; edit pedigree
+                                </Button>
+                            </template>
+                        </FormActionBar>
                     </form>
                 </CardContent>
             </Card>

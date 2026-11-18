@@ -31,8 +31,6 @@ const props = defineProps<{
     linkable?: boolean;
     // A sample for a pairing not yet made (Pairing Analysis): no serial, QR code or signature lines
     sample?: boolean;
-    // Outline ancestors that appear more than once, i.e. what the bird is line-bred on
-    markRepeated?: boolean;
 }>();
 
 // The fixed-size A4 sheet; exported as-is for image and PDF downloads
@@ -53,10 +51,10 @@ const roleLabel = computed(() =>
 );
 const roleWord = computed(() => roleLabel.value.toLowerCase());
 
-// Chart positions of ancestors found more than once (same ring number, or the same loft bird)
+// Chart positions of ancestors found more than once (same ring number, or the same loft bird), i.e. what the
+// bird is line-bred on: outlined on every pedigree, on screen and in prints and downloads
 const repeatedKeys = computed(() => {
     const positions = new Map<string, string[]>();
-    if (!props.markRepeated) return new Set<string>();
     for (const slot of ancestorSlots.value) {
         const ring = normalizeRing(slot.node?.ring_number);
         const identity = ring

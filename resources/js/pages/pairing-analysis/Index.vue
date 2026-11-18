@@ -293,7 +293,6 @@ const createPairingUrl = computed(
                                 :tree="sample.tree"
                                 :meta="sample.meta"
                                 sample
-                                mark-repeated
                                 linkable
                             />
                         </PedigreeViewer>

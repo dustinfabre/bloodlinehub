@@ -17,7 +17,7 @@ const props = defineProps<{
     depth: number;
     // null for the subject bird
     side: PedigreeSide | null;
-    // Found more than once in the pedigree (outlined, see PedigreeChart's markRepeated)
+    // Found more than once in the pedigree (outlined, see PedigreeChart's repeatedKeys)
     repeated?: boolean;
 }>();
 

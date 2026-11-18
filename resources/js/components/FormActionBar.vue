@@ -32,6 +32,13 @@ withDefaults(
         >
             <Link :href="cancelHref">Cancel</Link>
         </Button>
+        <!-- Another way to save, e.g. "Save & edit pedigree": its own full-width row on phones -->
+        <div
+            v-if="$slots.secondary"
+            class="order-first col-span-2 md:order-none md:col-span-1 [&>*]:min-h-11 [&>*]:w-full md:[&>*]:w-auto"
+        >
+            <slot name="secondary" />
+        </div>
         <Button
             type="submit"
             class="min-h-11 w-full md:w-auto"
